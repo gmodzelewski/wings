@@ -1,0 +1,127 @@
+# Presenter workbench in project my-first-model.
+# Dashboard-visible; MLflow env injected via opendatahub.io/mlflow-instance=mlflow.
+# The MLflow webhook binds ClusterRole mlflow-operator-mlflow-integration to SA
+# <notebook-name>. The pod must use that SA (not default) or tracking calls 403.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wings3-demo
+  namespace: my-first-model
+  labels:
+    opendatahub.io/dashboard: "true"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wings3-demo
+  namespace: my-first-model
+  labels:
+    opendatahub.io/dashboard: "true"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: kubeflow.org/v1
+kind: Notebook
+metadata:
+  name: wings3-demo
+  namespace: my-first-model
+  labels:
+    app: wings3-demo
+    opendatahub.io/dashboard: "true"
+  annotations:
+    notebooks.opendatahub.io/inject-oauth: "true"
+    notebooks.opendatahub.io/last-image-selection: "s2i-generic-data-science-notebook:3.4"
+    opendatahub.io/accelerator-name: ""
+    opendatahub.io/hardware-profile-name: default-profile
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/image-display-name: Jupyter Data Science
+    opendatahub.io/mlflow-instance: mlflow
+    openshift.io/description: WINGS3 presenter workbench for autolog and eval
+    openshift.io/display-name: wings3-demo
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: clone-wings
+          image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:3.4
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/bash
+            - -lc
+            - |
+              set -euo pipefail
+              DEST=/opt/app-root/src/wings
+              if [ -d "$DEST/.git" ]; then
+                echo "wings clone already present"
+                exit 0
+              fi
+              if [ -e "$DEST" ]; then
+                echo "error: $DEST exists but is not a git repo; remove it and restart the workbench" >&2
+                exit 1
+              fi
+              git clone https://github.com/gmodzelewski/wings.git "$DEST"
+          volumeMounts:
+            - mountPath: /opt/app-root/src
+              name: wings3-demo
+      containers:
+        - name: wings3-demo
+          image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:3.4
+          imagePullPolicy: IfNotPresent
+          workingDir: /opt/app-root/src/wings
+          env:
+            - name: NOTEBOOK_ARGS
+              value: |-
+                --ServerApp.port=8888
+                --ServerApp.token=''
+                --ServerApp.password=''
+                --ServerApp.base_url=/notebook/my-first-model/wings3-demo
+                --ServerApp.root_dir=/opt/app-root/src/wings
+                --ServerApp.quit_button=False
+            - name: JUPYTER_IMAGE
+              value: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:3.4
+            - name: PIP_CERT
+              value: /etc/pki/tls/custom-certs/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/pki/tls/custom-certs/ca-bundle.crt
+            - name: SSL_CERT_FILE
+              value: /etc/pki/tls/custom-certs/ca-bundle.crt
+          ports:
+            - containerPort: 8888
+              name: notebook-port
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: /opt/app-root/src
+              name: wings3-demo
+            - mountPath: /dev/shm
+              name: shm
+            - mountPath: /etc/pki/tls/custom-certs/ca-bundle.crt
+              name: trusted-ca
+              readOnly: true
+              subPath: ca-bundle.crt
+      enableServiceLinks: false
+      serviceAccountName: wings3-demo
+      volumes:
+        - name: wings3-demo
+          persistentVolumeClaim:
+            claimName: wings3-demo
+        - name: shm
+          emptyDir:
+            medium: Memory
+        - name: trusted-ca
+          configMap:
+            name: workbench-trusted-ca-bundle
+            optional: true
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt

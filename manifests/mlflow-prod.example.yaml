@@ -1,0 +1,19 @@
+# Example only — do not apply on the demo cluster.
+# Contrast with mlflow-dev.yaml (SQLite + PVC). Fill secret names in your env.
+# replicas > 1 needs remote storage (PVC cannot take concurrent writers).
+apiVersion: mlflow.opendatahub.io/v1
+kind: MLflow
+metadata:
+  name: mlflow
+  namespace: redhat-ods-applications
+spec:
+  replicas: 2
+  backendStoreUriFrom:
+    name: mlflow-db-credentials
+    key: backend-store-uri
+    # secret value: postgresql://mlflow:PASSWORD@postgres.mlflow.svc:5432/mlflow
+  artifactsDestination: "s3://mlflow-artifacts/prod"
+  serveArtifacts: true
+  envFrom:
+    - secretRef:
+        name: mlflow-s3-credentials

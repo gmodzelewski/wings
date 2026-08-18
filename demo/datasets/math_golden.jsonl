@@ -1,0 +1,8 @@
+{"inputs": {"user_message": "What is 25 * 17 + 89?"}, "expectations": {"expected_answer": "514", "expected_facts": ["the result is 514"], "expected_response": "514"}}
+{"inputs": {"user_message": "Calculate 256 divided by 16"}, "expectations": {"expected_answer": "16", "expected_facts": ["the quotient is 16"], "expected_response": "16"}}
+{"inputs": {"user_message": "What is the square root of 144?"}, "expectations": {"expected_answer": "12", "expected_facts": ["the square root is 12"], "expected_response": "12"}}
+{"inputs": {"user_message": "Multiply 33 by 3 and add 1"}, "expectations": {"expected_answer": "100", "expected_facts": ["the result is 100"], "expected_response": "100"}}
+{"inputs": {"user_message": "What is 48 plus 52?"}, "expectations": {"expected_answer": "100", "expected_facts": ["the sum is 100"], "expected_response": "100"}}
+{"inputs": {"user_message": "Calculate 9 times 7"}, "expectations": {"expected_answer": "63", "expected_facts": ["the product is 63"], "expected_response": "63"}}
+{"inputs": {"user_message": "What is 200 minus 75?"}, "expectations": {"expected_answer": "125", "expected_facts": ["the difference is 125"], "expected_response": "125"}}
+{"inputs": {"user_message": "Divide 81 by 9"}, "expectations": {"expected_answer": "9", "expected_facts": ["the quotient is 9"], "expected_response": "9"}}

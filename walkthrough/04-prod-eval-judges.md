@@ -1,0 +1,99 @@
+# Module 4 — Production-grade eval (datasets + judges)
+
+**Time:** 20–25 minutes | **Persona:** Data scientist  
+**Where:** Same JupyterLab workbench as Modules 2 and 3 — notebook first  
+**Follow-on:** not part of the 60-minute run-of-show. Act 3 already closed with “add judges before you promote.”
+
+## Know
+
+Traces showed **what** the agent did. Act 3 showed a **toy** substring gate moved. This lab shows a **reviewable** gate: a registered golden dataset, LLM-as-judge scorers with rationales, and scores in the standalone MLflow Evaluation UI.
+
+**Say this before you run cells:** the same Llama 3.2 3B is the **agent and the judge**. That is demo wiring, not a production split. A real gate uses a stronger dedicated judge and a larger golden set. Celebrate that scores now have **rationales** you can argue with. Hybrid scoring keeps `contains_expected` so a flaky judge row still has a cheap metric.
+
+| Piece | What it is |
+|-------|------------|
+| Golden set | 8 calculator-only JSONL rows in git (`math_golden.jsonl`). First four are the Act 3 questions. |
+| MLflow dataset | `create_dataset` + `merge_records` → **Datasets** tab, not a Python list |
+| `contains_expected` | Same substring check as Act 3 (`expected_answer` in the output) |
+| `Correctness` | Built-in judge vs `expected_facts` |
+| `Guidelines` (`numeric_and_clear`) | Judge: digits in the response; one clear arithmetic result |
+| Judge model | `openai:/llama-32-3b-instruct` via in-cluster vLLM (`OPENAI_BASE_URL` = `MAAS_BASE_URL`) |
+| Prompt | **v2 only** (precise math assistant; always use calculator) |
+| Experiment | `wings3-agent-eval-prod` (Act 3 stays on `wings3-agent-eval`) |
+
+Do **not** use trace-based `make_judge(..., {{ trace }})` on stage. 3B already blows context on extra queries in Act 2.
+
+**On stage:** walk SHOW cells even if vLLM is cold. Live-run `v2-judged` only if the model is warm; otherwise open a pre-logged Evaluation run.
+
+## Show
+
+### 1. Open the notebook
+
+In JupyterLab: `demo/notebooks/03_prod_eval_judges.ipynb`
+
+### 2. Stop at each SHOW comment (top to bottom)
+
+The notebook inlines the eval code. Do **not** open `evaluate_agent_judges.py` on stage (that file is CLI only).
+
+1. Env — injected `MLFLOW_*`. Experiment `wings3-agent-eval-prod`.
+2. **SHOW: golden JSONL** — 8 rows; `expected_answer` vs `expected_facts`.
+3. **SHOW: register dataset** — `create_dataset` + `merge_records` (or reuse).
+4. **SHOW: hybrid scorers** — substring + `Correctness` + `Guidelines`; print `judge_model`.
+5. **SHOW: `mlflow.genai.evaluate()`** — define `run_eval` (does not call the LLM yet).
+6. Run **v2** (skip if `v2-judged` is already logged and the clock is tight).
+7. Print the metrics table, then open the standalone MLflow UI.
+
+### 3. Compare in MLflow UI
+
+Use the **standalone** `/mlflow` UI (`mlflow_ui` in attributes), not the embedded Experiments view.
+
+Workspace **my-first-model** → experiment **`wings3-agent-eval-prod`**:
+
+1. **Datasets** → `math_golden` — 8 records. This is the beat Act 3 cannot do (a named golden set).
+2. **Evaluation** → run `v2-judged` — per-example `contains_expected`, `Correctness`, `numeric_and_clear`.
+3. Open a row where substring and judge **disagree**, or a Fail with rationale, and **read the judge text**.
+
+Eight rows × (1 agent + 2 judges) is about 24 LLM calls. Live numbers will vary on 3B. The story is a **reviewable gate**, not a production SLO.
+
+### 4. CLI alternative (same workbench terminal)
+
+```bash
+cd …/demo/agent-tracing
+export MLFLOW_WORKSPACE=my-first-model
+export MLFLOW_EXPERIMENT_NAME=wings3-agent-eval-prod
+python3 evaluate_agent_judges.py
+```
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `ModuleNotFoundError: No module named 'langchain_core'` | Same as Act 2: run the **1b** `%pip install` cell first (`--extra-index-url https://pypi.org/simple`), then re-run the env cell. Venv is not on the PVC. |
+| `Field required` / calculator `b` missing | Same as Act 2/3: `b` must be optional. Golden set includes sqrt(144). Re-run the hybrid-scorer cell. |
+| `Workspace context is required` | `os.environ["MLFLOW_WORKSPACE"] = "my-first-model"` then re-run |
+| Empty `MLFLOW_TRACKING_URI` | Stop/start the workbench; confirm `opendatahub.io/mlflow-instance=mlflow` |
+| Judge calls OpenAI / `gpt-4o-mini` | Confirm the hybrid-scorer cell printed `openai:/llama-32-3b-instruct` and set `OPENAI_BASE_URL` |
+| Judge JSON-parse / empty rationale | Narrate 3B-as-judge; still compare `contains_expected` on that row |
+| Eval row errors / 3B context | Same as Act 2/3 — one tool per turn, `max_tokens` 256; skip remaining rows if needed |
+| `create_dataset` already exists | The notebook reuses `get_dataset(name="math_golden")` |
+| MLflow UI 504 | Open Evaluation in the browser; do not `search_traces` from the SDK |
+| vLLM cold / clock | Walk SHOW cells; open a pre-logged `v2-judged` run |
+
+## Verification
+
+- [ ] 3B-as-judge caveat was spoken **before** the cells
+- [ ] Golden JSONL and `expected_facts` were visible in the notebook
+- [ ] Dataset `math_golden` exists in the MLflow Datasets tab
+- [ ] Run `v2-judged` exists in experiment `wings3-agent-eval-prod` (live or pre-logged)
+- [ ] A judge rationale (or substring/judge disagreement) was read in the Evaluation UI
+
+## Learning outcomes
+
+Registered evaluation datasets; hybrid deterministic + LLM-as-judge scorers; judge model pointed at in-cluster vLLM; Evaluation UI rationales as a reviewable gate.
+
+## References
+
+- [03_prod_eval_judges.ipynb](../demo/notebooks/03_prod_eval_judges.ipynb) — stage path
+- [evaluate_agent_judges.py](../demo/agent-tracing/evaluate_agent_judges.py) — CLI only
+- [math_golden.jsonl](../demo/datasets/math_golden.jsonl) — golden set
+- [MLflow LLM-as-a-Judge](https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/)
