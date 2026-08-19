@@ -314,3 +314,19 @@ def test_golden_register_refreshes_from_git():
     assert "expected_response or expected_facts" in mod4
     script = (WINGS3_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
     assert "expected_response" in script
+
+
+def test_judge_uses_hosted_vllm_not_native_openai():
+    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    assert "hosted_vllm:/" in judges
+    assert "HOSTED_VLLM_API_BASE" in judges
+    assert 'return f"openai:/{model}"' not in judges
+    blob = _notebook_source("03_prod_eval_judges.ipynb")
+    assert "hosted_vllm:/" in blob
+    assert "HOSTED_VLLM_API_BASE" in blob
+    assert 'openai:/{os.environ' not in blob
+    req = (WINGS3_ROOT / "demo" / "agent-tracing" / "requirements.txt").read_text()
+    assert "litellm" in req
+    mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
+    assert "hosted_vllm:/" in mod4
+    assert "api.openai.com" in mod4

@@ -416,7 +416,7 @@ SLIDES: list[dict] = [
             "Golden set: demo/datasets/math_golden.jsonl — 8 calculator-only rows (first four = Act 3)",
             "Register it: create_dataset + merge_records → MLflow Datasets tab (math_golden)",
             "Hybrid scorers: contains_expected + Correctness + Guidelines (numeric_and_clear)",
-            "Judge model: openai:/llama-32-3b-instruct via in-cluster vLLM — not gpt-4o-mini",
+            "Judge model: hosted_vllm:/llama-32-3b-instruct via in-cluster vLLM — not openai:/ and not gpt-4o-mini",
             "Live run: v2 prompt only. Run name v2-judged.",
         ],
         "notes": (
@@ -435,13 +435,13 @@ SLIDES: list[dict] = [
         "bullets": [
             "SHOW: golden JSONL — expected_answer vs expected_facts",
             "SHOW: register dataset",
-            "SHOW: hybrid scorers — print judge_model openai:/llama-32-3b-instruct",
+            "SHOW: hybrid scorers — print judge_model hosted_vllm:/llama-32-3b-instruct",
             "SHOW: mlflow.genai.evaluate() — then run v2-judged",
         ],
         "notes": (
             "Do not open evaluate_agent_judges.py on stage.\n"
-            "If the judge cell did not print openai:/llama-32-3b-instruct, it will try gpt-4o-mini and fail. "
-            "Fix OPENAI_BASE_URL = MAAS_BASE_URL."
+            "If the judge cell did not print hosted_vllm:/llama-32-3b-instruct, openai:/ will "
+            "call api.openai.com with key unused and 401. Fix HOSTED_VLLM_API_BASE = MAAS_BASE_URL."
         ),
     },
     {

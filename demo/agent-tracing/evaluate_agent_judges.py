@@ -46,16 +46,25 @@ def load_golden_records(path: Path = GOLDEN_PATH) -> list[dict]:
 
 
 def configure_cluster_judge() -> str:
-    """Point MLflow LLM judges at the in-cluster OpenAI-compatible vLLM."""
+    """Point MLflow LLM judges at in-cluster vLLM via LiteLLM hosted_vllm.
+
+    ``openai:/…`` is MLflow's native OpenAI provider and always calls
+    api.openai.com. OPENAI_BASE_URL does not override that. ``hosted_vllm:/…``
+    goes through LiteLLM and uses HOSTED_VLLM_API_BASE.
+    """
     base = os.environ.get(
         "MAAS_BASE_URL",
         "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1",
     )
-    os.environ["OPENAI_API_KEY"] = os.environ.get("MAAS_API_KEY", "unused")
+    key = os.environ.get("MAAS_API_KEY", "unused")
+    model = os.environ.get("MAAS_MODEL", "llama-32-3b-instruct")
+    os.environ["HOSTED_VLLM_API_BASE"] = base
+    os.environ["HOSTED_VLLM_API_KEY"] = key
+    os.environ["OPENAI_API_KEY"] = key
     os.environ["OPENAI_BASE_URL"] = base
     os.environ["OPENAI_API_BASE"] = base
-    model = os.environ.get("MAAS_MODEL", "llama-32-3b-instruct")
-    return f"openai:/{model}"
+    print(f"HOSTED_VLLM_API_BASE={base}")
+    return f"hosted_vllm:/{model}"
 
 
 @scorer

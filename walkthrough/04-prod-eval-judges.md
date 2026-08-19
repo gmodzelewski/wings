@@ -19,7 +19,7 @@ Traces showed **what** the agent did. Act 3 showed a **toy** substring gate move
 | `contains_expected` | Same substring check as Act 3 (`expected_answer` in the output) |
 | `Correctness` | Built-in judge vs `expected_facts` |
 | `Guidelines` (`numeric_and_clear`) | Judge: digits in the response; one clear arithmetic result |
-| Judge model | `openai:/llama-32-3b-instruct` via in-cluster vLLM (`OPENAI_BASE_URL` = `MAAS_BASE_URL`) |
+| Judge model | `hosted_vllm:/llama-32-3b-instruct` via LiteLLM + `HOSTED_VLLM_API_BASE` = in-cluster vLLM. Do **not** use `openai:/…` — that always calls api.openai.com. |
 | Prompt | **v2 only** (precise math assistant; always use calculator) |
 | Experiment | `wings3-agent-eval-prod` (Act 3 stays on `wings3-agent-eval`) |
 
@@ -40,7 +40,7 @@ The notebook inlines the eval code. Do **not** open `evaluate_agent_judges.py` o
 1. Env — injected `MLFLOW_*`. Experiment `wings3-agent-eval-prod`.
 2. **SHOW: golden JSONL** — 8 rows; `expected_answer` vs `expected_facts`.
 3. **SHOW: register dataset** — `create_dataset` + `merge_records`, or drop existing rows and merge from git (never silent-reuse).
-4. **SHOW: hybrid scorers** — substring + `Correctness` + `Guidelines`; print `judge_model`.
+4. **SHOW: hybrid scorers** — substring + `Correctness` + `Guidelines`; print `hosted_vllm:/llama-32-3b-instruct` and `HOSTED_VLLM_API_BASE`.
 5. **SHOW: `mlflow.genai.evaluate()`** — define `run_eval` (does not call the LLM yet).
 6. Run **v2** (skip if `v2-judged` is already logged and the clock is tight).
 7. Print the metrics table, then open the standalone MLflow UI.
@@ -74,7 +74,8 @@ python3 evaluate_agent_judges.py
 | `Field required` / calculator `b` missing | Same as Act 2/3: `b` must be optional. Golden set includes sqrt(144). Re-run the hybrid-scorer cell. |
 | `Workspace context is required` | `os.environ["MLFLOW_WORKSPACE"] = "my-first-model"` then re-run |
 | Empty `MLFLOW_TRACKING_URI` | Stop/start the workbench; confirm `opendatahub.io/mlflow-instance=mlflow` |
-| Judge calls OpenAI / `gpt-4o-mini` | Confirm the hybrid-scorer cell printed `openai:/llama-32-3b-instruct` and set `OPENAI_BASE_URL` |
+| Judge 401 / `api.openai.com` / `Incorrect API key provided: unused` | You used `openai:/…`. That provider is hosted OpenAI. Re-run the hybrid-scorer cell: print must be `hosted_vllm:/llama-32-3b-instruct` and `HOSTED_VLLM_API_BASE` must be the in-cluster predictor `/v1` URL. Install `litellm` (`%pip install -r …requirements.txt`). Then re-run `v2-judged`. |
+| Judge calls OpenAI / `gpt-4o-mini` | Same as 401: URI must be `hosted_vllm:/…`, not `openai:/…` and not the default gpt-4o-mini. |
 | Judge JSON-parse / empty rationale | Narrate 3B-as-judge; still compare `contains_expected` on that row |
 | `only one expected_response or expected_facts` | Correctness forbids both. Git JSONL has `expected_answer` + `expected_facts` only. Re-run the register cell so `math_golden` is **refreshed from git** (do not silent-reuse). Then re-run `v2-judged`. |
 | Eval row errors / 3B context | Same as Act 2/3 — one tool per turn, `max_tokens` 256; skip remaining rows if needed |
