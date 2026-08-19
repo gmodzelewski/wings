@@ -405,7 +405,7 @@ SLIDES: list[dict] = [
             "Only if they stayed. Act 3 already promised judges before you promote.\n"
             "Same workbench. Notebook 03_prod_eval_judges.ipynb. Experiment wings3-agent-eval-prod "
             "so Act 3 numbers stay clean.\n"
-            "SAY THIS BEFORE CELLS: the same 3B is agent and judge. That is demo wiring, not a production split."
+            "SAY THIS BEFORE CELLS: 3B is the agent; judges use hosted gpt-oss-120b from Secret wings3-judge-llm."
         ),
     },
     {
@@ -416,13 +416,13 @@ SLIDES: list[dict] = [
             "Golden set: demo/datasets/math_golden.jsonl — 8 calculator-only rows (first four = Act 3)",
             "Register it: create_dataset + merge_records → MLflow Datasets tab (math_golden)",
             "Hybrid scorers: contains_expected + Correctness + Guidelines (numeric_and_clear)",
-            "Judge model: hosted_vllm:/llama-32-3b-instruct via in-cluster vLLM — not openai:/ and not gpt-4o-mini",
+            "Judge model: hosted_vllm:/gpt-oss-120b via hosted MaaS (Secret wings3-judge-llm) — not openai:/ and not gpt-4o-mini",
             "Live run: v2 prompt only. Run name v2-judged.",
         ],
         "notes": (
             "v2 prompt is already proven in Act 3. Module 4 does not re-run v1 vs v2.\n"
             "expected_answer feeds the substring scorer. expected_facts feeds Correctness.\n"
-            "Keep contains_expected so a flaky 3B judge row still has a cheap metric.\n"
+            "Keep contains_expected so a flaky judge row still has a cheap metric.\n"
             "Do not use trace-based make_judge on stage — 3B already blows context on extra queries.\n"
             "Eight rows times one agent plus two judges is about 24 LLM calls. If vLLM is cold, "
             "walk SHOW cells and open a pre-logged v2-judged run."
@@ -435,13 +435,13 @@ SLIDES: list[dict] = [
         "bullets": [
             "SHOW: golden JSONL — expected_answer vs expected_facts",
             "SHOW: register dataset",
-            "SHOW: hybrid scorers — print judge_model hosted_vllm:/llama-32-3b-instruct",
+            "SHOW: hybrid scorers — print judge_model hosted_vllm:/gpt-oss-120b",
             "SHOW: mlflow.genai.evaluate() — then run v2-judged",
         ],
         "notes": (
             "Do not open evaluate_agent_judges.py on stage.\n"
-            "If the judge cell did not print hosted_vllm:/llama-32-3b-instruct, openai:/ will "
-            "call api.openai.com with key unused and 401. Fix HOSTED_VLLM_API_BASE = MAAS_BASE_URL."
+            "If the judge cell did not print hosted_vllm:/gpt-oss-120b, openai:/ will "
+            "call api.openai.com with key unused and 401. Fix HOSTED_VLLM_API_BASE = JUDGE_BASE_URL."
         ),
     },
     {
@@ -450,7 +450,7 @@ SLIDES: list[dict] = [
         "title": "PAUSE — judges notebook, then Datasets + Evaluation",
         "subtitle": "Read a rationale. That is the beat Act 3 cannot do.",
         "notes": (
-            "PAUSE. Caveat first: same 3B is agent and judge.\n"
+            "PAUSE. Caveat first: 3B is the agent; gpt-oss-120b is the judge.\n"
             "Walk SHOW cells. Run v2 if warm.\n"
             "Standalone /mlflow → workspace my-first-model → experiment wings3-agent-eval-prod.\n"
             "Datasets → math_golden, 8 records.\n"
@@ -465,10 +465,10 @@ SLIDES: list[dict] = [
         "bullets": [
             "Named golden set in MLflow, not a Python list",
             "Scores with rationales, plus a cheap substring safety net",
-            "Production would split a stronger judge and grow the dataset",
+            "Agent is in-cluster 3B; judges are hosted gpt-oss-120b",
         ],
         "notes": (
-            "Close Module 4 honestly: the pattern is production-shaped; the 3B judge is not.\n"
+            "Close Module 4 honestly: the agent/judge split is production-shaped; eight math rows are not a production SLO.\n"
             "SQLite is enough for Evaluation Datasets on this cluster. Postgres plus S3 is still "
             "the tracking-server production CR from the previous slide — do not mix the two stories."
         ),
@@ -488,8 +488,8 @@ SLIDES: list[dict] = [
             "Recap the red thread one last time.\n"
             "Production next step for the server: backendStoreUriFrom (Postgres) and "
             "artifactsDestination (S3).\n"
-            "Production next step for the agent: Module 4 pattern with a stronger judge — "
-            "do not promote on a substring gate.\n"
+            "Production next step for the agent: grow the golden set — "
+            "do not promote on a substring gate or eight calculator rows.\n"
             "Q&A. Next step for them: run walkthrough/00-presenter-setup.md on their cluster."
         ),
     },

@@ -89,6 +89,10 @@ spec:
               value: /etc/pki/tls/custom-certs/ca-bundle.crt
             - name: SSL_CERT_FILE
               value: /etc/pki/tls/custom-certs/ca-bundle.crt
+          envFrom:
+            - secretRef:
+                name: wings3-judge-llm
+                optional: true
           ports:
             - containerPort: 8888
               name: notebook-port

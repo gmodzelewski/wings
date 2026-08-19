@@ -320,13 +320,33 @@ def test_judge_uses_hosted_vllm_not_native_openai():
     judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
     assert "hosted_vllm:/" in judges
     assert "HOSTED_VLLM_API_BASE" in judges
+    assert "JUDGE_API_KEY" in judges
+    assert "JUDGE_MODEL" in judges
+    assert "gpt-oss-120b" in judges
     assert 'return f"openai:/{model}"' not in judges
     blob = _notebook_source("03_prod_eval_judges.ipynb")
     assert "hosted_vllm:/" in blob
     assert "HOSTED_VLLM_API_BASE" in blob
+    assert "JUDGE_MODEL" in blob
+    assert "gpt-oss-120b" in blob
+    assert "HOSTED_VLLM_API_BASE\"] = os.environ[\"MAAS_BASE_URL\"]" not in blob
     assert 'openai:/{os.environ' not in blob
     req = (WINGS3_ROOT / "demo" / "agent-tracing" / "requirements.txt").read_text()
     assert "litellm" in req
     mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
     assert "hosted_vllm:/" in mod4
     assert "api.openai.com" in mod4
+    assert "wings3-judge-llm" in mod4
+    setup = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
+    assert "secret-wings3-judge-llm.yaml" in setup
+
+
+def test_genai_evaluate_uses_one_worker():
+    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    baseline = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent.py").read_text()
+    nb3 = _notebook_source("03_prod_eval_judges.ipynb")
+    nb2 = _notebook_source("02_eval_improvement.ipynb")
+    for blob in (judges, baseline, nb3, nb2):
+        assert 'MLFLOW_GENAI_EVAL_MAX_WORKERS"] = "1"' in blob
+    mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
+    assert "MLFLOW_GENAI_EVAL_MAX_WORKERS" in mod4

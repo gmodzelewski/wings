@@ -52,26 +52,26 @@ Fallback: `18-eval-metrics.png`, `19-eval-per-example.png`.
 
 ### 4. Datasets + judges — ship (this is the close)
 
-**Say first:** the same Llama 3.2 3B is the agent and the judge. That is demo wiring, not a production split. A real gate uses a stronger dedicated judge and a larger golden set.
+**Say first:** Llama 3.2 3B is the agent. Judges use hosted gpt-oss-120b. Scores with rationales plus a cheap substring safety net — that is a reviewable gate.
 
 Experiment **wings3-agent-eval-prod**:
 
 1. **Datasets** → `math_golden` (8 records). Named golden set, not a Python list.
 2. **Evaluation** → `v2-judged`. Open a row where substring and judge **disagree**, or a Fail with rationale, and **read the judge text**.
 
-**Say:** Without a golden set and a judge you can argue with, you cannot ship. Scores with rationales plus a cheap substring safety net — that is a reviewable gate. Do not walk out thinking 3B-as-judge is the product recommendation.
+**Say:** Without a golden set and a judge you can argue with, you cannot ship. Scores with rationales plus a cheap substring safety net — that is a reviewable gate.
 
 Lab detail if asked: [04-prod-eval-judges.md](04-prod-eval-judges.md).
 
 If traces show `only one expected_response or expected_facts should be provided, not both`, the registered `math_golden` is stale. Re-run the Module 4 register cell (or `evaluate_agent_judges.py`) so rows refresh from git, then re-run `v2-judged`. Git has `expected_answer` + `expected_facts` only.
 
-If traces show `Incorrect API key provided: unused` against `api.openai.com`, the judge URI was `openai:/…`. Re-run Module 4 after `git pull`: print must be `hosted_vllm:/llama-32-3b-instruct`. Then re-run `v2-judged`.
+If traces show `Incorrect API key provided: unused` against `api.openai.com`, the judge URI was `openai:/…`. Re-run Module 4 after `git pull`: print must be `hosted_vllm:/gpt-oss-120b` and `JUDGE_API_KEY` must be injected from Secret `wings3-judge-llm`. Then re-run `v2-judged`.
 
 ### 5. Production CR — then Q&A
 
 Open [mlflow-prod.example.yaml](../manifests/mlflow-prod.example.yaml). Point at `backendStoreUriFrom` (Postgres) and `artifactsDestination` (S3). Do not apply it.
 
-**Say:** SQLite plus PVC is the lab. Replicas greater than 1 need remote storage. Next step for the agent is this Module 4 pattern with a stronger judge.
+**Say:** SQLite plus PVC is the lab. Replicas greater than 1 need remote storage. The judge is already split onto hosted gpt-oss-120b; next is a larger golden set.
 
 ## If you are behind the clock
 

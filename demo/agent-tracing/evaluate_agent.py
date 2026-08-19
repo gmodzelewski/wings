@@ -101,6 +101,11 @@ def run_evaluation() -> dict:
     mlflow.set_tracking_uri(uri)
     experiment = os.environ.get("MLFLOW_EXPERIMENT_NAME", "wings3-agent-eval")
     mlflow.set_experiment(experiment)
+    os.environ["MLFLOW_GENAI_EVAL_MAX_WORKERS"] = "1"
+    from mlflow.utils.databricks_utils import is_in_cluster, is_in_databricks_notebook
+
+    is_in_cluster()
+    is_in_databricks_notebook()
     mlflow.langchain.autolog()
 
     global _agent

@@ -17,7 +17,7 @@ logging.getLogger("mlflow").setLevel(logging.ERROR)
 
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv()
 
 import mlflow
 from mlflow.genai.scorers import Correctness, Guidelines, scorer
@@ -45,25 +45,30 @@ def load_golden_records(path: Path = GOLDEN_PATH) -> list[dict]:
     return records
 
 
-def configure_cluster_judge() -> str:
-    """Point MLflow LLM judges at in-cluster vLLM via LiteLLM hosted_vllm.
+DEFAULT_JUDGE_BASE_URL = "https://maas-rhdp.apps.maas.redhatworkshops.io/v1"
+DEFAULT_JUDGE_MODEL = "gpt-oss-120b"
 
-    ``openai:/…`` is MLflow's native OpenAI provider and always calls
-    api.openai.com. OPENAI_BASE_URL does not override that. ``hosted_vllm:/…``
-    goes through LiteLLM and uses HOSTED_VLLM_API_BASE.
+
+def configure_cluster_judge() -> str:
+    """Point MLflow LLM judges at hosted MaaS via LiteLLM hosted_vllm.
+
+    Agent stays on MAAS_* (in-cluster 3B). Judges use JUDGE_* from Secret
+    ``wings3-judge-llm``. ``openai:/…`` always calls api.openai.com.
     """
-    base = os.environ.get(
-        "MAAS_BASE_URL",
-        "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1",
-    )
-    key = os.environ.get("MAAS_API_KEY", "unused")
-    model = os.environ.get("MAAS_MODEL", "llama-32-3b-instruct")
+    base = os.environ.get("JUDGE_BASE_URL") or DEFAULT_JUDGE_BASE_URL
+    model = os.environ.get("JUDGE_MODEL") or DEFAULT_JUDGE_MODEL
+    key = (os.environ.get("JUDGE_API_KEY") or os.environ.get("HOSTED_VLLM_API_KEY") or "").strip()
+    if not key or key in {"unused", "REPLACE_ME"}:
+        raise RuntimeError(
+            "JUDGE_API_KEY is missing. Apply manifests/secret-wings3-judge-llm.yaml, "
+            "set the token with oc set env secret/wings3-judge-llm -n my-first-model "
+            "JUDGE_API_KEY='…', then stop/start workbench wings3-demo."
+        )
     os.environ["HOSTED_VLLM_API_BASE"] = base
     os.environ["HOSTED_VLLM_API_KEY"] = key
-    os.environ["OPENAI_API_KEY"] = key
-    os.environ["OPENAI_BASE_URL"] = base
-    os.environ["OPENAI_API_BASE"] = base
     print(f"HOSTED_VLLM_API_BASE={base}")
+    print(f"JUDGE_MODEL={model}")
+    print("JUDGE_API_KEY=set")
     return f"hosted_vllm:/{model}"
 
 
@@ -161,6 +166,11 @@ def run_evaluation() -> dict:
     mlflow.set_tracking_uri(uri)
     experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "wings3-agent-eval-prod")
     experiment = mlflow.set_experiment(experiment_name)
+    os.environ["MLFLOW_GENAI_EVAL_MAX_WORKERS"] = "1"
+    from mlflow.utils.databricks_utils import is_in_cluster, is_in_databricks_notebook
+
+    is_in_cluster()
+    is_in_databricks_notebook()
     mlflow.langchain.autolog()
 
     records = load_golden_records()

@@ -80,6 +80,14 @@ Required in workspace `my-first-model` (in addition to the checklist above):
 
 Do this in the **workbench** terminal after `bootstrap.sh --warmup` (venv already pip'd; tracking URI injected). Re-run after a workbench restart.
 
+Set the hosted-judge token **before** `evaluate_agent_judges.py` (do not commit it):
+
+```bash
+oc apply -f manifests/secret-wings3-judge-llm.yaml
+oc set env secret/wings3-judge-llm -n my-first-model JUDGE_API_KEY='<token>'
+# stop/start workbench wings3-demo so JUDGE_* is injected
+```
+
 ```bash
 cd /opt/app-root/src/wings/demo/agent-tracing
 export MLFLOW_WORKSPACE=my-first-model

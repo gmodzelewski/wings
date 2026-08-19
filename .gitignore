@@ -1,4 +1,5 @@
 .env
+manifests/*.local.yaml
 .venv/
 venv/
 __pycache__/

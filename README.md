@@ -76,7 +76,7 @@ Open `demo/notebooks/02_eval_improvement.ipynb`. On stage, stop at each **SHOW:*
 
 ## Workbench — production-grade eval (follow-on for WINGS teaching)
 
-Not in the WINGS teaching hour. **Required on camera for the customer UI hour** (pre-logged, not live-run). Open `demo/notebooks/03_prod_eval_judges.ipynb` only if asked. Guide: [walkthrough/04-prod-eval-judges.md](walkthrough/04-prod-eval-judges.md). Registered golden set + hybrid substring + LLM judges on in-cluster vLLM; scores in experiment `wings3-agent-eval-prod`. Pre-stage commands: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) → Customer UI hour.
+Not in the WINGS teaching hour. **Required on camera for the customer UI hour** (pre-logged, not live-run). Open `demo/notebooks/03_prod_eval_judges.ipynb` only if asked. Guide: [walkthrough/04-prod-eval-judges.md](walkthrough/04-prod-eval-judges.md). Registered golden set + hybrid substring + LLM judges on hosted MaaS (`gpt-oss-120b`, Secret `wings3-judge-llm`); agent stays on in-cluster 3B. Scores in experiment `wings3-agent-eval-prod`. Pre-stage commands: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) → Customer UI hour.
 
 ## Build presentation
 
@@ -94,6 +94,6 @@ Output: [`MLflow-on-RHOAI-Deep-Dive.pptx`](MLflow-on-RHOAI-Deep-Dive.pptx)
 - `demo/agent-tracing/` — autolog + evaluate scripts
 - `demo/datasets/` — golden eval JSONL for Module 4
 - `demo/notebooks/` — Act 2 autolog + Act 3 eval + Module 4 judges notebooks (`SHOW:` comments)
-- `manifests/` — MLflow CR, dashboard namespace label, workbench `wings3-demo`, InferenceService, prod CR example
+- `manifests/` — MLflow CR, dashboard namespace label, workbench `wings3-demo`, judge Secret `wings3-judge-llm` (empty `JUDGE_API_KEY`), InferenceService, prod CR example
 - `scripts/` — diagrams, slide content, deck builder, `bootstrap.sh` / `teardown.sh`
 - `tests/` — unit tests for deck, calculator, cluster scripts

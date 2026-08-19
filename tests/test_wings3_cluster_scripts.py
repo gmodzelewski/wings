@@ -70,6 +70,7 @@ def test_bootstrap_dry_run_applies_manifests_and_the_llm():
     assert "mlflow-dev.yaml" in out
     assert "namespace-my-first-model.yaml" in out
     assert "workbench-wings3-demo.yaml" in out
+    assert "secret-wings3-judge-llm.yaml" in out
     assert "mlflowoperator" in out.lower()
     assert "vllm-cuda-runtime-template" in out
     assert "inferenceservice-llama-32-3b-instruct.yaml" in out
@@ -173,6 +174,23 @@ def test_inferenceservice_manifest_has_catalog_storage():
     assert "nvidia.com/gpu" in text
     assert "runtime: llama-32-3b-instruct" in text
     assert "tool-call-parser" in text
+
+
+def test_judge_secret_is_empty_key_and_workbench_mounts_it():
+    secret = (WINGS3_ROOT / "manifests" / "secret-wings3-judge-llm.yaml").read_text()
+    workbench = (WINGS3_ROOT / "manifests" / "workbench-wings3-demo.yaml").read_text()
+    assert "name: wings3-judge-llm" in secret
+    assert "JUDGE_BASE_URL:" in secret
+    assert "maas-rhdp.apps.maas.redhatworkshops.io/v1" in secret
+    assert "JUDGE_MODEL:" in secret
+    assert "gpt-oss-120b" in secret
+    assert "deepseek-r1-distill-qwen-14b" in secret
+    assert "llama-scout-17b" in secret
+    assert 'JUDGE_API_KEY: ""' in secret
+    assert "sk-" not in secret
+    assert "envFrom:" in workbench
+    assert "name: wings3-judge-llm" in workbench
+    assert "optional: true" in workbench
 
 
 def test_presenter_docs_point_at_cluster_scripts():

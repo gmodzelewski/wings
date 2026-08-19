@@ -34,7 +34,7 @@ Bring a RHOAI cluster from "operator installed" to WINGS3 demo-ready.
 Does:
   - Set DataScienceCluster ${DSC} mlflowoperator=Managed
   - Apply manifests/mlflow-dev.yaml, namespace-my-first-model.yaml,
-    workbench-wings3-demo.yaml
+    secret-wings3-judge-llm.yaml (create only), workbench-wings3-demo.yaml
   - Instantiate ServingRuntime ${LLM_MODEL} from ${SR_TEMPLATE}
   - Apply manifests/inferenceservice-llama-32-3b-instruct.yaml
     (storageUri from an existing InferenceService or WINGS3_LLM_STORAGE_URI)
@@ -241,9 +241,25 @@ annotate_logout_url() {
     "notebooks.opendatahub.io/oauth-logout-url=https://${host}/projects/${PROJECT}?notebookLogout=${WORKBENCH}"
 }
 
+apply_judge_secret() {
+  local secret="$MANIFESTS/secret-wings3-judge-llm.yaml"
+  if [[ "$DRY_RUN" == 1 ]]; then
+    echo "DRY-RUN: oc apply -f $secret (create only; will not overwrite an existing key)"
+    return 0
+  fi
+  if oc get secret wings3-judge-llm -n "$PROJECT" >/dev/null 2>&1; then
+    echo "secret wings3-judge-llm already exists; not overwriting JUDGE_API_KEY"
+    return 0
+  fi
+  oc apply -f "$secret"
+  echo "warning: JUDGE_API_KEY is empty. Set it, then stop/start ${WORKBENCH}:"
+  echo "  oc set env secret/wings3-judge-llm -n ${PROJECT} JUDGE_API_KEY='<token>'"
+}
+
 apply_manifests() {
   run oc apply -f "$MANIFESTS/mlflow-dev.yaml"
   run oc apply -f "$MANIFESTS/namespace-my-first-model.yaml"
+  apply_judge_secret
   run oc apply -f "$MANIFESTS/workbench-wings3-demo.yaml"
   strip_hardware_profile_if_missing
   annotate_logout_url
