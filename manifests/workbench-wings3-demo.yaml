@@ -89,10 +89,25 @@ spec:
               value: /etc/pki/tls/custom-certs/ca-bundle.crt
             - name: SSL_CERT_FILE
               value: /etc/pki/tls/custom-certs/ca-bundle.crt
-          envFrom:
-            - secretRef:
-                name: wings3-judge-llm
-                optional: true
+            # Explicit secretKeyRef (not envFrom): RHOAI start/stop drops envFrom.
+            - name: JUDGE_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: wings3-judge-llm
+                  key: JUDGE_BASE_URL
+                  optional: true
+            - name: JUDGE_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: wings3-judge-llm
+                  key: JUDGE_MODEL
+                  optional: true
+            - name: JUDGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wings3-judge-llm
+                  key: JUDGE_API_KEY
+                  optional: true
           ports:
             - containerPort: 8888
               name: notebook-port

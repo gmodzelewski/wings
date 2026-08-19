@@ -188,9 +188,11 @@ def test_judge_secret_is_empty_key_and_workbench_mounts_it():
     assert "llama-scout-17b" in secret
     assert 'JUDGE_API_KEY: ""' in secret
     assert "sk-" not in secret
-    assert "envFrom:" in workbench
+    assert "secretKeyRef:" in workbench
     assert "name: wings3-judge-llm" in workbench
-    assert "optional: true" in workbench
+    assert "key: JUDGE_API_KEY" in workbench
+    assert "key: JUDGE_BASE_URL" in workbench
+    assert "key: JUDGE_MODEL" in workbench
 
 
 def test_presenter_docs_point_at_cluster_scripts():
