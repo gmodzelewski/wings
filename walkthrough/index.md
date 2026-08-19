@@ -4,6 +4,8 @@
 **Audience:** Platform engineers, AI developers, data scientists  
 **Red thread:** Without a tracking server you cannot see the agent; without traces you cannot debug it; without eval you cannot prove it got better.
 
+Customer / partner hour (no deck, Module 4 UI in the 60 minutes): [customer-ui-click-script.md](customer-ui-click-script.md). Pre-stage `math_golden` + `v2-judged` is required: [00-presenter-setup.md](00-presenter-setup.md).
+
 ## Environment
 
 Cluster URLs and names: [partials/_attributes.md](partials/_attributes.md).
@@ -34,7 +36,7 @@ Cluster URLs and names: [partials/_attributes.md](partials/_attributes.md).
 | 1 — Install | 8 min live | Laptop `oc get` + standalone `/mlflow` |
 | 2 — Autolog tracing | 22 min | JupyterLab notebook `01_agent_tracing_autolog.ipynb` |
 | 3 — Evaluation | 15 min | Same workbench notebook |
-| 4 — Datasets + judges | 20–25 min follow-on | Same workbench notebook `03_prod_eval_judges.ipynb` — [04-prod-eval-judges.md](04-prod-eval-judges.md). Not in the 60-minute hour. |
+| 4 — Datasets + judges | 20–25 min follow-on | Same workbench notebook `03_prod_eval_judges.ipynb` — [04-prod-eval-judges.md](04-prod-eval-judges.md). Not in the WINGS teaching hour. In the customer UI hour this is the close (pre-logged). |
 
 ## Presentation
 

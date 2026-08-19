@@ -259,3 +259,30 @@ def test_module4_in_deck():
     demo = next(s for s in SLIDES if s["key"] == "demo_judges")
     assert "PAUSE" in demo["title"]
     assert "rationale" in demo["notes"].lower()
+
+
+def test_customer_ui_click_script_is_ui_only_with_business_thread():
+    script = (WINGS3_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
+    assert "no deck" in script.lower()
+    assert "operate" in script.lower()
+    assert "ship" in script.lower()
+    assert "LangSmith" in script or "Phoenix" in script
+    assert "Details & Timeline" in script
+    assert "wings3-agent-eval" in script
+    assert "math_golden" in script
+    assert "v2-judged" in script
+    assert "mlflow-prod.example.yaml" in script
+    assert "03_prod_eval_judges.ipynb" not in script
+    customer_section = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
+    _, _, customer = customer_section.partition("## Customer UI hour")
+    assert customer, "presenter setup must have a Customer UI hour section"
+    wings, _, _ = customer_section.partition("## Customer UI hour")
+    assert "optional" in wings.lower()
+    assert "math_golden" in customer
+    assert "v2-judged" in customer
+    assert "evaluate_agent_judges.py" in customer
+    heading, _, body = customer.partition("\n")
+    assert "required" in heading.lower()
+    assert "not optional" in heading.lower()
+    assert "Optional for" not in body
+    assert "optional follow-on" not in body.lower()

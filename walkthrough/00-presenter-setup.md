@@ -1,8 +1,17 @@
 # Presenter setup — stay inside 60 minutes
 
-**Red thread (repeat each act):** Without a tracking server you cannot see the agent; without traces you cannot debug it; without eval you cannot prove it got better.
+**Two hours, one cluster.**
 
-## Where each act runs
+| Hour | On camera | Guide |
+|------|-----------|-------|
+| WINGS teaching | Notebooks + slides | This page (tables below) |
+| Customer / partner | Pre-staged standalone `/mlflow` only — **no deck** | [customer-ui-click-script.md](customer-ui-click-script.md) |
+
+**Red thread (WINGS teaching, repeat each act):** Without a tracking server you cannot see the agent; without traces you cannot debug it; without eval you cannot prove it got better.
+
+**Red thread (customer UI hour):** Without a tracking server on the cluster you cannot **operate** the agent; without traces you cannot **fix** it; without eval you cannot **prove** a prompt change helped; without a golden set and a judge you can argue with, you cannot **ship**.
+
+## Where each act runs (WINGS teaching)
 
 | Act | Persona | Where you run it |
 |-----|---------|------------------|
@@ -13,7 +22,7 @@
 
 Laptop + `oc port-forward` is an **appendix** for rehearsal only. On stage, use the workbench so the LLM URL is in-cluster and MLflow env vars are injected.
 
-## 60-minute run-of-show
+## 60-minute run-of-show (WINGS teaching)
 
 | Block | Minutes | Live vs pre-staged |
 |-------|---------|-------------------|
@@ -31,7 +40,7 @@ From the repo root, after `oc login`. RHOAI must already be installed. Bootstrap
 
 ```bash
 ./scripts/bootstrap.sh
-./scripts/bootstrap.sh --warmup   # optional: one OK trace + v1 eval (slow)
+./scripts/bootstrap.sh --warmup   # one OK trace + v1 eval (slow). Customer hour: extra block below.
 ./scripts/bootstrap.sh --skip-llm # GPU-less sandbox
 
 # Shared-cluster safe: delete workbench Notebook/PVC/SA only
@@ -53,20 +62,59 @@ From the repo root, after `oc login`. RHOAI must already be installed. Bootstrap
 - [ ] Workbench in `my-first-model` is **Running** (not Stopped). Create **only** with `oc apply -f manifests/workbench-wings3-demo.yaml`. Do **not** use dashboard **Create workbench** — that notebook uses ServiceAccount `default` and gets `PERMISSION_DENIED`. The YAML Notebook uses ServiceAccount `wings3-demo` (the MLflow webhook binds RBAC to that name). After apply, **stop/start** the workbench so the initContainer can `git clone https://github.com/gmodzelewski/wings.git` into `/opt/app-root/src/wings`. Cluster must reach GitHub. If that path exists but is not a git repo, remove it and restart.
 - [ ] JupyterLab file browser is this clone (`demo/notebooks/…`). `git pull --ff-only` from the repo root (terminal or the optional notebook cell).
 - [ ] `pip install -r agent-tracing/requirements.txt --extra-index-url https://pypi.org/simple` already succeeded in the workbench (RHOAI 3.4 RHAI index has no langgraph 0.2). Re-run after a workbench restart; the venv is not on the PVC.
-- [ ] Optional: v1 eval run already in experiment `wings3-agent-eval`
-- [ ] Optional follow-on (Module 4, not the 60-minute hour): golden set registered as `math_golden` and one `v2-judged` run in experiment `wings3-agent-eval-prod`
+- [ ] Optional for **WINGS teaching**: v1 eval run already in experiment `wings3-agent-eval`
+- [ ] Optional for **WINGS teaching** (Module 4 follow-on, not in that hour): golden set registered as `math_golden` and one `v2-judged` run in experiment `wings3-agent-eval-prod`
 
 Cluster-specific URLs live in [partials/_attributes.md](partials/_attributes.md).
+
+## Customer UI hour — extra pre-stage (**required**, not optional)
+
+`--warmup` is not enough. The [customer click script](customer-ui-click-script.md) never runs notebooks on camera. If these objects are missing, the hour has no close.
+
+Required in workspace `my-first-model` (in addition to the checklist above):
+
+- [ ] Experiment `wings3-agent-tracing`: an **Error** row **and** an **OK** row whose request is **Calculate 256 divided by 16**
+- [ ] Experiment `wings3-agent-eval`: runs `v1-baseline` **and** `v2-improved-prompt`
+- [ ] Dataset **`math_golden`** visible in the MLflow **Datasets** tab (8 records)
+- [ ] Experiment `wings3-agent-eval-prod`: run **`v2-judged`** (hybrid substring + judges)
+
+Do this in the **workbench** terminal after `bootstrap.sh --warmup` (venv already pip'd; tracking URI injected). Re-run after a workbench restart.
+
+```bash
+cd /opt/app-root/src/wings/demo/agent-tracing
+export MLFLOW_WORKSPACE=my-first-model
+export MAAS_API_KEY=unused
+export MAAS_MODEL=llama-32-3b-instruct
+export MAAS_BASE_URL=http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+
+# Error beat: extra queries on 3B often land as Error. Keep the warmup OK 256÷16 row.
+unset WINGS3_ONE_QUERY
+export MLFLOW_EXPERIMENT_NAME=wings3-agent-tracing
+python3 run_tracing_demo_autolog.py
+
+# v2 comparison for Act 3 UI (warmup already logged v1)
+export MLFLOW_EXPERIMENT_NAME=wings3-agent-eval
+export WINGS3_PROMPT_VERSION=v2
+python3 evaluate_agent.py
+
+# Required close: named golden set + v2-judged (not a follow-on for this hour)
+export MLFLOW_EXPERIMENT_NAME=wings3-agent-eval-prod
+python3 evaluate_agent_judges.py
+```
+
+Confirm in `/mlflow` before the session: Datasets → `math_golden`; Evaluation → `v2-judged`. If either is missing, the customer hour is not ready — do not start.
 
 ## When the new cluster is up (not before)
 
 1. Fill `gateway_host` / `mlflow_ui` in `_attributes.md`. Set `WINGS3_LLM_STORAGE_URI` from the catalog or copy it from an existing InferenceService, then run `bootstrap.sh`.
 2. Recapture screenshots `08`, `12`, `14`, `18`, `19` on today’s `/mlflow` whenever the gateway host changes; flip captions to this cluster. (Done 18 Aug 2026 on sandbox956.)
-3. Rebuild `MLflow-on-RHOAI-Deep-Dive.pptx` (`python3 scripts/build_wings3_deck.py`). Plain deck; speaker notes are in the notes pane.
-4. Rehearse: Act 1 `oc get` only; Act 2 SHOW cells + Error then OK; Act 3 substring caveat before the cells.
+3. Rebuild `MLflow-on-RHOAI-Deep-Dive.pptx` (`python3 scripts/build_wings3_deck.py`) if you are giving the **WINGS teaching** hour. Skip the deck for the customer UI hour.
+4. Rehearse WINGS teaching: Act 1 `oc get` only; Act 2 SHOW cells + Error then OK; Act 3 substring caveat before the cells.
+5. Rehearse customer UI hour: [customer-ui-click-script.md](customer-ui-click-script.md) against live `/mlflow`. Confirm `math_golden` and `v2-judged` before anyone sits down.
 
 ## If you are behind the clock
 
 - Act 2: run **one** query (`Calculate 256 divided by 16`), not three. In Traces: ~20s on an Error row (a rehearsal Error is fine if the live query is OK), then the OK 256÷16 **Details & Timeline** tree
 - Act 3: skip v1 live; show existing v1 run and execute v2 only. Still say the substring-scorer caveat **before** the cells
 - Do not debug `search_traces` from the laptop SDK — use the MLflow UI
+- Customer UI hour: skip `oc get` and Jupyter; one Error, one OK tree, one False eval row, one judge rationale; do not linger on 25% → 50%

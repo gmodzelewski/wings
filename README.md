@@ -2,11 +2,18 @@
 
 Public repo: https://github.com/gmodzelewski/wings
 
-1-hour demo + presentation: Install → Trace → Evaluate.
+Two 60-minute paths on the same cluster:
 
-**Red thread:** Without a tracking server you cannot see the agent; without traces you cannot debug it; without eval you cannot prove it got better.
+| Hour | On camera | Guide |
+|------|-----------|-------|
+| WINGS teaching | Notebooks + slides | [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) |
+| Customer / partner | Pre-staged `/mlflow` only — no deck | [walkthrough/customer-ui-click-script.md](walkthrough/customer-ui-click-script.md) |
 
-## 60-minute run-of-show
+**WINGS red thread:** Without a tracking server you cannot see the agent; without traces you cannot debug it; without eval you cannot prove it got better.
+
+**Customer red thread:** operate → fix → prove → ship (golden set + judges in the hour; `math_golden` and `v2-judged` are required pre-stage).
+
+## 60-minute run-of-show (WINGS teaching)
 
 See [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md).
 
@@ -67,9 +74,9 @@ python3 run_tracing_demo_autolog.py
 
 Open `demo/notebooks/02_eval_improvement.ipynb`. On stage, stop at each **SHOW:** comment (prompts, four-row dataset, substring scorer, `mlflow.genai.evaluate()`).
 
-## Workbench — production-grade eval (follow-on)
+## Workbench — production-grade eval (follow-on for WINGS teaching)
 
-Not in the 60-minute hour. Open `demo/notebooks/03_prod_eval_judges.ipynb`. Guide: [walkthrough/04-prod-eval-judges.md](walkthrough/04-prod-eval-judges.md). Registered golden set + hybrid substring + LLM judges on in-cluster vLLM; scores in experiment `wings3-agent-eval-prod`.
+Not in the WINGS teaching hour. **Required on camera for the customer UI hour** (pre-logged, not live-run). Open `demo/notebooks/03_prod_eval_judges.ipynb` only if asked. Guide: [walkthrough/04-prod-eval-judges.md](walkthrough/04-prod-eval-judges.md). Registered golden set + hybrid substring + LLM judges on in-cluster vLLM; scores in experiment `wings3-agent-eval-prod`. Pre-stage commands: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) → Customer UI hour.
 
 ## Build presentation
 
@@ -83,7 +90,7 @@ Output: [`MLflow-on-RHOAI-Deep-Dive.pptx`](MLflow-on-RHOAI-Deep-Dive.pptx)
 
 ## Layout
 
-- `walkthrough/` — presenter setup + four modules (04 is a follow-on, not in the 60-minute hour)
+- `walkthrough/` — presenter setup, four modules (04 is a WINGS follow-on), and [customer-ui-click-script.md](walkthrough/customer-ui-click-script.md) (Module 4 UI in that hour)
 - `demo/agent-tracing/` — autolog + evaluate scripts
 - `demo/datasets/` — golden eval JSONL for Module 4
 - `demo/notebooks/` — Act 2 autolog + Act 3 eval + Module 4 judges notebooks (`SHOW:` comments)

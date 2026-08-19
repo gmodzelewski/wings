@@ -2,7 +2,9 @@
 
 **Time:** 20–25 minutes | **Persona:** Data scientist  
 **Where:** Same JupyterLab workbench as Modules 2 and 3 — notebook first  
-**Follow-on:** not part of the 60-minute run-of-show. Act 3 already closed with “add judges before you promote.”
+**Follow-on (WINGS teaching):** not part of that 60-minute run-of-show. Act 3 already closed with “add judges before you promote.”
+
+**Customer UI hour:** this UI **is** in the 60 minutes, pre-logged — [customer-ui-click-script.md](customer-ui-click-script.md). `math_golden` and `v2-judged` are required before anyone sits down.
 
 ## Know
 
