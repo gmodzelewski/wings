@@ -47,6 +47,23 @@ def load_golden_records(path: Path = GOLDEN_PATH) -> list[dict]:
 
 DEFAULT_JUDGE_BASE_URL = "https://maas-rhdp.apps.maas.redhatworkshops.io/v1"
 DEFAULT_JUDGE_MODEL = "gpt-oss-120b"
+JUDGE_SECRET_DIR = Path("/etc/wings3-judge-llm")
+
+
+def load_judge_secret_env() -> None:
+    """Copy Secret files into os.environ.
+
+    RHOAI admission strips ``secretKeyRef`` / ``envFrom`` on the Notebook CR.
+    The workbench mounts ``wings3-judge-llm`` at ``JUDGE_SECRET_DIR`` instead.
+    """
+    if not JUDGE_SECRET_DIR.is_dir():
+        return
+    for key in ("JUDGE_API_KEY", "JUDGE_BASE_URL", "JUDGE_MODEL"):
+        if os.environ.get(key):
+            continue
+        path = JUDGE_SECRET_DIR / key
+        if path.is_file():
+            os.environ[key] = path.read_text().strip()
 
 
 def configure_cluster_judge() -> str:
@@ -55,14 +72,16 @@ def configure_cluster_judge() -> str:
     Agent stays on MAAS_* (in-cluster 3B). Judges use JUDGE_* from Secret
     ``wings3-judge-llm``. ``openai:/…`` always calls api.openai.com.
     """
+    load_judge_secret_env()
     base = os.environ.get("JUDGE_BASE_URL") or DEFAULT_JUDGE_BASE_URL
     model = os.environ.get("JUDGE_MODEL") or DEFAULT_JUDGE_MODEL
     key = (os.environ.get("JUDGE_API_KEY") or os.environ.get("HOSTED_VLLM_API_KEY") or "").strip()
     if not key or key in {"unused", "REPLACE_ME"}:
         raise RuntimeError(
-            "JUDGE_API_KEY is missing. Apply manifests/secret-wings3-judge-llm.yaml, "
-            "set the token with oc set env secret/wings3-judge-llm -n my-first-model "
-            "JUDGE_API_KEY='…', then stop/start workbench wings3-demo."
+            "JUDGE_API_KEY is missing. Apply secret-wings3-judge-llm.yaml and "
+            "workbench-wings3-demo.yaml (Secret is mounted at /etc/wings3-judge-llm; "
+            "RHOAI strips secretKeyRef env). oc set env secret/wings3-judge-llm "
+            "-n my-first-model JUDGE_API_KEY='…', then start the workbench."
         )
     os.environ["HOSTED_VLLM_API_BASE"] = base
     os.environ["HOSTED_VLLM_API_KEY"] = key

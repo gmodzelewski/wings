@@ -79,7 +79,6 @@ spec:
                 --ServerApp.token=''
                 --ServerApp.password=''
                 --ServerApp.base_url=/notebook/my-first-model/wings3-demo
-                --ServerApp.root_dir=/opt/app-root/src/wings
                 --ServerApp.quit_button=False
             - name: JUPYTER_IMAGE
               value: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:3.4
@@ -89,25 +88,6 @@ spec:
               value: /etc/pki/tls/custom-certs/ca-bundle.crt
             - name: SSL_CERT_FILE
               value: /etc/pki/tls/custom-certs/ca-bundle.crt
-            # Explicit secretKeyRef (not envFrom): RHOAI start/stop drops envFrom.
-            - name: JUDGE_BASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: wings3-judge-llm
-                  key: JUDGE_BASE_URL
-                  optional: true
-            - name: JUDGE_MODEL
-              valueFrom:
-                secretKeyRef:
-                  name: wings3-judge-llm
-                  key: JUDGE_MODEL
-                  optional: true
-            - name: JUDGE_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: wings3-judge-llm
-                  key: JUDGE_API_KEY
-                  optional: true
           ports:
             - containerPort: 8888
               name: notebook-port
@@ -128,6 +108,10 @@ spec:
               name: trusted-ca
               readOnly: true
               subPath: ca-bundle.crt
+            # RHOAI admission strips secretKeyRef env. Mount the Secret as files instead.
+            - mountPath: /etc/wings3-judge-llm
+              name: wings3-judge-llm
+              readOnly: true
       enableServiceLinks: false
       serviceAccountName: wings3-demo
       volumes:
@@ -144,3 +128,7 @@ spec:
             items:
               - key: ca-bundle.crt
                 path: ca-bundle.crt
+        - name: wings3-judge-llm
+          secret:
+            secretName: wings3-judge-llm
+            optional: true

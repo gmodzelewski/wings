@@ -330,6 +330,7 @@ def test_judge_uses_hosted_vllm_not_native_openai():
     assert "JUDGE_MODEL" in blob
     assert "gpt-oss-120b" in blob
     assert "HOSTED_VLLM_API_BASE\"] = os.environ[\"MAAS_BASE_URL\"]" not in blob
+    assert "/etc/wings3-judge-llm" in blob
     assert 'openai:/{os.environ' not in blob
     req = (WINGS3_ROOT / "demo" / "agent-tracing" / "requirements.txt").read_text()
     assert "litellm" in req

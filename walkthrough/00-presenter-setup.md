@@ -86,7 +86,8 @@ Set the hosted-judge token **before** `evaluate_agent_judges.py` (do not commit 
 oc apply -f manifests/secret-wings3-judge-llm.yaml
 oc set env secret/wings3-judge-llm -n my-first-model JUDGE_API_KEY='<token>'
 oc apply -f manifests/workbench-wings3-demo.yaml
-# start workbench wings3-demo so JUDGE_* secretKeyRef is injected (the Secret alone is not enough)
+# start workbench wings3-demo. Secret is mounted at /etc/wings3-judge-llm
+# (RHOAI strips secretKeyRef env; the env cell reads those files).
 ```
 
 ```bash

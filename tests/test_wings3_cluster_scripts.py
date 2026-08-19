@@ -22,7 +22,9 @@ def _run(script: Path, *args: str) -> subprocess.CompletedProcess[str]:
 def test_workbench_clones_public_wings_repo():
     text = (WINGS3_ROOT / "manifests" / "workbench-wings3-demo.yaml").read_text()
     assert "https://github.com/gmodzelewski/wings.git" in text
-    assert "--ServerApp.root_dir=/opt/app-root/src/wings" in text
+    # Image start script already sets root_dir=/opt/app-root/src. A second
+    # --ServerApp.root_dir in NOTEBOOK_ARGS crash-loops Jupyter (got 2 values).
+    assert "--ServerApp.root_dir=/opt/app-root/src/wings" not in text
     assert "workingDir: /opt/app-root/src/wings" in text
     assert "initContainers:" in text
     assert BOOTSTRAP.is_file(), "missing scripts/bootstrap.sh"
@@ -188,11 +190,10 @@ def test_judge_secret_is_empty_key_and_workbench_mounts_it():
     assert "llama-scout-17b" in secret
     assert 'JUDGE_API_KEY: ""' in secret
     assert "sk-" not in secret
-    assert "secretKeyRef:" in workbench
-    assert "name: wings3-judge-llm" in workbench
-    assert "key: JUDGE_API_KEY" in workbench
-    assert "key: JUDGE_BASE_URL" in workbench
-    assert "key: JUDGE_MODEL" in workbench
+    assert "mountPath: /etc/wings3-judge-llm" in workbench
+    assert "secretName: wings3-judge-llm" in workbench
+    assert "secretKeyRef:" not in workbench
+    assert "envFrom:" not in workbench
 
 
 def test_presenter_docs_point_at_cluster_scripts():
