@@ -97,7 +97,9 @@ export MLFLOW_EXPERIMENT_NAME=wings3-agent-eval
 export WINGS3_PROMPT_VERSION=v2
 python3 evaluate_agent.py
 
-# Required close: named golden set + v2-judged (not a follow-on for this hour)
+# Required close: named golden set + v2-judged (not a follow-on for this hour).
+# Refreshes math_golden from git so Correctness is not given both expected_response
+# and expected_facts.
 export MLFLOW_EXPERIMENT_NAME=wings3-agent-eval-prod
 python3 evaluate_agent_judges.py
 ```

@@ -87,13 +87,45 @@ def predict_fn(user_message: str) -> str:
         return f"Error: {exc}"
 
 
+def _drop_existing_records(dataset) -> None:
+    """Remove stale rows so merge cannot keep expected_response beside expected_facts."""
+    df = dataset.to_df()
+    if df is None or df.empty:
+        return
+    col = "dataset_record_id" if "dataset_record_id" in df.columns else None
+    if not col:
+        return
+    ids = df[col].tolist()
+    if ids:
+        dataset.delete_records(ids)
+
+
 def register_golden_dataset(records: list[dict], experiment_id: str):
+    """Create math_golden or replace its rows from git. Never silent-reuse stale expectations."""
     try:
         dataset = mlflow.genai.datasets.get_dataset(name=DATASET_NAME)
-        print(f"Reusing evaluation dataset {DATASET_NAME}")
-        return dataset
     except Exception:
-        pass
+        dataset = None
+
+    if dataset is not None:
+        delete_ds = getattr(mlflow.genai.datasets, "delete_dataset", None)
+        deleted = False
+        if delete_ds is not None:
+            try:
+                delete_ds(dataset_id=dataset.dataset_id)
+                deleted = True
+            except Exception:
+                deleted = False
+        if not deleted:
+            _drop_existing_records(dataset)
+            dataset = dataset.merge_records(records)
+            print(
+                f"Refreshed evaluation dataset {DATASET_NAME} from git "
+                f"({len(records)} records)"
+            )
+            return dataset
+        dataset = None
+
     dataset = mlflow.genai.datasets.create_dataset(
         name=DATASET_NAME,
         experiment_id=[experiment_id],

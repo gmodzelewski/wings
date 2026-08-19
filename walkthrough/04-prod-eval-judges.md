@@ -39,7 +39,7 @@ The notebook inlines the eval code. Do **not** open `evaluate_agent_judges.py` o
 
 1. Env — injected `MLFLOW_*`. Experiment `wings3-agent-eval-prod`.
 2. **SHOW: golden JSONL** — 8 rows; `expected_answer` vs `expected_facts`.
-3. **SHOW: register dataset** — `create_dataset` + `merge_records` (or reuse).
+3. **SHOW: register dataset** — `create_dataset` + `merge_records`, or drop existing rows and merge from git (never silent-reuse).
 4. **SHOW: hybrid scorers** — substring + `Correctness` + `Guidelines`; print `judge_model`.
 5. **SHOW: `mlflow.genai.evaluate()`** — define `run_eval` (does not call the LLM yet).
 6. Run **v2** (skip if `v2-judged` is already logged and the clock is tight).
@@ -76,8 +76,9 @@ python3 evaluate_agent_judges.py
 | Empty `MLFLOW_TRACKING_URI` | Stop/start the workbench; confirm `opendatahub.io/mlflow-instance=mlflow` |
 | Judge calls OpenAI / `gpt-4o-mini` | Confirm the hybrid-scorer cell printed `openai:/llama-32-3b-instruct` and set `OPENAI_BASE_URL` |
 | Judge JSON-parse / empty rationale | Narrate 3B-as-judge; still compare `contains_expected` on that row |
+| `only one expected_response or expected_facts` | Correctness forbids both. Git JSONL has `expected_answer` + `expected_facts` only. Re-run the register cell so `math_golden` is **refreshed from git** (do not silent-reuse). Then re-run `v2-judged`. |
 | Eval row errors / 3B context | Same as Act 2/3 — one tool per turn, `max_tokens` 256; skip remaining rows if needed |
-| `create_dataset` already exists | The notebook reuses `get_dataset(name="math_golden")` |
+| `create_dataset` already exists | Register cell drops existing rows and merges git. Do not skip that cell. |
 | MLflow UI 504 | Open Evaluation in the browser; do not `search_traces` from the SDK |
 | vLLM cold / clock | Walk SHOW cells; open a pre-logged `v2-judged` run |
 

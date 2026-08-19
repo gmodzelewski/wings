@@ -286,3 +286,31 @@ def test_customer_ui_click_script_is_ui_only_with_business_thread():
     assert "not optional" in heading.lower()
     assert "Optional for" not in body
     assert "optional follow-on" not in body.lower()
+
+
+def test_golden_set_does_not_pass_both_correctness_fields():
+    import json
+
+    path = WINGS3_ROOT / "demo" / "datasets" / "math_golden.jsonl"
+    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    assert len(rows) == 8
+    for i, row in enumerate(rows):
+        exp = row["expectations"]
+        assert "expected_answer" in exp, i
+        assert "expected_facts" in exp, i
+        assert "expected_response" not in exp, i
+
+
+def test_golden_register_refreshes_from_git():
+    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    assert "Reusing evaluation dataset" not in judges
+    assert "delete_records" in judges
+    assert "Refreshed evaluation dataset" in judges
+    blob = _notebook_source("03_prod_eval_judges.ipynb")
+    assert "Reusing evaluation dataset" not in blob
+    assert "delete_records" in blob
+    assert "Refreshed" in blob
+    mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
+    assert "expected_response or expected_facts" in mod4
+    script = (WINGS3_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
+    assert "expected_response" in script

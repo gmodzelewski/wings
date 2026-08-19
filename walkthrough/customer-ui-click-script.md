@@ -63,6 +63,8 @@ Experiment **wings3-agent-eval-prod**:
 
 Lab detail if asked: [04-prod-eval-judges.md](04-prod-eval-judges.md).
 
+If traces show `only one expected_response or expected_facts should be provided, not both`, the registered `math_golden` is stale. Re-run the Module 4 register cell (or `evaluate_agent_judges.py`) so rows refresh from git, then re-run `v2-judged`. Git has `expected_answer` + `expected_facts` only.
+
 ### 5. Production CR — then Q&A
 
 Open [mlflow-prod.example.yaml](../manifests/mlflow-prod.example.yaml). Point at `backendStoreUriFrom` (Postgres) and `artifactsDestination` (S3). Do not apply it.
