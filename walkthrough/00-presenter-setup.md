@@ -88,10 +88,11 @@ Set `WINGS3_VERBOSE=1` for detailed progress. Default uninstall never removes op
 - [ ] `oc apply -f manifests/mlflow-dev.yaml` if no `MLflow` CR exists (do **not** apply this on camera)
 - [ ] Namespace `my-first-model` has `opendatahub.io/dashboard=true`
 - [ ] `install.sh` finished: InferenceService `llama-32-3b-instruct` is Ready (ServingRuntime from `vllm-cuda-runtime-template`; predictor strategy Recreate). If the console shows an outdated vLLM runtime, re-run `./install.sh` and confirm with `./check.sh`.
-- [ ] EvalHub operator `Managed` (`./check.sh` verifies EvalHub pod)
+- [ ] EvalHub operator `Managed` and **EvalHub CR** `evalhub` in `my-first-model` (`./check.sh` → `evalhub instance`)
 - [ ] ConfigMap `wings3-llm-endpoint` in `my-first-model` (applied by install)
-- [ ] Garak provider visible in EvalHub UI (or screenshot fallbacks in `demo/assets/placeholders/`)
-- [ ] Optional Act 5: lm-eval + Garak jobs submitted from EvalHub UI (or `scripts/submit_evalhub_demo_jobs.sh`)
+- [ ] **Develop & train → Evaluations** loads benchmarks for `my-first-model` (no project-level EvalHub tile on 3.5)
+- [ ] Garak provider visible when starting an evaluation run (or screenshot fallbacks in `demo/assets/placeholders/`)
+- [ ] Optional Act 5: lm-eval + Garak jobs submitted from **Evaluations** UI (or `scripts/submit_evalhub_demo_jobs.sh`)
 - [ ] Workbench in `my-first-model` is **Running** (not Stopped). Create **only** with `oc apply -f manifests/workbench-wings3-demo.yaml`. Do **not** use dashboard **Create workbench** — that notebook uses ServiceAccount `default` and gets `PERMISSION_DENIED`. The YAML Notebook uses ServiceAccount `wings3-demo` (the MLflow webhook binds RBAC to that name). After apply, **stop/start** the workbench so the initContainer can `git clone https://github.com/gmodzelewski/wings.git` into `/opt/app-root/src/wings`. Cluster must reach GitHub. If that path exists but is not a git repo, remove it and restart.
 - [ ] JupyterLab file browser is this clone (`demo/notebooks/…`). `git pull --ff-only` from the repo root (terminal or the optional notebook cell).
 - [ ] `pip install -r agent-tracing/requirements.txt --extra-index-url https://pypi.org/simple` already succeeded in the workbench (RHOAI 3.4 RHAI index has no langgraph 0.2). Re-run after a workbench restart; the venv is not on the PVC.
@@ -110,8 +111,9 @@ Required in workspace `my-first-model` (in addition to the checklist above):
 
 - [ ] Experiment `wings3-agent-tracing`: an **Error** row **and** an **OK** row whose request is **Calculate 256 divided by 16**
 - [ ] Experiment `wings3-agent-eval`: runs `v1-baseline` **and** `v2-improved-prompt`
+- [ ] Prompt **`wings3-agent-v2`** visible in the MLflow **Prompts** tab
 - [ ] Dataset **`math_golden`** visible in the MLflow **Datasets** tab (8 records)
-- [ ] Experiment `wings3-agent-eval-prod`: **Judges** (or **Scorers**) → **`correctness`**
+- [ ] Experiment `wings3-agent-eval-prod`: **Judges** (or **Scorers**) → **`correctness`** and **`numeric_and_clear`**
 - [ ] Experiment `wings3-agent-eval-prod`: run **`v2-judged`** (hybrid substring + judges)
 
 Do this in the **workbench** terminal after `./install.sh` (venv already pip'd; tracking URI injected). Re-run after a workbench restart.
@@ -152,10 +154,11 @@ python3 evaluate_agent.py
 # Refreshes math_golden from git so Correctness is not given both expected_response
 # and expected_facts.
 export MLFLOW_EXPERIMENT_NAME=wings3-agent-eval-prod
-python3 evaluate_agent_judges.py
+python3 evaluate_agent_judges.py --register-only   # Prompts + Judges + dataset (fast)
+# python3 evaluate_agent_judges.py                 # full v2-judged eval when vLLM is warm
 ```
 
-Confirm in `/mlflow` before the session: Datasets → `math_golden`; Judges → `correctness`; Evaluation → `v2-judged`. If any is missing, the customer hour is not ready — do not start.
+Confirm in `/mlflow` before the session: Prompts → `wings3-agent-v2`; Datasets → `math_golden`; Judges → `correctness` + `numeric_and_clear`; Evaluation → `v2-judged`. If any is missing, the customer hour is not ready — do not start.
 
 ## When the new cluster is up (not before)
 

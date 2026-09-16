@@ -78,10 +78,37 @@ def test_check_help_documents_skip_llm():
 
 def test_check_demo_py_imports_and_evalhub_logic():
     sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
-    from check_demo import check_evalhub_pod, run_checks
+    from check_demo import check_evalhub_instance, check_evalhub_pod, run_checks
 
     assert callable(run_checks)
     assert callable(check_evalhub_pod)
+    assert callable(check_evalhub_instance)
+
+
+def test_evalhub_instance_manifest_and_install_wiring():
+    manifest = (WINGS3_ROOT / "manifests" / "evalhub-instance.yaml").read_text()
+    lib = (WINGS3_ROOT / "scripts" / "wings3_lib.sh").read_text()
+    check_py = (WINGS3_ROOT / "scripts" / "check_demo.py").read_text()
+
+    assert "kind: EvalHub" in manifest
+    assert "database:" in manifest
+    assert "type: sqlite" in manifest
+    assert "lm-evaluation-harness" in manifest
+    assert "tenancy: single" in manifest
+    assert "evalhub-instance.yaml" in lib
+    assert "evalhub.trustyai.opendatahub.io/tenant-" in lib
+    assert "check_evalhub_instance" in check_py
+    assert "evalhub_cr_is_single_tenant" in check_py
+
+
+def test_evalhub_tenant_label_helper():
+    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    from check_demo import namespace_has_evalhub_tenant_label
+
+    assert namespace_has_evalhub_tenant_label(
+        "kubernetes.io/metadata.name=my-first-model evalhub.trustyai.opendatahub.io/tenant="
+    )
+    assert not namespace_has_evalhub_tenant_label("kubernetes.io/metadata.name=my-first-model")
 
 
 def test_judge_secret_and_mount_helpers():

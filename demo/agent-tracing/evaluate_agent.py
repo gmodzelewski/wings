@@ -19,14 +19,12 @@ load_dotenv(override=True)
 
 import mlflow
 from mlflow.genai.scorers import scorer
+from prompts import V2_AGENT_PROMPT
 from traced_agent import calculator, create_agent_graph, get_config_from_env
 
 PROMPTS = {
     "v1": "You are a helper. Answer briefly.",
-    "v2": (
-        "You are a precise math assistant. Always use the calculator tool for arithmetic. "
-        "State the numeric result clearly in your answer."
-    ),
+    "v2": V2_AGENT_PROMPT,
 }
 
 EVAL_DATASET = [

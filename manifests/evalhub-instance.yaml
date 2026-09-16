@@ -1,0 +1,26 @@
+# EvalHub instance for WINGS3 Act 5 on RHOAI 3.5+ (TrustyAI operator).
+# sqlite is lab-only — data does not persist across pod restarts.
+# Dashboard UI: Develop & train → Evaluations (not a project sidebar tile).
+apiVersion: trustyai.opendatahub.io/v1
+kind: EvalHub
+metadata:
+  name: evalhub
+  namespace: my-first-model
+  labels:
+    app: wings3-demo
+  annotations:
+    openshift.io/description: WINGS3 demo EvalHub — lm-eval-harness + Garak providers
+spec:
+  replicas: 1
+  tenancy: single
+  database:
+    type: sqlite
+  providers:
+    - lm-evaluation-harness
+    - garak
+  collections:
+    - standard-llm-evals-v1
+    - safety-and-fairness-v1
+  env:
+    - name: MLFLOW_TRACKING_URI
+      value: https://mlflow.redhat-ods-applications.svc:8443

@@ -86,15 +86,15 @@ print_ui_fallback() {
 
 EvalHub job CRD not available — submit via OpenShift AI console:
 
-  Project: ${PROJECT}
+  Develop & train → Evaluations → project ${PROJECT}
   Target endpoint: ${endpoint}
   Model name: ${LLM_MODEL}
 
-1. EvalHub → New evaluation → provider lm-eval-harness
+1. Start evaluation run → provider lm-eval-harness
    - Name: wings3-demo-lm-eval
    - Task: pick one small harness task for demo speed
 
-2. EvalHub → New evaluation → provider Garak
+2. Start evaluation run → provider Garak
    - Name: wings3-demo-garak
    - Probe set: default / demo configuration
 
@@ -105,7 +105,7 @@ EOF
 
 print_garak_ui_note() {
   cat <<EOF
-Garak: no Garak Job CRD on this cluster — submit via EvalHub UI (provider Garak).
+Garak: no Garak Job CRD on this cluster — submit via Develop & train → Evaluations (provider Garak).
 Template: demo/evalhub/jobs/garak-demo.json
 EOF
 }
@@ -155,8 +155,8 @@ fi
 if [[ "$applied" == 0 ]]; then
   print_ui_fallback "$endpoint"
 elif [[ "$garak_applied" == 0 ]]; then
-  echo "Demo EvalHub lm-eval job applied. Watch jobs in EvalHub UI for ${PROJECT}."
+  echo "Demo EvalHub lm-eval job applied. Watch jobs in Develop & train → Evaluations for ${PROJECT}."
   print_garak_ui_note
 else
-  echo "Demo EvalHub manifests applied. Watch jobs in EvalHub UI for ${PROJECT}."
+  echo "Demo EvalHub manifests applied. Watch jobs in Develop & train → Evaluations for ${PROJECT}."
 fi

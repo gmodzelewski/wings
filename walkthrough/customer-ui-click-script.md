@@ -56,9 +56,10 @@ Fallback: `18-eval-metrics.png`, `19-eval-per-example.png`.
 
 Experiment **wings3-agent-eval-prod**:
 
-1. **Datasets** → `math_golden` (8 records). Named golden set, not a Python list.
-2. Optional 10s: **Judges** (or **Scorers**) → `correctness`. Catalog entry; scores still live on Evaluation.
-3. **Evaluation** → `v2-judged`. Open a row where substring and judge **disagree**, or a Fail with rationale, and **read the judge text**.
+1. **Prompts** → `wings3-agent-v2` (agent system prompt). Optional 10s if clock is tight.
+2. **Datasets** → `math_golden` (8 records). Named golden set, not a Python list.
+3. Optional 10s: **Judges** (or **Scorers**) → `correctness` and `numeric_and_clear`. Catalog entries; scores still live on Evaluation.
+4. **Evaluation** → `v2-judged`. Open a row where substring and judge **disagree**, or a Fail with rationale, and **read the judge text**.
 
 **Say:** Without a golden set and a judge you can argue with, you cannot ship. Scores with rationales plus a cheap substring safety net — that is a reviewable gate.
 

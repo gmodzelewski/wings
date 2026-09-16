@@ -1,7 +1,7 @@
 # Module 1 — Install platform (MLflow + EvalHub + Garak)
 
 **Time:** 10 minutes live (operators pre-enabled) | **Role:** Platform engineer  
-**Where:** Laptop terminal (`oc get` only), standalone MLflow UI (`/mlflow`), RHOAI console (EvalHub)
+**Where:** Laptop terminal (`oc get` only), standalone MLflow UI (`/mlflow`), RHOAI console (**Develop & train → Evaluations**)
 
 ## Know
 
@@ -10,7 +10,7 @@ WINGS3 installs three platform layers on OpenShift AI:
 | Layer | DSC component (typical) | What it gives you |
 |-------|-------------------------|-------------------|
 | **MLflow** | `mlflowoperator` (patch to `Managed` on 3.5 even if absent from stored spec) | Tracking server, traces, experiments, judges |
-| **EvalHub** | `evalhuboperator` (3.4) or `trustyai` (3.5) | K8s orchestration for evaluation jobs |
+| **EvalHub** | `evalhuboperator` (3.4) or `trustyai` (3.5) + **EvalHub CR** in project | K8s orchestration for evaluation jobs; UI is **Develop & train → Evaluations** on 3.5 |
 | **Garak** | `garakoperator` or EvalHub provider only (3.5) | Adversarial red-team scans via EvalHub |
 
 Pre-stage with `./scripts/install.sh` (or `./install.sh` from repo root). On camera: **prove** each layer with `oc get` and the console — do not cold-install operators on stage.
@@ -99,10 +99,20 @@ oc patch datasciencecluster default-dsc --type=merge \
 ```
 
 ```bash
-oc get pods -n redhat-ods-applications | grep -i evalhub
+oc get pods -n redhat-ods-applications | grep -i eval-hub
 ```
 
-**Expected:** an EvalHub operator or server pod `Running`. If the DSC has no EvalHub component, skip live and use screenshot fallbacks for Act 5.
+**Expected:** `eval-hub-ui` pod `Running` in `redhat-ods-applications`. That alone is **not** enough for Act 5.
+
+Confirm the **EvalHub instance** (`install.sh` applies `manifests/evalhub-instance.yaml`):
+
+```bash
+oc get evalhub evalhub -n my-first-model
+oc get evalhub evalhub -n my-first-model -o jsonpath='{.spec.tenancy}{"\n"}'
+oc get pods -n my-first-model -l app=eval-hub
+```
+
+**Expected:** EvalHub CR exists with `spec.tenancy: single`, phase `Ready`, `evalhub` server pod `Running` in `my-first-model`. Do **not** label the namespace `evalhub.trustyai.opendatahub.io/tenant` — that conflicts with single-tenant placement.
 
 ### 4. Confirm Garak pipeline / provider (pre-staged)
 
@@ -110,9 +120,9 @@ oc get pods -n redhat-ods-applications | grep -i evalhub
 oc get pods -n redhat-ods-applications | grep -i garak
 ```
 
-If a separate `garakoperator` DSC component exists, confirm it the same way as EvalHub. Garak may also appear only as an **EvalHub provider** after EvalHub is Ready — check the console:
+If a separate `garakoperator` DSC component exists, confirm it the same way as EvalHub. Garak appears as an **EvalHub provider** after the EvalHub CR is Ready — check the console:
 
-OpenShift AI → project `my-first-model` → **EvalHub** → providers list includes **Garak** and **lm-eval-harness**.
+**Develop & train → Evaluations** → project `my-first-model` → **Start evaluation run** → providers include **Garak** and **lm-eval-harness**.
 
 ### 5. Confirm demo project and endpoint ConfigMap (pre-staged)
 
@@ -145,8 +155,9 @@ Workbench pods get `MLFLOW_TRACKING_URI` injected. You still set **`MLFLOW_WORKS
 ## Verification
 
 - [ ] `mlflowoperator` is `Managed`; MLflow pod `Running`
-- [ ] EvalHub operator/server pod `Running` (or screenshot fallback ready)
-- [ ] Garak provider visible in EvalHub UI (or screenshot fallback ready)
+- [ ] EvalHub CR `evalhub` Ready in `my-first-model` (`./check.sh` → `evalhub instance`)
+- [ ] **Develop & train → Evaluations** loads benchmarks for `my-first-model` (or screenshot fallback ready)
+- [ ] Garak provider visible when starting an evaluation run (or screenshot fallback ready)
 - [ ] `wings3-llm-endpoint` ConfigMap present
 - [ ] **Develop & train → Experiments** lists MLflow experiments for `my-first-model`
 - [ ] Standalone `/mlflow` loads; workspace `my-first-model`

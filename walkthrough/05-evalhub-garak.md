@@ -1,7 +1,7 @@
 # Module 5 — EvalHub and Garak platform gates
 
 **Time:** 14 minutes (6 min EvalHub + 8 min Garak) | **Role:** Platform engineer / MLOps  
-**Where:** RHOAI console (EvalHub UI) + optional notebook `04_evalhub_garak.ipynb`  
+**Where:** RHOAI console (**Develop & train → Evaluations**) + optional notebook `04_evalhub_garak.ipynb`  
 **Target:** Same `llama-32-3b-instruct` endpoint as Acts 2–4
 
 ## Know
@@ -21,8 +21,8 @@
 ## Prerequisites
 
 - `./scripts/install.sh` completed (InferenceService Ready, ConfigMap `wings3-llm-endpoint` applied)
-- EvalHub operator `Managed` (Act 1)
-- Optional: submit jobs from EvalHub UI or `scripts/submit_evalhub_demo_jobs.sh` before the session
+- EvalHub operator `Managed` and **EvalHub CR** `evalhub` in `my-first-model` (`./check.sh` → `evalhub instance`)
+- Optional: submit jobs from **Evaluations** UI or `scripts/submit_evalhub_demo_jobs.sh` before the session
 - Session 1 end state: `v2-judged` in experiment `wings3-agent-eval-prod`
 
 Endpoint (from ConfigMap):
@@ -33,13 +33,17 @@ http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
 
 ## Demo A — EvalHub lm-eval job (6 min)
 
-### 1. Open EvalHub
+### 1. Open Evaluations (RHOAI 3.5)
 
-OpenShift AI → project `my-first-model` → **EvalHub**.
+There is **no** project-level **EvalHub** sidebar tile on 3.5. Use global navigation:
+
+**Develop & train → Evaluations** → project filter **`my-first-model`**.
+
+An empty list before your first run is normal. Benchmarks appear once the EvalHub CR is deployed (`manifests/evalhub-instance.yaml`).
 
 ### 2. Create evaluation
 
-- **New evaluation**
+- **Start evaluation run**
 - **Provider:** `lm-eval-harness`
 - **Target:** endpoint URL above; model `llama-32-3b-instruct`
 - **Task:** one small harness task (demo speed — not a full production suite)
@@ -55,7 +59,7 @@ Submit → **running** → **completed**. Open metrics and pass/fail.
 
 ### 1. Submit Garak evaluation
 
-EvalHub → **New evaluation** → provider **Garak** → same endpoint → default probe set.
+**Develop & train → Evaluations** → **Start evaluation run** → provider **Garak** → same endpoint → default probe set.
 
 ### 2. Pipeline status (optional, 1 min)
 
@@ -76,16 +80,20 @@ Open MLflow → `v2-judged` where the judge passed — *"correct but not necessa
 
 ## Notebook aid
 
-[`demo/notebooks/04_evalhub_garak.ipynb`](../demo/notebooks/04_evalhub_garak.ipynb) — endpoint + job JSON templates. Primary demo remains the EvalHub console.
+[`demo/notebooks/04_evalhub_garak.ipynb`](../demo/notebooks/04_evalhub_garak.ipynb) — endpoint + job JSON templates. Primary demo remains the **Evaluations** console.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| EvalHub not in console | Run `./check.sh`; enable operator off-camera |
+| No **EvalHub** in project view | Normal on 3.5 — use **Develop & train → Evaluations** |
+| **Evaluations** empty / no benchmarks | Missing EvalHub CR — `oc apply -f manifests/evalhub-instance.yaml` (needs `spec.tenancy: single`) or re-run `./install.sh` |
+| EvalHub CR phase `Error` / `InvalidPlacement` | Remove tenant label: `oc label namespace my-first-model evalhub.trustyai.opendatahub.io/tenant-` — single-tenant EvalHub cannot run in a tenant-labelled namespace |
+| `EvalHub CR not found` in eval-hub-ui logs | Same — deploy `evalhub/evalhub` in `my-first-model` |
+| LMEvalJob exists but UI empty | `LMEvalJob` is a separate TrustyAI CR; dashboard list is populated by evaluation runs started from **Evaluations** |
 | Job fails — endpoint unreachable | `oc get inferenceservice llama-32-3b-instruct -n my-first-model` must be Ready |
 | Garak provider missing | Use `demo/assets/placeholders/demo3-garak-pipeline.png` |
-| Garak slow (>5 min) | Pre-stage jobs from EvalHub UI before the session |
+| Garak slow (>5 min) | Pre-stage jobs from Evaluations UI before the session |
 | RBAC denied | Platform admin account or pre-configured namespace |
 
 ## Verification

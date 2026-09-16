@@ -22,9 +22,13 @@ http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
 
 ## Live demo (console)
 
-1. OpenShift AI → project `my-first-model` → **EvalHub**
-2. **New evaluation** → provider **lm-eval-harness** → target URL above
-3. **New evaluation** → provider **Garak** → same target → open HTML report
+On RHOAI 3.5 there is no project-level **EvalHub** tile. Use:
+
+1. **Develop & train → Evaluations** → project filter **`my-first-model`**
+2. **Start evaluation run** → provider **lm-eval-harness** → target URL above
+3. **Start evaluation run** → provider **Garak** → same target → open HTML report
+
+Requires EvalHub CR `evalhub` in `my-first-model` (`manifests/evalhub-instance.yaml`, applied by `install.sh`).
 
 Walkthrough: [`../../walkthrough/05-evalhub-garak.md`](../../walkthrough/05-evalhub-garak.md)
 

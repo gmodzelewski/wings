@@ -6,9 +6,11 @@ Stage path is demo/notebooks/03_prod_eval_judges.ipynb (inline SHOW comments).
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import os
+import sys
 import warnings
 from pathlib import Path
 
@@ -21,12 +23,12 @@ load_dotenv()
 
 import mlflow
 from mlflow.genai.scorers import Correctness, Guidelines, scorer
-from traced_agent import calculator, create_agent_graph, get_config_from_env
-
-V2_PROMPT = (
-    "You are a precise math assistant. Always use the calculator tool for arithmetic. "
-    "State the numeric result clearly in your answer."
+from prompts import (
+    AGENT_PROMPT_REGISTRY_NAME,
+    NUMERIC_AND_CLEAR_GUIDELINES,
+    V2_AGENT_PROMPT,
 )
+from traced_agent import calculator, create_agent_graph, get_config_from_env
 
 GOLDEN_PATH = Path(__file__).resolve().parent.parent / "datasets" / "math_golden.jsonl"
 DATASET_NAME = "math_golden"
@@ -105,9 +107,9 @@ _agent = None
 def get_agent():
     global _agent
     if _agent is None:
-        print(f"System prompt (v2):\n{V2_PROMPT}\n")
+        print(f"System prompt (v2):\n{V2_AGENT_PROMPT}\n")
         _agent = create_agent_graph(
-            get_config_from_env(), tools=[calculator], system_prompt=V2_PROMPT
+            get_config_from_env(), tools=[calculator], system_prompt=V2_AGENT_PROMPT
         )
     return _agent
 
@@ -169,7 +171,31 @@ def register_golden_dataset(records: list[dict], experiment_id: str):
     return dataset
 
 
-def run_evaluation() -> dict:
+def register_prompts_and_judges(experiment_id: str, judge_model: str) -> tuple:
+    """Register agent prompt + judges for MLflow UI catalogs."""
+    mlflow.genai.register_prompt(
+        name=AGENT_PROMPT_REGISTRY_NAME,
+        template=[{"role": "system", "content": V2_AGENT_PROMPT}],
+        commit_message="WINGS3 Module 4 agent system prompt",
+        tags={"wings3": "module-4", "kind": "agent-system"},
+    )
+    print(f"Registered prompt: {AGENT_PROMPT_REGISTRY_NAME} — open MLflow → Prompts")
+
+    correctness = Correctness(model=judge_model).register(
+        name="correctness",
+        experiment_id=experiment_id,
+    )
+    numeric_and_clear = Guidelines(
+        name="numeric_and_clear",
+        guidelines=NUMERIC_AND_CLEAR_GUIDELINES,
+        model=judge_model,
+    ).register(name="numeric_and_clear", experiment_id=experiment_id)
+    print("Registered judges: correctness, numeric_and_clear — open MLflow → Judges")
+    print("Eval-only (not in Judges catalog): contains_expected")
+    return correctness, numeric_and_clear
+
+
+def _ensure_mlflow_env() -> str:
     k8s = os.environ.get("MLFLOW_K8S_INTEGRATION", "").lower() == "true"
     if not k8s and not os.environ.get("MLFLOW_TRACKING_TOKEN"):
         raise SystemExit(
@@ -183,39 +209,43 @@ def run_evaluation() -> dict:
     if not uri:
         raise SystemExit("MLFLOW_TRACKING_URI is not set")
     mlflow.set_tracking_uri(uri)
+    return uri
+
+
+def register_catalog(register_only: bool = False) -> dict | None:
+    """Register dataset, agent prompt, and judges. Optionally skip the full eval."""
+    _ensure_mlflow_env()
     experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "wings3-agent-eval-prod")
     experiment = mlflow.set_experiment(experiment_name)
-    os.environ["MLFLOW_GENAI_EVAL_MAX_WORKERS"] = "1"
-    from mlflow.utils.databricks_utils import is_in_cluster, is_in_databricks_notebook
-
-    is_in_cluster()
-    is_in_databricks_notebook()
-    mlflow.langchain.autolog()
 
     records = load_golden_records()
     dataset = register_golden_dataset(records, experiment.experiment_id)
 
     judge_model = configure_cluster_judge()
     print(f"Judge model: {judge_model}")
-    correctness = Correctness(model=judge_model)
-    correctness = correctness.register(
-        name="correctness",
-        experiment_id=experiment.experiment_id,
+    correctness, numeric_and_clear = register_prompts_and_judges(
+        experiment.experiment_id, judge_model
     )
-    print("Registered judge: correctness — open MLflow → Judges")
-    print("Eval-only (not in Judges catalog): contains_expected, numeric_and_clear")
-    scorers = [
-        contains_expected,
-        correctness,
-        Guidelines(
-            name="numeric_and_clear",
-            guidelines=[
-                "The numeric result must appear as digits in the response.",
-                "The response must state a single clear arithmetic result.",
-            ],
-            model=judge_model,
-        ),
-    ]
+
+    prompt_names = [p.name for p in mlflow.genai.search_prompts()]
+    scorer_names = [s.name for s in mlflow.genai.list_scorers(experiment_id=experiment.experiment_id)]
+    print(f"Prompts in registry: {prompt_names}")
+    print(f"Judges in experiment: {scorer_names}")
+
+    if register_only:
+        return None
+
+    scorers = [contains_expected, correctness, numeric_and_clear]
+    return _run_eval(dataset, records, scorers)
+
+
+def _run_eval(dataset, records: list[dict], scorers: list) -> dict:
+    os.environ["MLFLOW_GENAI_EVAL_MAX_WORKERS"] = "1"
+    from mlflow.utils.databricks_utils import is_in_cluster, is_in_databricks_notebook
+
+    is_in_cluster()
+    is_in_databricks_notebook()
+    mlflow.langchain.autolog()
 
     global _agent
     _agent = None
@@ -238,5 +268,21 @@ def run_evaluation() -> dict:
     return result.metrics
 
 
+def run_evaluation(register_only: bool = False) -> dict | None:
+    return register_catalog(register_only=register_only)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="WINGS3 Module 4 golden set + hybrid judges")
+    parser.add_argument(
+        "--register-only",
+        action="store_true",
+        help="Register dataset, prompt, and judges without running v2-judged eval",
+    )
+    args = parser.parse_args(argv)
+    run_evaluation(register_only=args.register_only)
+    return 0
+
+
 if __name__ == "__main__":
-    run_evaluation()
+    sys.exit(main())

@@ -330,16 +330,33 @@ def test_golden_register_refreshes_from_git():
 def test_correctness_judge_is_registered():
     judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
     blob = _notebook_source("03_prod_eval_judges.ipynb")
+    prompts = (WINGS3_ROOT / "demo" / "agent-tracing" / "prompts.py").read_text()
+    assert "wings3-agent-v2" in prompts
     for src in (judges, blob):
         assert ".register(" in src
         assert 'name="correctness"' in src
         assert "Eval-only" in src
+        assert "register_prompt" in src
+        assert 'name="numeric_and_clear"' in src
+    assert "AGENT_PROMPT_REGISTRY_NAME" in judges
+    assert "wings3-agent-v2" in blob
     mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
     assert "Judges" in mod4
     assert "currently not available" in mod4
     assert "create_dataset" in mod4
+    assert "wings3-agent-v2" in mod4
     script = (WINGS3_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
     assert "correctness" in script
+
+
+def test_shared_prompts_module():
+    prompts = (WINGS3_ROOT / "demo" / "agent-tracing" / "prompts.py").read_text()
+    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    assert "V2_AGENT_PROMPT" in prompts
+    assert "NUMERIC_AND_CLEAR_GUIDELINES" in prompts
+    assert "wings3-agent-v2" in prompts
+    assert "from prompts import" in judges
+    assert "--register-only" in judges
 
 
 def test_judge_uses_hosted_vllm_not_native_openai():

@@ -95,10 +95,82 @@ def check_inferenceservice(project: str, model: str) -> CheckResult:
 
 def check_evalhub_pod(mlflow_ns: str) -> CheckResult:
     for pattern in ("eval-hub", "evalhub", "evaluation"):
-        result = check_pod_ready(mlflow_ns, pattern, "evalhub pod")
+        result = check_pod_ready(mlflow_ns, pattern, "evalhub ui pod")
         if result.ok:
             return result
-    return CheckResult("evalhub pod", False, "no Ready pod matching eval-hub/evalhub/evaluation")
+    return CheckResult("evalhub ui pod", False, "no Ready pod matching eval-hub/evalhub/evaluation")
+
+
+def namespace_has_evalhub_tenant_label(labels: str) -> bool:
+    return "evalhub.trustyai.opendatahub.io/tenant" in labels
+
+
+def evalhub_cr_is_single_tenant(project: str) -> bool:
+    result = _oc(
+        [
+            "get",
+            "evalhub",
+            "evalhub",
+            "-n",
+            project,
+            "-o",
+            "jsonpath={.spec.tenancy}",
+        ]
+    )
+    return result.returncode == 0 and result.stdout.strip() == "single"
+
+
+def check_evalhub_instance(project: str) -> CheckResult:
+    cr = _oc(["get", "evalhub", "evalhub", "-n", project])
+    if cr.returncode != 0:
+        return CheckResult(
+            "evalhub instance",
+            False,
+            f"evalhub/evalhub missing in {project} — oc apply -f manifests/evalhub-instance.yaml",
+        )
+
+    if not evalhub_cr_is_single_tenant(project):
+        return CheckResult(
+            "evalhub instance",
+            False,
+            f"evalhub/evalhub in {project} must have spec.tenancy: single",
+        )
+
+    label_result = _oc(["get", "namespace", project, "--show-labels"])
+    if label_result.returncode == 0 and namespace_has_evalhub_tenant_label(label_result.stdout):
+        return CheckResult(
+            "evalhub instance",
+            False,
+            f"remove tenant label: oc label namespace {project} evalhub.trustyai.opendatahub.io/tenant-",
+        )
+
+    phase = _oc(
+        [
+            "get",
+            "evalhub",
+            "evalhub",
+            "-n",
+            project,
+            "-o",
+            "jsonpath={.status.phase}",
+        ]
+    )
+    phase_value = phase.stdout.strip() if phase.returncode == 0 else ""
+    if phase_value and phase_value not in ("Running", "Ready"):
+        return CheckResult(
+            "evalhub instance",
+            False,
+            f"evalhub/evalhub phase={phase_value}",
+        )
+
+    pod = check_pod_ready(project, "evalhub", "evalhub server pod")
+    if not pod.ok:
+        return CheckResult(
+            "evalhub server pod",
+            False,
+            f"no Ready evalhub pod in {project}",
+        )
+    return CheckResult("evalhub instance", True, pod.detail or "evalhub")
 
 
 def servingruntime_version_current(template_version: str, sr_version: str) -> bool:
@@ -255,6 +327,7 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
         check_mlflow_cr(mlflow_ns),
         check_pod_ready(mlflow_ns, "mlflow", "mlflow pod"),
         check_evalhub_pod(mlflow_ns),
+        check_evalhub_instance(project),
         check_notebook_ready(project, workbench),
         check_resource("configmap", "wings3-llm-endpoint", project, "configmap wings3-llm-endpoint"),
         check_resource("secret", "wings3-judge-llm", project, "secret wings3-judge-llm"),

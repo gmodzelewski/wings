@@ -8,3 +8,4 @@ __pycache__/
 .DS_Store
 *.pptx
 *.pptx.bak
+manifests/secret-wings3-judge-llm.yaml

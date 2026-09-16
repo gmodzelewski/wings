@@ -297,6 +297,14 @@ apply_evalhub_manifests() {
   if [[ -f "${MANIFESTS}/evalhub-rbac-wings3.yaml" ]]; then
     run oc apply -f "${MANIFESTS}/evalhub-rbac-wings3.yaml"
   fi
+  if [[ -f "${MANIFESTS}/evalhub-instance.yaml" ]]; then
+    run oc apply -f "${MANIFESTS}/evalhub-instance.yaml"
+    # single-tenant EvalHub must not run in a tenant-labelled namespace
+    run oc label namespace "$PROJECT" evalhub.trustyai.opendatahub.io/tenant- --overwrite 2>/dev/null || true
+    if ! wait_for_pod_grep "$PROJECT" "evalhub" 300 0; then
+      echo "warning: EvalHub server pod not Ready in ${PROJECT}" >&2
+    fi
+  fi
 }
 
 wait_for_workbench() {
