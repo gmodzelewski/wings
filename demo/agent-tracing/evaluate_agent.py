@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WINGS3: GenAI evaluation — CLI / bootstrap --warmup only.
+"""WINGS3: GenAI evaluation — CLI / rehearsal only.
 
 Stage path is demo/notebooks/02_eval_improvement.ipynb (inline SHOW comments).
 """

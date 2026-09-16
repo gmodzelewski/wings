@@ -1,0 +1,21 @@
+# Template Evaluation job for Act 5 — Garak red-team scan via EvalHub.
+# Applied only when the Evaluation CRD exists (see scripts/submit_evalhub_demo_jobs.sh).
+# Garak pipelines can take several minutes — pre-stage before the session.
+apiVersion: evaluations.redhat.com/v1alpha1
+kind: Evaluation
+metadata:
+  name: wings3-demo-garak
+  namespace: my-first-model
+  labels:
+    app: wings3-demo
+    wings3.demo/garak: "true"
+  annotations:
+    openshift.io/description: WINGS3 demo — Garak adversarial scan against llama-32-3b-instruct
+spec:
+  displayName: wings3-demo-garak
+  provider: garak
+  target:
+    url: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+    model: llama-32-3b-instruct
+  config:
+    probe_set: default

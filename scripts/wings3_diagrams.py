@@ -260,14 +260,13 @@ def diagram_eval_improvement_loop() -> Path:
 
 
 def diagram_personas_three_hats() -> Path:
-    img, d = _canvas("Three hats, one thread")
+    img, d = _canvas("Two roles — then we stop talking about hats")
     tf, bf = _font(20, True), _font(16)
     hats = [
-        ("Platform", "Act 1 — oc get + /mlflow\nYou can see the agent", RH_RED),
-        ("Developer", "Act 2 — SHOW autolog\nYou can debug it", RH_BLUE),
-        ("Data scientist", "Act 3 — SHOW evaluate\nYou can prove a prompt moved", RH_GREEN),
+        ("Platform engineer", "Act 1 — operator + CR\nYou can see the agent", RH_RED),
+        ("AI engineer", "Acts 2–4 — traces, eval, judges\nAuthorized to the workspace", RH_BLUE),
     ]
-    cw = (W - 80) // 3
+    cw = (W - 80) // 2
     for i, (role, tasks, color) in enumerate(hats):
         x0 = 30 + i * (cw + 10)
         d.ellipse((x0 + cw // 2 - 36, 90, x0 + cw // 2 + 36, 162), fill=color)
@@ -280,7 +279,7 @@ def diagram_agenda_one_hour() -> Path:
     img, d = _canvas("Sixty minutes — three PAUSE marks")
     tf, bf = _font(20, True), _font(16)
     blocks = [
-        ("0:00", "Intro + why native + hats", "6 min", RH_DARK),
+        ("0:00", "Intro + terms + product tour", "6 min", RH_DARK),
         ("0:06", "Act 1 — verify  ·  PAUSE /mlflow", "8 min", RH_RED),
         ("0:14", "Act 2 — autolog  ·  PAUSE notebook", "22 min", RH_BLUE),
         ("0:36", "Act 3 — eval  ·  PAUSE notebook", "15 min", RH_GREEN),

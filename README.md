@@ -1,4 +1,4 @@
-# WINGS3 — MLflow on OpenShift AI (Deep Dive)
+# WINGS3 — Agent observability with MLflow on OpenShift AI (Deep Dive)
 
 Public repo: https://github.com/gmodzelewski/wings
 
@@ -9,7 +9,7 @@ Two 60-minute paths on the same cluster:
 | WINGS teaching | Notebooks + slides | [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) |
 | Customer / partner | Pre-staged `/mlflow` only — no deck | [walkthrough/customer-ui-click-script.md](walkthrough/customer-ui-click-script.md) |
 
-**WINGS red thread:** Without a tracking server you cannot see the agent; without traces you cannot debug it; without eval you cannot prove it got better.
+**WINGS red thread:** Tracking server on the platform — you can **see** the agent; traces — you can **fix** it; eval — you can **prove** a prompt change helped; dataset + judge — you can **ship**; EvalHub + Garak — **platform gates** before promote (Act 5).
 
 **Customer red thread:** operate → fix → prove → ship (golden set + judges in the hour; `math_golden` and `v2-judged` are required pre-stage).
 
@@ -19,8 +19,8 @@ See [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md).
 
 | Block | Minutes | Live |
 |-------|---------|------|
-| Intro + personas | 6 | Slides |
-| Act 1 Install | 8 | Pre-apply CR; live `oc get` + standalone `/mlflow` |
+| Intro + terms + product tour | 6 | Slides |
+| Act 1 Install | 10 | Pre-apply CRs; live `oc get` + `/mlflow` + EvalHub/Garak check |
 | Act 2 Autolog | 22 | Workbench `wings3-demo` (YAML); one query; Error then OK trace |
 | Act 3 Evaluate | 15 | Same workbench notebook; substring scorer, not a production SLO |
 | Production + Q&A | 9 | Slides |
@@ -33,24 +33,22 @@ Acts 2 and 3 run in JupyterLab workbench **`wings3-demo`** in project `my-first-
 
 Values: [walkthrough/partials/_attributes.md](walkthrough/partials/_attributes.md).
 
-## Bootstrap / teardown
+## Install / uninstall / check
 
-RHOAI must already be installed. Bootstrap creates the GPU InferenceService from the cluster `vllm-cuda-runtime-template` (set `WINGS3_LLM_STORAGE_URI` if none exists yet). Use `--skip-llm` on a GPU-less sandbox.
+RHOAI must already be installed (3.4 or 3.5). Install patches `mlflowoperator` to Managed, discovers EvalHub (`evalhuboperator` on 3.4, `trustyai` on 3.5), applies manifests, and creates the GPU InferenceService from `vllm-cuda-runtime-template` (set `WINGS3_LLM_STORAGE_URI` if none exists yet). Reuses an existing Ready InferenceService and reconciles the ServingRuntime when the cluster template version is newer. Use `--skip-llm` on a GPU-less sandbox.
 
 ```bash
 # After oc login, from this repo root:
-./scripts/bootstrap.sh              # operator, MLflow CR, project, GPU model, workbench, git clone, pip
-./scripts/bootstrap.sh --warmup     # plus one autolog query and v1 eval
-./scripts/bootstrap.sh --skip-llm
-./scripts/bootstrap.sh --dry-run
+./install.sh              # full demo install
+./install.sh --skip-llm   # GPU-less sandbox (no InferenceService)
 
-./scripts/teardown.sh               # workbench only (keeps MLflow, operator, LLM)
-./scripts/teardown.sh --purge-llm
-./scripts/teardown.sh --purge-mlflow
-./scripts/teardown.sh --purge-project --yes
+./check.sh                # verify demo is healthy; exit 1 on failure
+
+./uninstall.sh            # workbench only (shared-cluster safe)
+./uninstall.sh --all      # full reset for reinstall (keeps LLM + operators)
 ```
 
-Details: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md).
+Set `WINGS3_VERBOSE=1` for detailed progress. Details: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md).
 
 ## Workbench — autolog
 
@@ -78,22 +76,29 @@ Open `demo/notebooks/02_eval_improvement.ipynb`. On stage, stop at each **SHOW:*
 
 Not in the WINGS teaching hour. **Required on camera for the customer UI hour** (pre-logged, not live-run). Open `demo/notebooks/03_prod_eval_judges.ipynb` only if asked. Guide: [walkthrough/04-prod-eval-judges.md](walkthrough/04-prod-eval-judges.md). Registered golden set + hybrid substring + LLM judges on hosted MaaS (`gpt-oss-120b`, Secret `wings3-judge-llm`); agent stays on in-cluster 3B. Scores in experiment `wings3-agent-eval-prod`. Pre-stage commands: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) → Customer UI hour.
 
+## Act 5 — EvalHub and Garak (Session 2)
+
+Same `llama-32-3b-instruct` endpoint as Acts 2–4. Primary demo is the **EvalHub console** (lm-eval-harness job, then Garak scan + HTML report). Presenter aid: `demo/notebooks/04_evalhub_garak.ipynb`. Guide: [walkthrough/05-evalhub-garak.md](walkthrough/05-evalhub-garak.md). Job templates: `demo/evalhub/jobs/`. Pre-stage: submit jobs from the EvalHub UI or `scripts/submit_evalhub_demo_jobs.sh`.
+
 ## Build presentation
 
 Plain deck (default Office layouts, speaker notes on every slide). Teach → PAUSE → RETURN wrap. Run-of-show times stay 6 / 8 / 22 / 15 / 9; Module 4 is a follow-on section in the same file.
 
 ```bash
-python3 scripts/build_wings3_deck.py
+python3 scripts/build_wings3_deck.py          # plain Office deck
+python3 scripts/revise_wings3_branded_deck.py # branded AI Wings 3 - Deep Dive.pptx
 ```
 
 Output: [`MLflow-on-RHOAI-Deep-Dive.pptx`](MLflow-on-RHOAI-Deep-Dive.pptx)
 
 ## Layout
 
-- `walkthrough/` — presenter setup, four modules (04 is a WINGS follow-on), and [customer-ui-click-script.md](walkthrough/customer-ui-click-script.md) (Module 4 UI in that hour)
+- `walkthrough/` — presenter setup, modules 1–5, and [customer-ui-click-script.md](walkthrough/customer-ui-click-script.md)
 - `demo/agent-tracing/` — autolog + evaluate scripts
+- `demo/evalhub/` — Act 5 job templates and endpoint reference
 - `demo/datasets/` — golden eval JSONL for Module 4
-- `demo/notebooks/` — Act 2 autolog + Act 3 eval + Module 4 judges notebooks (`SHOW:` comments)
-- `manifests/` — MLflow CR, dashboard namespace label, workbench `wings3-demo`, judge Secret `wings3-judge-llm` (empty `JUDGE_API_KEY`), InferenceService, prod CR example
-- `scripts/` — diagrams, slide content, deck builder, `bootstrap.sh` / `teardown.sh`
+- `demo/notebooks/` — Acts 2–4 notebooks + `04_evalhub_garak.ipynb` (Act 5)
+- `manifests/` — MLflow CR, workbench, judge Secret, InferenceService, EvalHub endpoint ConfigMap, demo evaluation job templates
+- `install.sh` / `uninstall.sh` / `check.sh` — unified demo install, health check, teardown
+- `scripts/` — diagrams, slide content, deck builder, `submit_evalhub_demo_jobs.sh`
 - `tests/` — unit tests for deck, calculator, cluster scripts

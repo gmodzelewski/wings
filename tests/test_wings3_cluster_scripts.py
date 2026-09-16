@@ -1,13 +1,16 @@
-"""Tests for WINGS3 cluster bootstrap and teardown scripts."""
+"""Tests for WINGS3 cluster install, uninstall, and check scripts."""
 
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 WINGS3_ROOT = Path(__file__).resolve().parent.parent
-BOOTSTRAP = WINGS3_ROOT / "scripts" / "bootstrap.sh"
-TEARDOWN = WINGS3_ROOT / "scripts" / "teardown.sh"
+INSTALL = WINGS3_ROOT / "scripts" / "install.sh"
+UNINSTALL = WINGS3_ROOT / "scripts" / "uninstall.sh"
+CHECK = WINGS3_ROOT / "scripts" / "check.sh"
+CHECK_PY = WINGS3_ROOT / "scripts" / "check_demo.py"
 
 
 def _run(script: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -22,17 +25,17 @@ def _run(script: Path, *args: str) -> subprocess.CompletedProcess[str]:
 def test_workbench_clones_public_wings_repo():
     text = (WINGS3_ROOT / "manifests" / "workbench-wings3-demo.yaml").read_text()
     assert "https://github.com/gmodzelewski/wings.git" in text
-    # Image start script already sets root_dir=/opt/app-root/src. A second
-    # --ServerApp.root_dir in NOTEBOOK_ARGS crash-loops Jupyter (got 2 values).
     assert "--ServerApp.root_dir=/opt/app-root/src/wings" not in text
     assert "workingDir: /opt/app-root/src/wings" in text
     assert "initContainers:" in text
-    assert BOOTSTRAP.is_file(), "missing scripts/bootstrap.sh"
-    assert TEARDOWN.is_file(), "missing scripts/teardown.sh"
+    assert INSTALL.is_file(), "missing scripts/install.sh"
+    assert UNINSTALL.is_file(), "missing scripts/uninstall.sh"
+    assert CHECK.is_file(), "missing scripts/check.sh"
+    assert (WINGS3_ROOT / "check.sh").is_file(), "missing check.sh"
 
 
 def test_scripts_are_valid_bash():
-    for script in (BOOTSTRAP, TEARDOWN):
+    for script in (INSTALL, UNINSTALL, CHECK):
         result = subprocess.run(
             ["bash", "-n", str(script)],
             check=False,
@@ -42,115 +45,109 @@ def test_scripts_are_valid_bash():
         assert result.returncode == 0, f"{script.name}: {result.stderr}"
 
 
-def test_bootstrap_help_documents_warmup_and_dry_run():
-    result = _run(BOOTSTRAP, "--help")
+def test_install_help_documents_skip_llm_only():
+    result = _run(INSTALL, "--help")
     assert result.returncode == 0, result.stderr
     text = result.stdout.lower()
-    assert "--warmup" in text
-    assert "--dry-run" in text
-    assert "--skip-pip" in text
     assert "--skip-llm" in text
-    assert "inferenceservice" in text
+    assert "wings3_llm_storage_uri" in text
+    assert "--warmup" not in text
+    assert "--dry-run" not in text
+    assert "--force-llm" not in text
+    assert "--prestage-evalhub" not in text
 
 
-def test_teardown_help_documents_shared_cluster_safe_default():
-    result = _run(TEARDOWN, "--help")
+def test_uninstall_help_documents_all_only():
+    result = _run(UNINSTALL, "--help")
     assert result.returncode == 0, result.stderr
     text = result.stdout.lower()
-    assert "--dry-run" in text
-    assert "--purge-mlflow" in text
-    assert "--purge-project" in text
-    assert "--purge-llm" in text
-    assert "operator" in text
-    assert "--yes" in text
+    assert "--all" in text
+    assert "inferenceservice" in text or "llm" in text
+    assert "--dry-run" not in text
+    assert "--purge-llm" not in text
+    assert "--purge-evalhub" not in text
+    assert "--yes" not in text
 
 
-def test_bootstrap_dry_run_applies_manifests_and_the_llm():
-    result = _run(BOOTSTRAP, "--dry-run")
+def test_check_help_documents_skip_llm():
+    result = _run(CHECK, "--help")
     assert result.returncode == 0, result.stderr
-    out = result.stdout
-    assert "mlflow-dev.yaml" in out
-    assert "namespace-my-first-model.yaml" in out
-    assert "workbench-wings3-demo.yaml" in out
-    assert "secret-wings3-judge-llm.yaml" in out
-    assert "mlflowoperator" in out.lower()
-    assert "vllm-cuda-runtime-template" in out
-    assert "inferenceservice-llama-32-3b-instruct.yaml" in out
-    assert "Recreate" in out
-    assert "would not create InferenceService" not in out
-    assert "requirements.txt" in out
-    assert "--extra-index-url" in out
-    assert "git clone" in out
-    assert "WINGS3_ONE_QUERY" not in out
+    text = result.stdout.lower()
+    assert "--skip-llm" in text or "skip" in text
 
 
-def test_bootstrap_dry_run_skip_llm_does_not_instantiate_runtime():
-    result = _run(BOOTSTRAP, "--dry-run", "--skip-llm")
-    assert result.returncode == 0, result.stderr
-    out = result.stdout
-    assert "skip llm" in out.lower()
-    assert "instantiate ServingRuntime" not in out
-    assert "would not create InferenceService" not in out
+def test_check_demo_py_imports_and_evalhub_logic():
+    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    from check_demo import check_evalhub_pod, run_checks
+
+    assert callable(run_checks)
+    assert callable(check_evalhub_pod)
 
 
-def test_bootstrap_dry_run_warmup_runs_one_query_and_v1_eval():
-    result = _run(BOOTSTRAP, "--dry-run", "--warmup")
-    assert result.returncode == 0, result.stderr
-    out = result.stdout
-    assert "WINGS3_ONE_QUERY" in out
-    assert "run_tracing_demo_autolog.py" in out
-    assert "WINGS3_PROMPT_VERSION=v1" in out
-    assert "evaluate_agent.py" in out
+def test_judge_secret_and_mount_helpers():
+    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    from check_demo import judge_api_key_populated, workbench_has_judge_mount
+
+    assert judge_api_key_populated("dGVzdA==")
+    assert not judge_api_key_populated("")
+    assert not judge_api_key_populated("   ")
+    assert workbench_has_judge_mount(
+        ["/opt/app-root/src", "/etc/wings3-judge-llm"],
+        ["wings3-judge-llm"],
+    )
+    assert not workbench_has_judge_mount(
+        ["/opt/app-root/src"],
+        ["wings3-judge-llm"],
+    )
 
 
-def test_teardown_dry_run_default_deletes_workbench_only():
-    result = _run(TEARDOWN, "--dry-run")
-    assert result.returncode == 0, result.stderr
-    out = result.stdout.lower()
-    assert "notebook" in out
-    assert "wings3-demo" in out
-    assert "pvc" in out
-    assert "serviceaccount" in out or " sa " in f" {out} "
-    assert "delete mlflow" not in out
-    assert "inferenceservice" not in out or "keep" in out
-    assert "removed" not in out
+def test_servingruntime_version_current_logic():
+    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    from check_demo import servingruntime_version_current
+
+    assert servingruntime_version_current("v0.24.0", "v0.24.0")
+    assert not servingruntime_version_current("v0.24.0", "v0.9.1.0")
+    assert not servingruntime_version_current("v0.24.0", "")
+    assert not servingruntime_version_current("", "v0.24.0")
 
 
-def test_teardown_dry_run_purge_mlflow_deletes_cr_not_operator():
-    result = _run(TEARDOWN, "--dry-run", "--purge-mlflow")
-    assert result.returncode == 0, result.stderr
-    out = result.stdout.lower()
-    assert "mlflow" in out
-    assert "delete" in out
-    assert "mlflowoperator" not in out or "would not" in out
+def test_discover_dsc_components_py_imports():
+    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    from discover_dsc_components import discover_evalhub_component, discover_garak_component
+
+    components = {
+        "trustyai": {"managementState": "Managed"},
+        "dashboard": {"managementState": "Managed"},
+    }
+    assert discover_evalhub_component(components) == "trustyai"
+    assert discover_garak_component(components) == ""
 
 
-def test_teardown_purge_project_requires_yes():
-    result = _run(TEARDOWN, "--purge-project")
-    assert result.returncode != 0
-    assert "--yes" in (result.stdout + result.stderr).lower()
+def test_lmevaljob_manifest_targets_openai_endpoint():
+    text = (WINGS3_ROOT / "manifests" / "evalhub-demo-lmevaljob.yaml").read_text()
+    assert "trustyai.opendatahub.io/v1alpha1" in text
+    assert "kind: LMEvalJob" in text
+    assert "openai-chat-completions" in text
+    assert "llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local" in text
+    assert "gsm8k" in text
 
 
-def test_teardown_dry_run_purge_project_deletes_namespace():
-    result = _run(TEARDOWN, "--dry-run", "--purge-project", "--yes")
+def test_submit_evalhub_dry_run_mentions_lmevaljob():
+    script = WINGS3_ROOT / "scripts" / "submit_evalhub_demo_jobs.sh"
+    result = _run(script, "--dry-run")
     assert result.returncode == 0, result.stderr
     out = result.stdout.lower()
-    assert "my-first-model" in out
-    assert "llama-32-3b-instruct" in out
+    assert "evalhub-demo-lmevaljob.yaml" in out
+    assert "lmevaljob" in out
 
 
-def test_teardown_dry_run_purge_llm_deletes_is_and_runtime():
-    result = _run(TEARDOWN, "--dry-run", "--purge-llm")
-    assert result.returncode == 0, result.stderr
-    out = result.stdout.lower()
-    assert "inferenceservice" in out
-    assert "servingruntime" in out
-    assert "delete" in out
+def test_configmap_manifest_has_endpoint_hostname():
+    text = (WINGS3_ROOT / "manifests" / "configmap-wings3-llm-endpoint.yaml").read_text()
+    assert "llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local" in text
+    assert "openai_base_url" in text
 
 
 def test_instantiate_servingruntime_sets_name_and_namespace():
-    import sys
-
     sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
     from instantiate_servingruntime import servingruntime_from_template
 
@@ -199,10 +196,15 @@ def test_judge_secret_is_empty_key_and_workbench_mounts_it():
 def test_presenter_docs_point_at_cluster_scripts():
     setup = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
     readme = (WINGS3_ROOT / "README.md").read_text()
-    assert "scripts/bootstrap.sh" in setup
-    assert "scripts/teardown.sh" in setup
-    assert "scripts/bootstrap.sh" in readme
-    assert "scripts/teardown.sh" in readme
-    assert "vllm-cuda-runtime-template" in setup
+    assert "./install.sh" in setup
+    assert "./uninstall.sh" in setup
+    assert "./check.sh" in setup
+    assert "./install.sh" in readme
+    assert "./uninstall.sh" in readme
+    assert "./check.sh" in readme
     assert "--skip-llm" in setup
-    assert "--purge-llm" in setup
+    assert "--all" in setup
+    assert "bootstrap.sh" not in setup
+    assert "teardown.sh" not in setup
+    assert "discover_evalhub.sh" not in setup
+    assert "05-evalhub-garak.md" in readme

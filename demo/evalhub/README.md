@@ -1,0 +1,50 @@
+# Act 5 — EvalHub and Garak
+
+Platform gates after MLflow Acts 1–4. Same calculator agent endpoint: `llama-32-3b-instruct` in `my-first-model`.
+
+## Red thread step 5
+
+MLflow judges answer *is the answer right?* EvalHub runs **platform jobs** (benchmarks, pass/fail). Garak asks *is it safe under attack?*
+
+## Endpoint
+
+Read from the cluster ConfigMap (applied by `install.sh`):
+
+```bash
+oc get configmap wings3-llm-endpoint -n my-first-model -o yaml
+```
+
+In-cluster OpenAI-compatible URL:
+
+```text
+http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+```
+
+## Live demo (console)
+
+1. OpenShift AI → project `my-first-model` → **EvalHub**
+2. **New evaluation** → provider **lm-eval-harness** → target URL above
+3. **New evaluation** → provider **Garak** → same target → open HTML report
+
+Walkthrough: [`../../walkthrough/05-evalhub-garak.md`](../../walkthrough/05-evalhub-garak.md)
+
+## Pre-stage (recommended)
+
+```bash
+./scripts/submit_evalhub_demo_jobs.sh
+# or
+./scripts/submit_evalhub_demo_jobs.sh
+```
+
+Garak scans can exceed five minutes. Submit before the session or use screenshots in `demo/assets/placeholders/`.
+
+## Job templates
+
+- [`jobs/lm-eval-demo.json`](jobs/lm-eval-demo.json) — REST/UI payload for lm-eval-harness
+- [`jobs/garak-demo.json`](jobs/garak-demo.json) — REST/UI payload for Garak
+
+Manifest equivalents: [`../../manifests/evalhub-demo-lm-eval.yaml`](../../manifests/evalhub-demo-lm-eval.yaml), [`../../manifests/evalhub-demo-garak.yaml`](../../manifests/evalhub-demo-garak.yaml)
+
+## Notebook
+
+Presenter aid: [`../notebooks/04_evalhub_garak.ipynb`](../notebooks/04_evalhub_garak.ipynb)

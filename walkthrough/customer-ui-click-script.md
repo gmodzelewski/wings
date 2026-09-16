@@ -5,7 +5,7 @@
 
 **Pain (say once, before any click):** A tool-using agent can be confidently wrong, and today you only see the chat bubble.
 
-**Red thread (repeat before each screen):** Without a tracking server on the cluster you cannot **operate** the agent; without traces you cannot **fix** it; without eval you cannot **prove** a prompt change helped; without a golden set and a judge you can argue with, you cannot **ship**.
+**Red thread (repeat before each screen):** Tracking server on the cluster — you can **operate** the agent; traces — you can **fix** it; eval — you can **prove** a prompt change helped; a golden set and a judge you can argue with — you can **ship**.
 
 The calculator stands in for any tool (`retrieve_order`, `lookup_policy`, `call_api`). Do not rewrite the agent on camera.
 
@@ -57,7 +57,8 @@ Fallback: `18-eval-metrics.png`, `19-eval-per-example.png`.
 Experiment **wings3-agent-eval-prod**:
 
 1. **Datasets** → `math_golden` (8 records). Named golden set, not a Python list.
-2. **Evaluation** → `v2-judged`. Open a row where substring and judge **disagree**, or a Fail with rationale, and **read the judge text**.
+2. Optional 10s: **Judges** (or **Scorers**) → `correctness`. Catalog entry; scores still live on Evaluation.
+3. **Evaluation** → `v2-judged`. Open a row where substring and judge **disagree**, or a Fail with rationale, and **read the judge text**.
 
 **Say:** Without a golden set and a judge you can argue with, you cannot ship. Scores with rationales plus a cheap substring safety net — that is a reviewable gate.
 

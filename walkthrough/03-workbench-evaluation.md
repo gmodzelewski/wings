@@ -1,6 +1,6 @@
 # Module 3 — Workbench evaluation improvement
 
-**Time:** 15 minutes | **Persona:** Data scientist  
+**Time:** 15 minutes | **Role:** AI engineer  
 **Where:** Same JupyterLab workbench as Module 2 — notebook first
 
 ## Know
@@ -26,7 +26,7 @@ In JupyterLab: `demo/notebooks/02_eval_improvement.ipynb`
 
 ### 2. Stop at each SHOW comment (top to bottom)
 
-The notebook inlines the eval code. Do **not** open `evaluate_agent.py` on stage (that file is CLI / `bootstrap.sh --warmup` only).
+The notebook inlines the eval code. Do **not** open `evaluate_agent.py` on stage (that file is CLI / rehearsal only).
 
 1. Env — injected `MLFLOW_*`.
 2. **SHOW: prompts** — v1 vs v2 text on screen.

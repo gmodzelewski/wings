@@ -1,0 +1,19 @@
+# Shared inference endpoint for WINGS3 calculator agent, EvalHub, and Garak demos.
+# Same URL Acts 2-5 target: llama-32-3b-instruct in my-first-model.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wings3-llm-endpoint
+  namespace: my-first-model
+  labels:
+    app: wings3-demo
+    opendatahub.io/dashboard: "true"
+  annotations:
+    openshift.io/description: OpenAI-compatible URL for EvalHub and Garak evaluation jobs
+data:
+  model_name: llama-32-3b-instruct
+  openai_base_url: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+  project: my-first-model
+  notes: >-
+    EvalHub and Garak jobs must target this in-cluster URL when the pipeline runs
+    inside the cluster. Update if the InferenceService name or namespace changes.

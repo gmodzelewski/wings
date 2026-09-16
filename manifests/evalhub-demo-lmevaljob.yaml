@@ -1,0 +1,24 @@
+# Template LMEvalJob for Act 5 on RHOAI 3.5+ (TrustyAI EvalHub API).
+# Applied when lmevaljobs.trustyai.opendatahub.io exists (see scripts/submit_evalhub_demo_jobs.sh).
+# Garak has no Job CRD on 3.5 — submit via EvalHub UI using demo/evalhub/jobs/garak-demo.json.
+apiVersion: trustyai.opendatahub.io/v1alpha1
+kind: LMEvalJob
+metadata:
+  name: wings3-demo-lm-eval
+  namespace: my-first-model
+  labels:
+    app: wings3-demo
+    wings3.demo/evalhub: "true"
+  annotations:
+    openshift.io/description: WINGS3 demo — small lm-eval job against llama-32-3b-instruct
+spec:
+  model: openai-chat-completions
+  modelArgs:
+    - name: base_url
+      value: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+    - name: model
+      value: llama-32-3b-instruct
+  limit: "5"
+  taskList:
+    taskNames:
+      - gsm8k

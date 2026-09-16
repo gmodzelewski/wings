@@ -1,8 +1,8 @@
 # AgentOps-style walkthrough: MLflow on OpenShift AI
 
 **Duration:** 60 minutes  
-**Audience:** Platform engineers, AI developers, data scientists  
-**Red thread:** Without a tracking server you cannot see the agent; without traces you cannot debug it; without eval you cannot prove it got better.
+**Audience:** Platform engineers and AI engineers  
+**Red thread:** Tracking server on the platform — you can see the agent; traces — you can fix it; eval — you can prove a prompt change helped; dataset + judge — you can ship; **EvalHub + Garak** — platform gates before promote (Act 5 / Session 2).
 
 Customer / partner hour (no deck, Module 4 UI in the 60 minutes): [customer-ui-click-script.md](customer-ui-click-script.md). Pre-stage `math_golden` + `v2-judged` is required: [00-presenter-setup.md](00-presenter-setup.md).
 
@@ -20,27 +20,30 @@ Cluster URLs and names: [partials/_attributes.md](partials/_attributes.md).
 
 | Block | Minutes | Guide |
 |-------|---------|-------|
-| Intro + personas | 6 | Slides |
-| 1 — Install | 8 | [01-install-mlflow.md](01-install-mlflow.md) |
+| Intro + terms + product tour | 6 | Slides |
+| 1 — Install | 10 | [01-install-platform.md](01-install-platform.md) |
 | 2 — Autolog tracing | 22 | [02-agent-tracing-autolog.md](02-agent-tracing-autolog.md) |
 | 3 — Evaluation | 15 | [03-workbench-evaluation.md](03-workbench-evaluation.md) |
 | Production + Q&A | 9 | Slides |
 
-**Pre-stage and clock-saving rules:** [00-presenter-setup.md](00-presenter-setup.md). Cluster bootstrap/teardown: [`../scripts/bootstrap.sh`](../scripts/bootstrap.sh) and [`../scripts/teardown.sh`](../scripts/teardown.sh).
+**Pre-stage and clock-saving rules:** [00-presenter-setup.md](00-presenter-setup.md). Cluster scripts: [`../install.sh`](../install.sh), [`../check.sh`](../check.sh), and [`../uninstall.sh`](../uninstall.sh).
 
 ## Modules
 
 | Module | Time | Where |
 |--------|------|-------|
 | 0 — Presenter setup | before the hour | [00-presenter-setup.md](00-presenter-setup.md) |
-| 1 — Install | 8 min live | Laptop `oc get` + standalone `/mlflow` |
+| 1 — Install | 10 min live | Laptop `oc get` + `/mlflow` + EvalHub/Garak console check |
 | 2 — Autolog tracing | 22 min | JupyterLab notebook `01_agent_tracing_autolog.ipynb` |
 | 3 — Evaluation | 15 min | Same workbench notebook |
 | 4 — Datasets + judges | 20–25 min follow-on | Same workbench notebook `03_prod_eval_judges.ipynb` — [04-prod-eval-judges.md](04-prod-eval-judges.md). Not in the WINGS teaching hour. In the customer UI hour this is the close (pre-logged). |
+| 5 — EvalHub + Garak | 14 min (Session 2) | EvalHub console + [05-evalhub-garak.md](05-evalhub-garak.md); notebook `04_evalhub_garak.ipynb` |
 
 ## Presentation
 
-Slides: `../MLflow-on-RHOAI-Deep-Dive.pptx` — plain title/bullets plus speaker notes; teach → **PAUSE** to the cluster → RETURN wrap. Read the notes pane. Walkthrough modules stay the source of truth for live clicks. Rebuild with `python3 scripts/build_wings3_deck.py`.
+Delivered deck: `../AI Wings 3 - Deep Dive.pptx` (branded). Apply feedback copy and screenshot placeholders with `python3 scripts/revise_wings3_branded_deck.py`.
+
+Plain rebuild (default Office layouts, speaker notes on every slide): `../MLflow-on-RHOAI-Deep-Dive.pptx` — teach → **PAUSE** to the cluster → RETURN wrap. Rebuild with `python3 scripts/build_wings3_deck.py`. Walkthrough modules stay the source of truth for live clicks.
 
 Fallback screenshots in `assets/screenshots/` are from this cluster (recaptured 18 Aug 2026). Prefer the live UI. Recapture if the gateway host in `_attributes.md` changes.
 

@@ -1,0 +1,15 @@
+{
+  "name": "wings3-demo-lm-eval",
+  "displayName": "WINGS3 demo — lm-eval-harness",
+  "namespace": "my-first-model",
+  "provider": "lm-eval-harness",
+  "target": {
+    "url": "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1",
+    "model": "llama-32-3b-instruct"
+  },
+  "config": {
+    "tasks": ["gsm8k"],
+    "limit": 5,
+    "notes": "Pick one small harness task on stage — not a full production suite."
+  }
+}

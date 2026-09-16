@@ -4,10 +4,10 @@ Sandbox URLs belong **only** here. Walkthrough modules paste `mlflow_ui` from th
 
 | Attribute | Value |
 |-----------|-------|
-| `gateway_host` | `rh-ai.apps.ocp.l9tcs.sandbox956.opentlc.com` |
-| `mlflow_ui` | `https://rh-ai.apps.ocp.l9tcs.sandbox956.opentlc.com/mlflow` |
+| `gateway_host` | `rhods-dashboard-redhat-ods-applications.apps.ocp.bbg4x.sandbox1838.opentlc.com` |
+| `mlflow_ui` | `https://rhods-dashboard-redhat-ods-applications.apps.ocp.bbg4x.sandbox1838.opentlc.com/mlflow` |
 | `dsc_name` | `default-dsc` |
-| `rhoai_version` | `3.4.3` |
+| `rhoai_version` | `3.5.0` |
 | `workbench_namespace` | `my-first-model` |
 | `mlflow_namespace` | `redhat-ods-applications` |
 | `mlflow_workspace` | `my-first-model` |
@@ -22,8 +22,8 @@ Sandbox URLs belong **only** here. Walkthrough modules paste `mlflow_ui` from th
 
 ```bash
 # Standalone MLflow UI (Act 2/3/Module 4 — Traces, Details & Timeline, Evaluation, Datasets)
-# https://rh-ai.apps.ocp.l9tcs.sandbox956.opentlc.com/mlflow
+# https://rhods-dashboard-redhat-ods-applications.apps.ocp.bbg4x.sandbox1838.opentlc.com/mlflow
 
 curl -sk -o /dev/null -w "%{http_code}\n" \
-  https://rh-ai.apps.ocp.l9tcs.sandbox956.opentlc.com/mlflow/health
+  https://rhods-dashboard-redhat-ods-applications.apps.ocp.bbg4x.sandbox1838.opentlc.com/mlflow/health
 ```

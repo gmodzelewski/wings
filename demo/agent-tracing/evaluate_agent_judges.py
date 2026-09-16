@@ -197,9 +197,16 @@ def run_evaluation() -> dict:
 
     judge_model = configure_cluster_judge()
     print(f"Judge model: {judge_model}")
+    correctness = Correctness(model=judge_model)
+    correctness = correctness.register(
+        name="correctness",
+        experiment_id=experiment.experiment_id,
+    )
+    print("Registered judge: correctness — open MLflow → Judges")
+    print("Eval-only (not in Judges catalog): contains_expected, numeric_and_clear")
     scorers = [
         contains_expected,
-        Correctness(model=judge_model),
+        correctness,
         Guidelines(
             name="numeric_and_clear",
             guidelines=[

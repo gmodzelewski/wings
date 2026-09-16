@@ -1,0 +1,14 @@
+{
+  "name": "wings3-demo-garak",
+  "displayName": "WINGS3 demo — Garak red-team",
+  "namespace": "my-first-model",
+  "provider": "garak",
+  "target": {
+    "url": "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1",
+    "model": "llama-32-3b-instruct"
+  },
+  "config": {
+    "probe_set": "default",
+    "notes": "Pre-submit before session. Walk one resisted and one vulnerable probe category in the HTML report."
+  }
+}

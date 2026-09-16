@@ -5,7 +5,7 @@ Reads `oc get template … -o json` on stdin. Writes a ServingRuntime JSON
 document to stdout with metadata.name / namespace set. Substitutes
 ${PARAM} placeholders from the template parameter list.
 
-Used by scripts/bootstrap.sh so the runtime image matches the
+Used by scripts/install.sh so the runtime image matches the
 cluster's vllm-cuda-runtime-template (no frozen RHAIIS SHA).
 """
 

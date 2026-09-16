@@ -1,0 +1,23 @@
+# Template Evaluation job for Act 5 — lm-eval-harness via EvalHub.
+# Applied only when the Evaluation CRD exists (see scripts/submit_evalhub_demo_jobs.sh).
+# If oc apply fails, submit the same target via EvalHub UI using demo/evalhub/jobs/lm-eval-demo.json.
+apiVersion: evaluations.redhat.com/v1alpha1
+kind: Evaluation
+metadata:
+  name: wings3-demo-lm-eval
+  namespace: my-first-model
+  labels:
+    app: wings3-demo
+    wings3.demo/evalhub: "true"
+  annotations:
+    openshift.io/description: WINGS3 demo — small lm-eval-harness job against llama-32-3b-instruct
+spec:
+  displayName: wings3-demo-lm-eval
+  provider: lm-eval-harness
+  target:
+    url: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+    model: llama-32-3b-instruct
+  config:
+    tasks:
+      - gsm8k
+    limit: 5

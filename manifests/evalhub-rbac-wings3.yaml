@@ -1,0 +1,30 @@
+# Optional RBAC: let the presenter workbench SA read the demo endpoint ConfigMap.
+# EvalHub job creation usually uses the logged-in user's console permissions.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: wings3-evalhub-demo
+  namespace: my-first-model
+  labels:
+    app: wings3-demo
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["wings3-llm-endpoint"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: wings3-evalhub-demo
+  namespace: my-first-model
+  labels:
+    app: wings3-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: wings3-evalhub-demo
+subjects:
+  - kind: ServiceAccount
+    name: wings3-demo
+    namespace: my-first-model

@@ -62,9 +62,16 @@ def test_has_mlflow_and_rhoai():
     assert "openshift ai" in blob or "rhoai" in blob
 
 
-def test_personas_before_act1():
+def test_terms_roles_and_tour_before_install():
     keys = [s["key"] for s in SLIDES]
-    assert keys.index("personas") < keys.index("install_steps")
+    assert keys.index("terms") < keys.index("ladder")
+    assert keys.index("ladder") < keys.index("install_steps")
+    assert keys.index("two_roles") < keys.index("install_steps")
+    assert keys.index("tour_projects") < keys.index("install_steps")
+    assert keys.index("act1_section") < keys.index("tour_projects")
+    assert keys.index("tour_projects") < keys.index("tour_project")
+    assert keys.index("tour_project") < keys.index("tour_mlflow_recap")
+    assert keys.index("tour_mlflow_recap") < keys.index("install_steps")
 
 
 def test_contrast_before_trace_demo():
@@ -84,8 +91,8 @@ def test_run_of_show_times_in_agenda_notes():
 
 def test_walkthrough_index_matches_run_of_show():
     index = (WINGS3_ROOT / "walkthrough" / "index.md").read_text()
-    assert "| Intro + personas | 6 |" in index
-    assert "| 1 — Install | 8 |" in index
+    assert "| Intro + terms + product tour | 6 |" in index
+    assert "| 1 — Install | 10 |" in index
     assert "| 2 — Autolog tracing | 22 |" in index
     assert "| 3 — Evaluation | 15 |" in index
     assert "| Production + Q&A | 9 |" in index
@@ -111,7 +118,7 @@ def test_demo_trace_notes_error_then_details():
 
 def test_walkthrough_docs_point_at_rhoai_34():
     index = (WINGS3_ROOT / "walkthrough" / "index.md").read_text()
-    install = (WINGS3_ROOT / "walkthrough" / "01-install-mlflow.md").read_text()
+    install = (WINGS3_ROOT / "walkthrough" / "01-install-platform.md").read_text()
     assert "self-managed/3.4/" in index
     assert "self-managed/3.4/" in install
     assert "self-managed/3.5/" not in index
@@ -129,7 +136,7 @@ def test_module2_single_workbench_path_and_trace_beat():
 
 
 def test_module1_live_is_oc_get_not_apply():
-    mod1 = (WINGS3_ROOT / "walkthrough" / "01-install-mlflow.md").read_text()
+    mod1 = (WINGS3_ROOT / "walkthrough" / "01-install-platform.md").read_text()
     setup = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
     assert "oc apply -f manifests/mlflow-dev.yaml" not in mod1
     assert "oc apply -f manifests/mlflow-dev.yaml" in setup
@@ -170,13 +177,14 @@ def test_tracing_notebook_inlines_show_beats():
 
 def test_remaining_gaps_teaching_beats():
     title = next(s for s in SLIDES if s["key"] == "title")
-    personas = next(s for s in SLIDES if s["key"] == "personas")
-    hook = (title["notes"] + personas["notes"]).lower()
+    two_roles = next(s for s in SLIDES if s["key"] == "two_roles")
+    why = next(s for s in SLIDES if s["key"] == "why_native")
+    hook = (title["notes"] + two_roles["notes"] + why["notes"]).lower()
     assert "inject" in hook or "injected" in hook
     assert "workspace" in hook
     assert "native" in hook or "external" in hook
 
-    mod1 = (WINGS3_ROOT / "walkthrough" / "01-install-mlflow.md").read_text()
+    mod1 = (WINGS3_ROOT / "walkthrough" / "01-install-platform.md").read_text()
     assert "Project" in mod1 and "Workspace" in mod1 and "Experiment" in mod1
     show, sep, appendix = mod1.partition("## Appendix")
     assert sep, "Module 1 must move laptop exports to an appendix"
@@ -190,7 +198,10 @@ def test_remaining_gaps_teaching_beats():
     assert "`gateway_host`" in attrs
     assert "`mlflow_ui`" in attrs
     assert "/mlflow/health" in attrs
-    assert "sandbox956" in attrs or "rh-ai.apps" in attrs
+    assert any(
+        marker in attrs
+        for marker in ("sandbox956", "sandbox1838", "rh-ai.apps", "rhods-dashboard")
+    )
     env_example = (WINGS3_ROOT / "demo" / "agent-tracing" / ".env.example").read_text()
     assert "<gateway_host>" not in env_example
 
@@ -228,7 +239,7 @@ def test_traced_agent_is_calculator_only():
 
 
 def test_screenshot_captions_are_this_cluster():
-    mod1 = (WINGS3_ROOT / "walkthrough" / "01-install-mlflow.md").read_text()
+    mod1 = (WINGS3_ROOT / "walkthrough" / "01-install-platform.md").read_text()
     mod2 = (WINGS3_ROOT / "walkthrough" / "02-agent-tracing-autolog.md").read_text()
     mod3 = (WINGS3_ROOT / "walkthrough" / "03-workbench-evaluation.md").read_text()
     index = (WINGS3_ROOT / "walkthrough" / "index.md").read_text()
@@ -316,6 +327,21 @@ def test_golden_register_refreshes_from_git():
     assert "expected_response" in script
 
 
+def test_correctness_judge_is_registered():
+    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    blob = _notebook_source("03_prod_eval_judges.ipynb")
+    for src in (judges, blob):
+        assert ".register(" in src
+        assert 'name="correctness"' in src
+        assert "Eval-only" in src
+    mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
+    assert "Judges" in mod4
+    assert "currently not available" in mod4
+    assert "create_dataset" in mod4
+    script = (WINGS3_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
+    assert "correctness" in script
+
+
 def test_judge_uses_hosted_vllm_not_native_openai():
     judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
     assert "hosted_vllm:/" in judges
@@ -351,3 +377,107 @@ def test_genai_evaluate_uses_one_worker():
         assert 'MLFLOW_GENAI_EVAL_MAX_WORKERS"] = "1"' in blob
     mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
     assert "MLFLOW_GENAI_EVAL_MAX_WORKERS" in mod4
+
+
+def _slide_blob(slide: dict) -> str:
+    parts = [slide.get("title", ""), slide.get("subtitle", ""), slide.get("notes", "")]
+    parts.extend(slide.get("bullets") or [])
+    return " ".join(parts)
+
+
+def test_title_is_agent_observability():
+    title = next(s for s in SLIDES if s["key"] == "title")
+    blob = (title["title"] + " " + title.get("subtitle", "")).lower()
+    assert "agent observability" in blob
+    assert "mlflow" in blob
+    assert "openshift ai" in blob
+
+
+def test_glossary_defines_dataset_and_judge_before_ladder():
+    keys = [s["key"] for s in SLIDES]
+    assert keys.index("terms") < keys.index("ladder")
+    terms = next(s for s in SLIDES if s["key"] == "terms")
+    blob = _slide_blob(terms).lower()
+    for word in ("project", "workspace", "experiment", "trace", "dataset", "judge"):
+        assert word in blob, word
+    ladder = next(s for s in SLIDES if s["key"] == "ladder")
+    assert any("dataset" in b.lower() or "judge" in b.lower() for b in ladder["bullets"])
+
+
+def test_ladder_is_constructive_four_steps():
+    ladder = next(s for s in SLIDES if s["key"] == "ladder")
+    joined = " ".join(ladder["bullets"]).lower()
+    assert "without a tracking server" not in joined
+    assert "you can see" in joined or "see the agent" in joined
+    assert "fix" in joined
+    assert "prove" in joined
+    assert "ship" in joined
+    assert len(ladder["bullets"]) == 4
+
+
+def test_two_roles_not_data_scientist_persona():
+    assert "personas" not in {s["key"] for s in SLIDES}
+    two = next(s for s in SLIDES if s["key"] == "two_roles")
+    blob = _slide_blob(two).lower()
+    assert "platform engineer" in blob
+    assert "ai engineer" in blob
+    assert "further" in blob
+    for slide in SLIDES:
+        titleish = (slide["title"] + " " + slide.get("subtitle", "")).lower()
+        assert "data scientist" not in titleish
+        assert "three hats" not in titleish
+
+
+def test_product_tour_has_screenshot_placeholders():
+    for key in ("tour_projects", "tour_project", "tour_mlflow_recap"):
+        slide = next(s for s in SLIDES if s["key"] == key)
+        joined = "\n".join(slide["bullets"])
+        assert "<screenshot>" in joined
+        assert "What to capture:" in joined
+        assert "Why it is here:" in joined
+
+
+def test_why_native_covers_tracing_without_instance():
+    why = next(s for s in SLIDES if s["key"] == "why_native")
+    blob = _slide_blob(why).lower()
+    assert "without" in blob and "instance" in blob
+    assert "token" in blob or "rbac" in blob
+
+
+def test_annotation_is_auto_except_gitops():
+    arch = next(s for s in SLIDES if s["key"] == "architecture")
+    blob = _slide_blob(arch).lower()
+    assert "gitops" in blob or "yaml" in blob
+    assert "automatic" in blob or "automatically" in blob
+    tour = next(s for s in SLIDES if s["key"] == "tour_project")
+    assert "opendatahub.io/mlflow-instance" in _slide_blob(tour)
+
+
+def test_evalhub_notebook_has_show_beats():
+    blob = _notebook_source("04_evalhub_garak.ipynb")
+    assert "SHOW:" in blob
+    assert "lm-eval-demo.json" in blob
+    assert "garak-demo.json" in blob
+    assert "v2-judged" in blob
+
+
+def test_act5_walkthrough_exists():
+    text = (WINGS3_ROOT / "walkthrough" / "05-evalhub-garak.md").read_text()
+    assert "EvalHub" in text
+    assert "Garak" in text
+    assert "llama-32-3b-instruct" in text
+
+
+def test_walkthroughs_drop_data_scientist_persona():
+    for rel in (
+        "README.md",
+        "walkthrough/index.md",
+        "walkthrough/00-presenter-setup.md",
+        "walkthrough/02-agent-tracing-autolog.md",
+        "walkthrough/03-workbench-evaluation.md",
+        "walkthrough/04-prod-eval-judges.md",
+        "walkthrough/05-evalhub-garak.md",
+    ):
+        text = (WINGS3_ROOT / rel).read_text().lower()
+        assert "data scientist" not in text, rel
+        assert "intro + personas" not in text, rel

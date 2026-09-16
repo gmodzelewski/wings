@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WINGS3: LangGraph agent with mlflow.langchain.autolog() — CLI / bootstrap --warmup only.
+"""WINGS3: LangGraph agent with mlflow.langchain.autolog() — CLI / rehearsal only.
 
 Stage path is demo/notebooks/01_agent_tracing_autolog.ipynb (inline SHOW comments).
 """

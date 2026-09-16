@@ -1,6 +1,6 @@
 # Module 2 — Agent tracing with autolog
 
-**Time:** 22 minutes | **Persona:** AI developer  
+**Time:** 22 minutes | **Role:** AI engineer  
 **Where:** JupyterLab **workbench** `wings3-demo` in project `my-first-model` (not your laptop)
 
 ## Know
@@ -14,6 +14,8 @@ On RHOAI, annotation **`opendatahub.io/mlflow-instance=mlflow`** on the Notebook
 - `MLFLOW_TRACKING_URI`
 - `MLFLOW_K8S_INTEGRATION=true`
 - `MLFLOW_TRACKING_AUTH=kubernetes-namespaced`
+
+Dashboard workbenches created **after** MLflow is installed get that annotation **automatically**. This hour’s workbench is GitOps (`workbench-wings3-demo.yaml`) so the annotation is in the YAML — that is the only case where you must set it yourself.
 
 You still set **`MLFLOW_WORKSPACE`** to the project name (`my-first-model`) — that is the RBAC boundary. The LLM is the in-cluster vLLM predictor (KServe, Llama 3.2 3B) — no port-forward. The workbench pod must run as ServiceAccount **`wings3-demo`** (same name as the Notebook, from the YAML). Dashboard-created notebooks use `default` and get `PERMISSION_DENIED`.
 
@@ -61,7 +63,7 @@ pip install -r requirements.txt --extra-index-url https://pypi.org/simple
 
 In JupyterLab: `demo/notebooks/01_agent_tracing_autolog.ipynb`
 
-Do **not** open `run_tracing_demo_autolog.py` on stage (CLI / `bootstrap.sh --warmup` only).
+Do **not** open `run_tracing_demo_autolog.py` on stage (CLI / rehearsal only).
 
 ### 5. Stop at each SHOW comment (top to bottom)
 
@@ -78,17 +80,22 @@ Workspace: my-first-model
 …
 --- Query: Calculate 256 divided by 16
 The result of 256 divided by 16 is 16.0.
-Done → MLflow UI → Traces → Details & Timeline
+Done → dashboard Experiments → GenAI Traces → Details & Timeline
 ```
 
 ### 6. Open traces — debug an Error, then show the OK tree
 
-Use the **standalone** MLflow UI (`mlflow_ui` in attributes), not the embedded dashboard Experiments view.
+Switch to a **second browser tab** on the OpenShift AI dashboard (no in-notebook iframe).
 
-1. Workspace **my-first-model** → experiment **wings3-agent-tracing** → **Traces**.
-2. **Debug beat (red thread):** open an **Error** row (often a later query or a 3B context blow-up; a rehearsal Error is fine if the live query is OK). Show the tool or LLM failure. Say: this is why you needed traces — you can see where it failed. Do not linger.
-3. Close it. Open an **OK** row whose request is **Calculate 256 divided by 16** (State OK). Latest is often Error; do **not** pick latest by default.
-4. In the drawer, open **Details & Timeline**. Span tree: LangGraph → ChatOpenAI → **calculator** → ChatOpenAI. Point at the calculator span — that is what autolog captured without a manual span.
+**Primary path (embedded):**
+
+1. Project **my-first-model** → **Develop & train → Experiments** (nav label is **Experiments** only; Red Hat docs: Experiments (MLflow)).
+2. Open experiment **wings3-agent-tracing** → set workflow type to **GenAI** → **Traces** tab.
+3. **Debug beat (red thread):** open an **Error** row (often a later query or a 3B context blow-up; a rehearsal Error is fine if the live query is OK). Show the tool or LLM failure. Say: this is why you needed traces — you can see where it failed. Do not linger.
+4. Close it. Open an **OK** row whose request is **Calculate 256 divided by 16** (State OK). Latest is often Error; do **not** pick latest by default.
+5. In the drawer, open **Details & Timeline**. Span tree: LangGraph → ChatOpenAI → **calculator** → ChatOpenAI. Point at the calculator span — that is what autolog captured without a manual span.
+
+**Fallback:** standalone `/mlflow` (`mlflow_ui` in attributes) → workspace **my-first-model** → same experiment → **Traces**. Use if the embedded drawer is slow or missing **Details & Timeline**.
 
 If the drawer does not open, add `selectedEvaluationId=<trace-id>` to the Traces URL.
 
@@ -107,7 +114,7 @@ If the drawer does not open, add `selectedEvaluationId=<trace-id>` to the Traces
 
 ## Appendix — CLI (same workbench terminal)
 
-Prefer the notebook on stage. This script is `bootstrap.sh --warmup` and rehearsal.
+Prefer the notebook on stage. This script is for rehearsal only.
 
 ```bash
 cd …/demo/agent-tracing

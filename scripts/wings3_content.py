@@ -1,4 +1,4 @@
-"""Slide content for a plain WINGS3 MLflow on OpenShift AI deck.
+"""Slide content for a plain WINGS3 agent-observability deck (MLflow on OpenShift AI).
 
 Live-demo spine: teach on slides → PAUSE to the cluster → RETURN wrap.
 Walkthrough modules remain the source of truth for live clicks.
@@ -8,16 +8,27 @@ No branded layouts. Each slide is title + bullets + speaker notes.
 
 from __future__ import annotations
 
+
+def screenshot(what: str, why: str) -> list[str]:
+    return [
+        "<screenshot>",
+        f"What to capture: {what}",
+        f"Why it is here: {why}",
+    ]
+
+
 SLIDES: list[dict] = [
     {
         "key": "title",
         "layout": "title",
-        "title": "MLflow on OpenShift AI",
-        "subtitle": "WINGS 3 deep dive — see the agent, debug it, prove it got better",
+        "title": "Agent observability with MLflow on OpenShift AI",
+        "subtitle": "WINGS 3 deep dive — see the agent, fix it, prove it, ship it",
         "notes": (
             "One-hour deep dive plus an optional follow-on lab.\n"
-            "Red thread, say it now and before every act: without a tracking server you cannot see "
-            "the agent; without traces you cannot debug it; without eval you cannot prove it got better.\n"
+            "Focus is agent observability. MLflow is the native OpenShift AI product that records it.\n"
+            "Ladder, say it now and before every act: tracking server → you can see the agent; "
+            "traces → you can fix it; eval → you can prove a prompt change helped; "
+            "dataset plus judge → you can ship.\n"
             "Native on OpenShift AI: workspace equals the project for RBAC. The workbench injects "
             "the tracking URI. You do not paste a laptop token on stage.\n"
             "Code runs in JupyterLab workbench wings3-demo, project my-first-model.\n"
@@ -25,17 +36,38 @@ SLIDES: list[dict] = [
         ),
     },
     {
-        "key": "red_thread",
+        "key": "terms",
         "layout": "content",
-        "title": "Red thread — say this three times",
+        "title": "Six words you will reuse all hour",
         "bullets": [
-            "Without a tracking server you cannot see the agent",
-            "Without traces you cannot debug it",
-            "Without eval you cannot prove it got better",
-            "Act 1 = see. Act 2 = debug. Act 3 = prove (toy gate). Module 4 = reviewable gate.",
+            "Project — OpenShift namespace my-first-model (dashboard)",
+            "Workspace — MLflow name for that project (MLFLOW_WORKSPACE). The RBAC boundary.",
+            "Experiment — named bucket inside the workspace",
+            "Trace — one recorded agent run: LLM calls, tool spans, timeline",
+            "Dataset — named, versioned inputs plus expected answers you re-run (golden set math_golden)",
+            "Judge — a scorer that is itself an LLM, with a written rationale, not a substring check",
         ],
         "notes": (
-            "This is the only sentence that must land. Repeat it before each PAUSE.\n"
+            "Say these once, before the ladder uses dataset and judge.\n"
+            "Project is the namespace. Workspace is MLFLOW_WORKSPACE=my-first-model. "
+            "Experiments: tracing for Act 2, eval for Act 3, eval-prod for Module 4.\n"
+            "A trace is one run. A dataset is the yardstick. A judge writes why a row passed or failed.\n"
+            "Workbench injects the URI; you still set the workspace. "
+            "oc whoami --show-token is rehearsal-only, never on camera."
+        ),
+    },
+    {
+        "key": "ladder",
+        "layout": "content",
+        "title": "Four steps — each one is something you gain",
+        "bullets": [
+            "1. Tracking server on the platform — you can see the agent",
+            "2. Traces — you can fix it (tool calls, Error vs OK)",
+            "3. Evaluation — you can prove a prompt change helped",
+            "4. Dataset + judge — you can ship with a gate you can argue with",
+        ],
+        "notes": (
+            "This is the only sentence that must land. Repeat it before each PAUSE, as a ladder not a threat.\n"
             "Act 1 proves the tracking server exists. Act 2 proves you can read a tool-call span. "
             "Act 3 proves a prompt change moved a metric. Module 4 is optional: same agent, "
             "a registered dataset, and LLM judges with rationales."
@@ -44,51 +76,35 @@ SLIDES: list[dict] = [
     {
         "key": "why_native",
         "layout": "content",
-        "title": "Why native MLflow, not an external tracer",
+        "title": "Tracing works without a cluster instance — here is why we still install one",
         "bullets": [
-            "Workspace is the OpenShift project — RBAC is already there",
-            "Workbench injects MLFLOW_TRACKING_URI and Kubernetes auth",
-            "No laptop token on stage",
-            "Act 1 is a verify of something already on the cluster, not a SaaS signup",
+            "autolog works against local MLflow or a SaaS tracer — no OpenShift instance required",
+            "Challenges: extra identity, a laptop token, no project RBAC, traces live somewhere else",
+            "Native MLflow: workspace is the project, URI injected, Kubernetes auth",
+            "Act 1 makes this concrete in the OpenShift AI and MLflow UIs",
         ],
         "notes": (
-            "Sixty seconds. Contrast an external tracer: extra identity, extra URL, a token on the laptop.\n"
+            "Pick this up before any YAML. Tracing is not invented by the operator.\n"
+            "Contrast an external tracer: extra identity, extra URL, a token on the laptop.\n"
             "Here the workspace is the project, the URI is injected, and you stay inside OpenShift AI.\n"
-            "That is why Act 1 is oc get plus the standalone /mlflow UI, not a signup flow."
+            "That is why Act 1 is a product tour plus oc get, not a SaaS signup."
         ),
     },
     {
-        "key": "three_terms",
+        "key": "two_roles",
         "layout": "content",
-        "title": "Three words you will reuse all hour",
+        "title": "Two roles — then we stop talking about hats",
         "bullets": [
-            "Project — OpenShift namespace my-first-model",
-            "Workspace — MLflow name for that project (MLFLOW_WORKSPACE). The RBAC boundary.",
-            "Experiment — named bucket inside the workspace",
-            "wings3-agent-tracing · wings3-agent-eval · wings3-agent-eval-prod",
+            "Platform engineer — enabled the operator and applied the MLflow CR",
+            "AI engineer — the workbench is authorized to that workspace",
+            "Dataset and judge work is the same AI engineer",
+            "A classical data scientist (curate corpora, fine-tune) is further from this agentic hour",
         ],
         "notes": (
-            "Say the three words once and reuse them.\n"
-            "Project is the namespace. Workspace is MLFLOW_WORKSPACE=my-first-model. "
-            "Experiments: tracing for Act 2, eval for Act 3, eval-prod for Module 4.\n"
-            "Workbench injects the URI; you still set the workspace. "
-            "oc whoami --show-token is rehearsal-only, never on camera."
-        ),
-    },
-    {
-        "key": "personas",
-        "layout": "content",
-        "title": "Three hats, one thread",
-        "bullets": [
-            "Platform engineer — Act 1: operator, CR, standalone /mlflow. You can see the agent.",
-            "AI developer — Act 2: notebook 01_agent_tracing_autolog.ipynb. You can debug it.",
-            "Data scientist — Act 3: notebook 02_eval_improvement.ipynb. You can prove a prompt moved.",
-            "Follow-on: same data scientist, notebook 03_prod_eval_judges.ipynb. A reviewable gate.",
-        ],
-        "notes": (
-            "Name the hats before the agenda. Hand the hat at each wrap slide.\n"
-            "Platform owns Act 1. Developer owns Act 2. Data scientist owns Act 3 and Module 4.\n"
-            "Repeat the red thread before each act."
+            "Mention once. Do not assign a third hat at each wrap.\n"
+            "Platform owns Act 1. The AI engineer owns Acts 2–4 because the notebook uses "
+            "injected Kubernetes auth against the workspace.\n"
+            "Repeat the ladder before each act."
         ),
     },
     {
@@ -96,8 +112,8 @@ SLIDES: list[dict] = [
         "layout": "content",
         "title": "Sixty minutes, three PAUSE marks",
         "bullets": [
-            "Intro + why native — 6 min (slides)",
-            "PAUSE 1 — Act 1 install verify — 8 min (oc get, then /mlflow)",
+            "Intro + terms + product tour — 6 min (slides)",
+            "PAUSE 1 — Act 1 install verify — 8 min (OpenShift AI UI, then oc get, then /mlflow)",
             "PAUSE 2 — Act 2 autolog traces — 22 min (workbench notebook)",
             "PAUSE 3 — Act 3 evaluation — 15 min (same workbench)",
             "Production CR + Q&A — 9 min (slides)",
@@ -149,10 +165,63 @@ SLIDES: list[dict] = [
         "key": "act1_section",
         "layout": "section",
         "title": "Act 1 — Install (verify)",
-        "subtitle": "Platform · 8 minutes · you can see the agent",
+        "subtitle": "Platform engineer · 8 minutes · you can see the agent",
         "notes": (
-            "Hand the platform hat. Red thread: without a tracking server you cannot see the agent.\n"
-            "Live is oc get only. The CR was applied in presenter setup."
+            "Platform engineer for this act only. Ladder step 1: tracking server on the platform "
+            "— you can see the agent.\n"
+            "Start in the OpenShift AI UI, then oc get. The CR was applied in presenter setup."
+        ),
+    },
+    {
+        "key": "tour_projects",
+        "layout": "content",
+        "title": "OpenShift AI — Projects",
+        "bullets": screenshot(
+            "OpenShift AI → Projects → my-first-model",
+            "this namespace is the MLflow workspace",
+        ),
+        "notes": (
+            "Step-by-step for less prior knowledge. Do not start at oc patch.\n"
+            "Project my-first-model is the workspace. The label opendatahub.io/dashboard=true "
+            "puts it on this list."
+        ),
+    },
+    {
+        "key": "tour_project",
+        "layout": "content",
+        "title": "OpenShift AI — Project page",
+        "bullets": screenshot(
+            "OpenShift AI → Project my-first-model → Workbenches (wings3-demo Running)",
+            "UI workbenches created after MLflow install get opendatahub.io/mlflow-instance automatically; GitOps YAML must set it",
+        )
+        + [
+            "Dashboard-created workbenches: annotation is automatic after install",
+            "GitOps / YAML Notebook: set opendatahub.io/mlflow-instance=mlflow yourself",
+        ],
+        "notes": (
+            "This is the annotation beat. Do not lead with the YAML blob.\n"
+            "This hour's workbench is GitOps (workbench-wings3-demo.yaml) so the annotation is in the manifest.\n"
+            "If they Create workbench from the UI after MLflow exists, the platform sets it for them."
+        ),
+    },
+    {
+        "key": "tour_mlflow_recap",
+        "layout": "content",
+        "title": "Launch MLflow — recap what's what",
+        "bullets": screenshot(
+            "Launch MLflow → standalone /mlflow home, workspace dropdown my-first-model",
+            "this is the UI for Traces, Evaluation, and Datasets — not the embedded Experiments list",
+        )
+        + [
+            "Experiments — run buckets (classic tracking; not the deep dive)",
+            "Traces — agent observability (Act 2)",
+            "Evaluation — scored runs (Act 3)",
+            "Datasets — named golden sets (Act 4)",
+        ],
+        "notes": (
+            "Keep the existing embedded Experiments (MLflow) screenshot in the branded deck.\n"
+            "Then Launch MLflow. Recap the four surfaces so experiment tracking is named, not skipped, "
+            "and the hour still goes deep on traces and eval."
         ),
     },
     {
@@ -170,7 +239,7 @@ SLIDES: list[dict] = [
             "Expected: mlflowoperator Managed; a mlflow pod Ready 2/2.\n"
             "First start can take several minutes. If READY is not 2/2, skip to the wrap and keep talking. "
             "Do not watch CrashLoop on camera.\n"
-            "Next click is standalone /mlflow, not the Projects list."
+            "You already showed Projects. Next click is standalone /mlflow if not already open."
         ),
     },
     {
@@ -180,12 +249,13 @@ SLIDES: list[dict] = [
         "bullets": [
             "Gateway exposes standalone /mlflow",
             "Operator runs the tracking server in redhat-ods-applications",
-            "Workbench annotation opendatahub.io/mlflow-instance=mlflow injects URI and Kubernetes auth",
+            "UI workbenches: opendatahub.io/mlflow-instance is set automatically after install",
+            "GitOps / YAML Notebooks must set that annotation; it injects URI and Kubernetes auth",
             "You still set MLFLOW_WORKSPACE=my-first-model",
         ],
         "notes": (
             "Gateway is the UI. Operator is the server. Injection is how the notebook talks to MLflow "
-            "without a token.\n"
+            "without a token. Automatic on dashboard workbenches; required in GitOps YAML.\n"
             "KServe vLLM in my-first-model is the in-cluster model. Token auth is the laptop path."
         ),
     },
@@ -212,18 +282,18 @@ SLIDES: list[dict] = [
             "Without this UI the next notebook is a black box",
         ],
         "notes": (
-            "Close Act 1 on the red thread: you can see the agent now.\n"
+            "Close Act 1 on the ladder: you can see the agent now.\n"
             "Traces and Evaluation live in this standalone UI, not the embedded Experiments view.\n"
-            "Hand the hat to the developer."
+            "The AI engineer takes the next act."
         ),
     },
     {
         "key": "act2_section",
         "layout": "section",
         "title": "Act 2 — Autolog traces",
-        "subtitle": "Developer · 22 minutes · you can debug it",
+        "subtitle": "AI engineer · 22 minutes · you can fix it",
         "notes": (
-            "Hand the developer hat. Red thread: without traces you cannot debug it.\n"
+            "AI engineer. Ladder step 2: traces — you can fix it.\n"
             "Open JupyterLab workbench wings3-demo. Notebook 01_agent_tracing_autolog.ipynb. "
             "Do not open traced_agent.py or the CLI script on stage."
         ),
@@ -293,25 +363,25 @@ SLIDES: list[dict] = [
     {
         "key": "wrap_debug",
         "layout": "content",
-        "title": "Wrap — you can debug it",
+        "title": "Wrap — you can fix it",
         "bullets": [
             "Error row is the failure",
             "OK tree shows the calculator span",
-            "Without traces you cannot debug the agent",
+            "Traces are how you debug the agent",
         ],
         "notes": (
-            "Close Act 2 on the red thread: you can debug it now.\n"
+            "Close Act 2 on the ladder: you can fix it now.\n"
             "The Error row taught the failure; the OK tree taught the tool call.\n"
-            "Hand the hat to the data scientist."
+            "Same AI engineer for evaluation."
         ),
     },
     {
         "key": "act3_section",
         "layout": "section",
         "title": "Act 3 — Evaluation",
-        "subtitle": "Data scientist · 15 minutes · you can prove a prompt moved",
+        "subtitle": "AI engineer · 15 minutes · you can prove a prompt moved",
         "notes": (
-            "Hand the data scientist hat. Red thread: without eval you cannot prove it got better.\n"
+            "Same AI engineer. Ladder step 3: evaluation — you can prove a prompt change helped.\n"
             "SAME workbench. Notebook 02_eval_improvement.ipynb.\n"
             "SAY THE CAVEAT BEFORE ANY CELL: contains_expected is a substring check on four math rows. "
             "It is not an LLM-as-judge and not a production SLO."
@@ -332,7 +402,7 @@ SLIDES: list[dict] = [
             "It is not an LLM-as-judge and not a production SLO.\n"
             "v2 is only a system-prompt change. Same model, same calculator, same four rows, same scorers.\n"
             "Celebrate direction of improvement, then say you would add judges and a larger dataset "
-            "before a real promote gate — that is Module 4.\n"
+            "before a real promote gate — that is Module 4. Dataset and judge were defined on the terms slide.\n"
             "If v1 already exists from rehearsal, run v2 only."
         ),
     },
@@ -347,7 +417,7 @@ SLIDES: list[dict] = [
             "SHOW: mlflow.genai.evaluate() — define run_eval, then run v1 (optional) and v2",
         ],
         "notes": (
-            "Do not open evaluate_agent.py on stage. That file is CLI / bootstrap --warmup only.\n"
+            "Do not open evaluate_agent.py on stage. That file is CLI / rehearsal only.\n"
             "run_eval define cell does not call the LLM yet. The next cells do."
         ),
     },
@@ -374,7 +444,7 @@ SLIDES: list[dict] = [
             "Judges come before you promote",
         ],
         "notes": (
-            "Close Act 3 on the red thread: you can prove a prompt moved — that is direction, not an SLO.\n"
+            "Close Act 3 on the ladder: you can prove a prompt moved — that is direction, not an SLO.\n"
             "The False contains_expected row is the toy gate. Do not promote on a substring.\n"
             "If this is the 60-minute hour, go to production CR then Q&A. "
             "If they stay for the follow-on, Module 4 is next."
@@ -400,7 +470,7 @@ SLIDES: list[dict] = [
         "key": "act4_section",
         "layout": "section",
         "title": "Module 4 — Datasets + judges (follow-on)",
-        "subtitle": "Data scientist · 20–25 min · not in the 60-minute hour",
+        "subtitle": "AI engineer · 20–25 min · not in the 60-minute hour",
         "notes": (
             "Only if they stayed. Act 3 already promised judges before you promote.\n"
             "Same workbench. Notebook 03_prod_eval_judges.ipynb. Experiment wings3-agent-eval-prod "
@@ -420,6 +490,7 @@ SLIDES: list[dict] = [
             "Live run: v2 prompt only. Run name v2-judged.",
         ],
         "notes": (
+            "Dataset and judge were defined up front. This act is those objects in the UI.\n"
             "v2 prompt is already proven in Act 3. Module 4 does not re-run v1 vs v2.\n"
             "expected_answer feeds the substring scorer. expected_facts feeds Correctness.\n"
             "Keep contains_expected so a flaky judge row still has a cheap metric.\n"
@@ -476,7 +547,7 @@ SLIDES: list[dict] = [
     {
         "key": "closing",
         "layout": "content",
-        "title": "See → debug → prove",
+        "title": "See → fix → prove → ship",
         "bullets": [
             "Act 1 — tracking server on the cluster",
             "Act 2 — autolog traces, Error then OK tree",
@@ -485,7 +556,7 @@ SLIDES: list[dict] = [
             "Walkthrough: 00-presenter-setup.md. Q&A.",
         ],
         "notes": (
-            "Recap the red thread one last time.\n"
+            "Recap the ladder one last time.\n"
             "Production next step for the server: backendStoreUriFrom (Postgres) and "
             "artifactsDestination (S3).\n"
             "Production next step for the agent: grow the golden set — "
