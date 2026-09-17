@@ -50,6 +50,23 @@ def test_ensure_maas_env_fails_when_mount_missing_required_keys(tmp_path, monkey
         wings3_env.ensure_maas_env()
 
 
+def test_apply_workshop_direct_fallback_uses_upstream_mount(tmp_path, monkeypatch):
+    monkeypatch.setattr(wings3_env, "UPSTREAM_SECRET_DIR", tmp_path)
+    (tmp_path / "api-key").write_text("sk-workshop-test\n")
+    os.environ["MAAS_BASE_URL"] = (
+        "https://openshift-ai-inference.example/my-first-model/gpt-oss-120b/v1"
+    )
+    os.environ["MAAS_API_KEY"] = "sk-oai-gateway"
+    os.environ["JUDGE_BASE_URL"] = os.environ["MAAS_BASE_URL"]
+    os.environ["JUDGE_API_KEY"] = "sk-oai-gateway"
+
+    wings3_env.apply_workshop_direct_fallback()
+
+    assert os.environ["MAAS_BASE_URL"] == wings3_env.WORKSHOP_BASE_URL
+    assert os.environ["MAAS_API_KEY"] == "sk-workshop-test"
+    assert os.environ["JUDGE_API_KEY"] == "sk-workshop-test"
+
+
 def test_ensure_maas_env_falls_back_to_judge_api_key(tmp_path, monkeypatch):
     monkeypatch.setattr(wings3_env, "WINGS3_SECRET_DIR", tmp_path)
     (tmp_path / "MAAS_MODEL").write_text("gpt-oss-120b\n")

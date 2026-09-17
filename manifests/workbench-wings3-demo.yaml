@@ -112,6 +112,9 @@ spec:
             - mountPath: /etc/wings3-judge-llm
               name: wings3-judge-llm
               readOnly: true
+            - mountPath: /etc/wings3-maas-upstream-api-key
+              name: wings3-maas-upstream-api-key
+              readOnly: true
       enableServiceLinks: false
       serviceAccountName: wings3-demo
       volumes:
@@ -131,4 +134,8 @@ spec:
         - name: wings3-judge-llm
           secret:
             secretName: wings3-judge-llm
+            optional: true
+        - name: wings3-maas-upstream-api-key
+          secret:
+            secretName: wings3-maas-upstream-api-key
             optional: true

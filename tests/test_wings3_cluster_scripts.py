@@ -252,6 +252,8 @@ def test_judge_secret_is_empty_key_and_workbench_mounts_it():
     assert "sk-" not in secret
     assert "mountPath: /etc/wings3-judge-llm" in workbench
     assert "secretName: wings3-judge-llm" in workbench
+    assert "mountPath: /etc/wings3-maas-upstream-api-key" in workbench
+    assert "secretName: wings3-maas-upstream-api-key" in workbench
     assert "secretKeyRef:" not in workbench
     assert "envFrom:" not in workbench
 

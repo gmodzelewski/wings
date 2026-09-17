@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Iterable
 
 WINGS3_SECRET_DIR = Path("/etc/wings3-judge-llm")
+UPSTREAM_SECRET_DIR = Path("/etc/wings3-maas-upstream-api-key")
+WORKSHOP_BASE_URL = os.environ.get(
+    "WINGS3_WORKSHOP_BASE_URL",
+    "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
+)
 WINGS3_SECRET_KEYS = (
     "JUDGE_API_KEY",
     "JUDGE_BASE_URL",
@@ -22,6 +27,37 @@ DEFAULT_MAAS_BASE_URL = (
 DEFAULT_MAAS_API_KEY = "unused"
 _ENV_FILE = Path(__file__).resolve().parent / ".env"
 _REQUIRED_MAAS_KEYS = ("MAAS_MODEL", "MAAS_BASE_URL")
+
+
+def read_upstream_api_key() -> str:
+    path = UPSTREAM_SECRET_DIR / "api-key"
+    if path.is_file():
+        return path.read_text().strip()
+    return ""
+
+
+def _looks_like_broken_gateway_url(url: str) -> bool:
+    return bool(url) and "maas.redhatworkshops.io" not in url and (
+        "openshift-ai-inference" in url or "/my-first-model/" in url
+    )
+
+
+def apply_workshop_direct_fallback() -> None:
+    """Stormshift gateway inference cannot inject upstream creds; use workshop URL."""
+    upstream = read_upstream_api_key()
+    if not upstream:
+        return
+    maas_base = (os.environ.get("MAAS_BASE_URL") or "").strip()
+    if _looks_like_broken_gateway_url(maas_base):
+        os.environ["MAAS_BASE_URL"] = WORKSHOP_BASE_URL
+        os.environ["MAAS_API_KEY"] = upstream
+    judge_base = (os.environ.get("JUDGE_BASE_URL") or "").strip()
+    judge_key = (os.environ.get("JUDGE_API_KEY") or "").strip()
+    if _looks_like_broken_gateway_url(judge_base) and (
+        not judge_key or judge_key.startswith("sk-oai-")
+    ):
+        os.environ["JUDGE_BASE_URL"] = WORKSHOP_BASE_URL
+        os.environ["JUDGE_API_KEY"] = upstream
 
 
 def load_wings3_secret_env() -> None:
@@ -80,6 +116,8 @@ def ensure_maas_env(require_secret: bool = False) -> None:
     maas_model = (os.environ.get("MAAS_MODEL") or "").strip()
     if judge_model and maas_model in {"", DEFAULT_MAAS_MODEL} and judge_model != DEFAULT_MAAS_MODEL:
         os.environ["MAAS_MODEL"] = judge_model
+
+    apply_workshop_direct_fallback()
 
 
 def print_workbench_env(keys: Iterable[str]) -> None:
