@@ -178,6 +178,7 @@ Open MLflow → `v2-judged` where the judge passed — *"correct but not necessa
 
 | Symptom | Fix |
 |---------|-----|
+| No **Evaluations** under **Develop & train** | RHOAI 3.5 default: `OdhDashboardConfig.spec.dashboardConfig.disableLMEval` is `true`. Set to `false`: `oc patch odhdashboardconfig odh-dashboard-config -n redhat-ods-applications --type=merge -p '{"spec":{"dashboardConfig":{"disableLMEval":false}}}'` then hard-refresh the dashboard; or re-run `./install.sh` |
 | No **EvalHub** in project view | Normal on 3.5 — use **Develop & train → Evaluations** |
 | List shows **No evaluation runs** | Normal until you submit a run from **Start evaluation run** |
 | **Start evaluation run** has no Benchmark / Benchmark suite | Missing EvalHub CR — `oc apply -f manifests/evalhub-instance.yaml` (`spec.tenancy: single`) or re-run `./install.sh`; set project filter to **`my-first-model`** (not `default`) |

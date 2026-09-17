@@ -11,9 +11,9 @@ metadata:
 type: Opaque
 stringData:
   POSTGRES_USER: ogx
-  POSTGRES_PASSWORD: wings3-ogx-dev
+  POSTGRES_PASSWORD: wings3-ogx-dev  # notsecret
   POSTGRES_DB: ogx
-  connection-string: postgresql://ogx:wings3-ogx-dev@wings3-ogx-postgres.my-first-model.svc:5432/ogx
+  connection-string: postgresql://ogx:wings3-ogx-dev@wings3-ogx-postgres.my-first-model.svc:5432/ogx  # notsecret
 ---
 apiVersion: v1
 kind: Service

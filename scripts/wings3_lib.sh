@@ -504,17 +504,19 @@ restart_maas_dashboard_ui_if_unhealthy() {
 }
 
 ensure_genai_dashboard_prereqs() {
-  local gen_ai="" maas_tab="" mcp_catalog=""
+  local gen_ai="" maas_tab="" mcp_catalog="" disable_lmeval=""
   gen_ai=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
     -o jsonpath='{.spec.dashboardConfig.genAiStudio}' 2>/dev/null || true)
   maas_tab=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
     -o jsonpath='{.spec.dashboardConfig.modelAsService}' 2>/dev/null || true)
   mcp_catalog=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
     -o jsonpath='{.spec.dashboardConfig.mcpCatalog}' 2>/dev/null || true)
-  if [[ "$gen_ai" != "true" || "$maas_tab" != "true" || "$mcp_catalog" != "true" ]]; then
-    log "patch OdhDashboardConfig genAiStudio + modelAsService + mcpCatalog"
+  disable_lmeval=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
+    -o jsonpath='{.spec.dashboardConfig.disableLMEval}' 2>/dev/null || true)
+  if [[ "$gen_ai" != "true" || "$maas_tab" != "true" || "$mcp_catalog" != "true" || "$disable_lmeval" == "true" ]]; then
+    log "patch OdhDashboardConfig genAiStudio + modelAsService + mcpCatalog + disableLMEval"
     oc patch odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" --type=merge \
-      -p '{"spec":{"dashboardConfig":{"genAiStudio":true,"modelAsService":true,"mcpCatalog":true}}}' \
+      -p '{"spec":{"dashboardConfig":{"genAiStudio":true,"modelAsService":true,"mcpCatalog":true,"disableLMEval":false}}}' \
       >/dev/null 2>&1 || true
   fi
   label_maas_external_model_assets || true
@@ -616,7 +618,7 @@ wait_for_maas_namespace() {
 }
 
 maas_db_config_url() {
-  printf 'postgresql://maas:wings3-maas-dev@wings3-maas-postgres.%s.svc:5432/maas?sslmode=disable' "$MLFLOW_NS"
+  printf 'postgresql://maas:wings3-maas-dev@wings3-maas-postgres.%s.svc:5432/maas?sslmode=disable' "$MLFLOW_NS"  # notsecret
 }
 
 ensure_maas_db_secrets() {

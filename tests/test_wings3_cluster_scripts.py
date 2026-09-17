@@ -78,11 +78,17 @@ def test_check_help_documents_skip_llm():
 
 def test_check_demo_py_imports_and_evalhub_logic():
     sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
-    from check_demo import check_evalhub_instance, check_evalhub_pod, run_checks
+    from check_demo import (
+        check_evalhub_instance,
+        check_evalhub_pod,
+        check_evaluations_nav,
+        run_checks,
+    )
 
     assert callable(run_checks)
     assert callable(check_evalhub_pod)
     assert callable(check_evalhub_instance)
+    assert callable(check_evaluations_nav)
 
 
 def test_evalhub_instance_manifest_and_install_wiring():
@@ -99,7 +105,9 @@ def test_evalhub_instance_manifest_and_install_wiring():
     assert "evalhub-instance.yaml" in lib
     assert "evalhub.trustyai.opendatahub.io/tenant-" in lib
     assert "check_evalhub_instance" in check_py
+    assert "check_evaluations_nav" in check_py
     assert "evalhub_cr_is_single_tenant" in check_py
+    assert "disableLMEval" in lib
 
 
 def test_evalhub_tenant_label_helper():
@@ -314,6 +322,7 @@ def test_maas_external_model_manifests():
     assert "check_ogx_managed" in check_py
     assert "check_ogx_server" in check_py
     assert "check_mcp_catalog" in check_py
+    assert "check_evaluations_nav" in check_py
     assert "check_maas_ui" in check_py
     assert "check_kuadrant_ready" in check_py
     assert "maas.redhatworkshops.io" in check_py

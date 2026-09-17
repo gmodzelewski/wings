@@ -89,6 +89,7 @@ Set `WINGS3_VERBOSE=1` for detailed progress. Default uninstall never removes op
 - [ ] Namespace `my-first-model` has `opendatahub.io/dashboard=true`
 - [ ] `install.sh` finished: InferenceService `llama-32-3b-instruct` is Ready (ServingRuntime from `vllm-cuda-runtime-template`; predictor strategy Recreate). If the console shows an outdated vLLM runtime, re-run `./install.sh` and confirm with `./check.sh`.
 - [ ] EvalHub operator `Managed` and **EvalHub CR** `evalhub` in `my-first-model` (`./check.sh` → `evalhub instance`)
+- [ ] `OdhDashboardConfig` has `spec.dashboardConfig.disableLMEval: false` (`./check.sh` → `evaluations nav`; RHOAI 3.5 hides **Develop & train → Evaluations** by default — `install.sh` patches this)
 - [ ] ConfigMap `wings3-llm-endpoint` in `my-first-model` (applied by install)
 - [ ] **Develop & train → Evaluations** loads benchmarks for `my-first-model` (no project-level EvalHub tile on 3.5)
 - [ ] Garak provider visible when starting an evaluation run (or screenshot fallbacks in `demo/assets/placeholders/`)

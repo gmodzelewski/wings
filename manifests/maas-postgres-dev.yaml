@@ -10,7 +10,7 @@ metadata:
 type: Opaque
 stringData:
   POSTGRES_USER: maas
-  POSTGRES_PASSWORD: wings3-maas-dev
+  POSTGRES_PASSWORD: wings3-maas-dev  # notsecret
   POSTGRES_DB: maas
 ---
 apiVersion: v1

@@ -487,6 +487,36 @@ def check_ogx_server(project: str) -> CheckResult:
     return CheckResult("ogxserver", False, detail)
 
 
+def check_evaluations_nav() -> CheckResult:
+    mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    flag = _oc(
+        [
+            "get",
+            "odhdashboardconfig",
+            "odh-dashboard-config",
+            "-n",
+            mlflow_ns,
+            "-o",
+            "jsonpath={.spec.dashboardConfig.disableLMEval}",
+        ]
+    )
+    if flag.returncode != 0:
+        return CheckResult("evaluations nav", False, "OdhDashboardConfig odh-dashboard-config missing")
+    value = flag.stdout.strip().lower()
+    if value == "false":
+        return CheckResult("evaluations nav", True)
+    if value == "true":
+        detail = "dashboardConfig.disableLMEval is true — hides Develop & train → Evaluations"
+    else:
+        detail = (
+            "dashboardConfig.disableLMEval not false (default hides Evaluations) — "
+            "oc patch odhdashboardconfig odh-dashboard-config -n "
+            f"{mlflow_ns} --type=merge -p "
+            '\'{"spec":{"dashboardConfig":{"disableLMEval":false}}}\''
+        )
+    return CheckResult("evaluations nav", False, detail)
+
+
 def check_mcp_catalog() -> CheckResult:
     mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
     if mcp_catalog_optional():
@@ -687,6 +717,7 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
         check_pod_ready(mlflow_ns, "mlflow", "mlflow pod"),
         check_evalhub_pod(mlflow_ns),
         check_evalhub_instance(project),
+        check_evaluations_nav(),
         check_maas_crds(),
         check_ogx_managed(),
         check_ogx_server(project),
