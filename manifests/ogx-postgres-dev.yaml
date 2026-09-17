@@ -1,0 +1,78 @@
+# Demo-only Postgres for OGX metadata (not production-grade).
+# Lab credentials are intentional; see manifests/README.md.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wings3-ogx-postgres
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+    ogx.io/watch: "true"
+type: Opaque
+stringData:
+  POSTGRES_USER: ogx
+  POSTGRES_PASSWORD: wings3-ogx-dev
+  POSTGRES_DB: ogx
+  connection-string: postgresql://ogx:wings3-ogx-dev@wings3-ogx-postgres.my-first-model.svc:5432/ogx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wings3-ogx-postgres
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+    app: wings3-ogx-postgres
+spec:
+  selector:
+    app: wings3-ogx-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wings3-ogx-postgres
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+    app: wings3-ogx-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wings3-ogx-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: wings3-demo
+        app: wings3-ogx-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:14
+          ports:
+            - containerPort: 5432
+          env:
+            - name: PGDATA
+              value: /tmp/pgdata
+          envFrom:
+            - secretRef:
+                name: wings3-ogx-postgres
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - ogx
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

@@ -92,14 +92,18 @@ Set `WINGS3_VERBOSE=1` for detailed progress. Default uninstall never removes op
 - [ ] ConfigMap `wings3-llm-endpoint` in `my-first-model` (applied by install)
 - [ ] **Develop & train → Evaluations** loads benchmarks for `my-first-model` (no project-level EvalHub tile on 3.5)
 - [ ] Garak provider visible when starting an evaluation run (or screenshot fallbacks in `demo/assets/placeholders/`)
-- [ ] Optional Act 5: lm-eval + Garak jobs submitted from **Evaluations** UI (or `scripts/submit_evalhub_demo_jobs.sh`)
+- [ ] Act 5 EvalHub: Secret `hf-token` in `my-first-model` (key **`hf-token`**) if using Llama tokenizer; accept [Llama 3.2 license](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct) for that HF account; `./scripts/verify_hf_gated_access.sh` passes. Without license: pre-submit `./scripts/submit_evalhub_eval_run.sh --benchmark arc_easy --tokenizer gpt2`
+- [ ] Act 5 Garak: pre-submit `./scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings3-demo-garak-quick` (endpoint must include `/v1`; script normalizes). Or submit from **Evaluations** UI with endpoint copied verbatim from ConfigMap (`...:8080/v1`)
 - [ ] Workbench in `my-first-model` is **Running** (not Stopped). Create **only** with `oc apply -f manifests/workbench-wings3-demo.yaml`. Do **not** use dashboard **Create workbench** — that notebook uses ServiceAccount `default` and gets `PERMISSION_DENIED`. The YAML Notebook uses ServiceAccount `wings3-demo` (the MLflow webhook binds RBAC to that name). After apply, **stop/start** the workbench so the initContainer can `git clone https://github.com/gmodzelewski/wings.git` into `/opt/app-root/src/wings`. Cluster must reach GitHub. If that path exists but is not a git repo, remove it and restart.
 - [ ] JupyterLab file browser is this clone (`demo/notebooks/…`). `git pull --ff-only` from the repo root (terminal or the optional notebook cell).
 - [ ] `pip install -r agent-tracing/requirements.txt --extra-index-url https://pypi.org/simple` already succeeded in the workbench (RHOAI 3.4 RHAI index has no langgraph 0.2). Re-run after a workbench restart; the venv is not on the PVC.
 - [ ] Optional for **WINGS teaching**: v1 eval run already in experiment `wings3-agent-eval`
 - [ ] Optional for **WINGS teaching** (Module 4 follow-on, not in that hour): golden set registered as `math_golden` and one `v2-judged` run in experiment `wings3-agent-eval-prod`
-- [ ] **Module 4 / customer hour:** `JUDGE_API_KEY` set on Secret `wings3-judge-llm` (`install.sh` creates the Secret but does **not** fill the token — see commands below)
-- [ ] `./check.sh` passes `judge secret JUDGE_API_KEY` and `workbench judge mount` (re-apply `workbench-wings3-demo.yaml` if dashboard stop/start stripped the mount)
+- [ ] **Module 4 / customer hour:** `install.sh` enables MaaS + external model **gpt-oss-120b**; upstream workshop token via `WINGS3_MAAS_UPSTREAM_API_KEY` (or existing judge secret before first MaaS install); judge `JUDGE_API_KEY` is a minted **sk-oai-** MaaS key
+- [ ] `./check.sh` passes MaaS CRD/model checks, `ogx`, `ogxserver`, `mcp catalog`, `maas-ui`, `judge JUDGE_BASE_URL` (not `maas.redhatworkshops.io`), `judge secret JUDGE_API_KEY`, and `workbench judge mount`
+- [ ] **Gen AI Studio → AI asset endpoints → Models** lists **gpt-oss-120b** (hard-refresh dashboard if empty); **Gen AI Studio → API keys** can create a key for `wings3-gpt-oss-120b`
+- [ ] **Gen AI Studio → Playground** visible; can create a playground in `my-first-model` (install.sh enables Service Mesh 3 + OGX + `wings3-ogx` OGXServer — first run may take 30–45 min)
+- [ ] **Gen AI hub → MCP server** catalog visible (browse only; no MCP deploy demo required). Set `WINGS3_SKIP_OGX=1` / `WINGS3_SKIP_MCP=1` to skip if cluster lacks capacity
 
 Cluster-specific URLs (`gateway_host`, `mlflow_ui`) live in [partials/_attributes.md](partials/_attributes.md). Route name may be `rhods-dashboard`, `rh-ai`, or `rhoai` — host is the same for `/mlflow`.
 
@@ -118,27 +122,35 @@ Required in workspace `my-first-model` (in addition to the checklist above):
 
 Do this in the **workbench** terminal after `./install.sh` (venv already pip'd; tracking URI injected). Re-run after a workbench restart.
 
-Set the hosted-judge token **before** `evaluate_agent_judges.py` (do not commit it). `install.sh` bootstraps an **empty** `JUDGE_API_KEY` if the Secret already exists — you must set the token explicitly:
+Set the workshop upstream token **before** first MaaS install (do not commit it). `install.sh` mints a MaaS API key into `wings3-judge-llm` when MaaS is Ready:
 
 ```bash
-# Option A: one-off (do not oc apply secret-wings3-judge-llm.yaml after this — it overwrites the key)
-oc set env secret/wings3-judge-llm -n my-first-model JUDGE_API_KEY='<token>'
-oc apply -f manifests/workbench-wings3-demo.yaml
-# stop/start workbench wings3-demo — verify mount: ./check.sh
+# Workshop upstream (ExternalModel only) — one of:
+export WINGS3_MAAS_UPSTREAM_API_KEY='<workshop-token>'
+./install.sh
 
-# Option B: at install time
-export WINGS3_JUDGE_API_KEY='<token>'
+# Or override the minted judge key after install:
+export WINGS3_JUDGE_API_KEY='<sk-oai-…>'
 ./install.sh
 ```
 
-RHOAI strips `secretKeyRef` env on Notebooks; the workbench mounts the Secret at `/etc/wings3-judge-llm` and the notebook env cell reads those files. **Dashboard stop/start can strip custom volume mounts** — re-apply `workbench-wings3-demo.yaml` if `./check.sh` fails `workbench judge mount`.
+If MaaS key mint fails, patch manually after confirming subscription `wings3-gpt-oss-120b` exists:
+
+```bash
+oc set env secret/wings3-judge-llm -n my-first-model \
+  JUDGE_BASE_URL='https://<maas-gateway>/my-first-model/gpt-oss-120b/v1' \
+  JUDGE_API_KEY='<sk-oai-…>'
+oc apply -f manifests/workbench-wings3-demo.yaml
+# stop/start workbench wings3-demo — verify: ./check.sh
+```
+
+RHOAI strips `secretKeyRef` env on Notebooks; the workbench mounts Secret `wings3-judge-llm` (`manifests/secret-wings3-judge-llm.yaml` or `.example.yaml`) at `/etc/wings3-judge-llm` and the notebook env cell reads those files. **Dashboard stop/start can strip custom volume mounts** — re-apply `workbench-wings3-demo.yaml` if `./check.sh` fails `workbench judge mount`.
 
 ```bash
 cd /opt/app-root/src/wings/demo/agent-tracing
 export MLFLOW_WORKSPACE=my-first-model
 export MAAS_API_KEY=unused
-export MAAS_MODEL=llama-32-3b-instruct
-export MAAS_BASE_URL=http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+Agent model is set in Secret `wings3-judge-llm` (`MAAS_MODEL`, `MAAS_BASE_URL`). For local laptop runs only, copy `demo/agent-tracing/.env.example` to `.env`.
 
 # Error beat: extra queries on 3B often land as Error. Keep the warmup OK 256÷16 row.
 unset WINGS3_ONE_QUERY

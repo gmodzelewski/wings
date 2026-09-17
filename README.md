@@ -35,7 +35,7 @@ Values: [walkthrough/partials/_attributes.md](walkthrough/partials/_attributes.m
 
 ## Install / uninstall / check
 
-RHOAI must already be installed (3.4 or 3.5). Install patches `mlflowoperator` to Managed, discovers EvalHub (`evalhuboperator` on 3.4, `trustyai` on 3.5), applies manifests, and creates the GPU InferenceService from `vllm-cuda-runtime-template` (set `WINGS3_LLM_STORAGE_URI` if none exists yet). Reuses an existing Ready InferenceService and reconciles the ServingRuntime when the cluster template version is newer. Use `--skip-llm` on a GPU-less sandbox.
+RHOAI must already be installed (3.4 or 3.5). Install patches `mlflowoperator` to Managed, discovers EvalHub (`evalhuboperator` on 3.4, `trustyai` on 3.5), enables **Models-as-a-Service** with an external **gpt-oss-120b** judge model (lab Postgres + `ExternalModel`), applies manifests, and creates the GPU InferenceService from `vllm-cuda-runtime-template` (set `WINGS3_LLM_STORAGE_URI` if none exists yet). Set `WINGS3_MAAS_UPSTREAM_API_KEY` for the workshop upstream token. Reuses an existing Ready InferenceService and reconciles the ServingRuntime when the cluster template version is newer. Use `--skip-llm` on a GPU-less sandbox.
 
 ```bash
 # After oc login, from this repo root:
@@ -74,7 +74,7 @@ Open `demo/notebooks/02_eval_improvement.ipynb`. On stage, stop at each **SHOW:*
 
 ## Workbench — production-grade eval (follow-on for WINGS teaching)
 
-Not in the WINGS teaching hour. **Required on camera for the customer UI hour** (pre-logged, not live-run). Open `demo/notebooks/03_prod_eval_judges.ipynb` only if asked. Guide: [walkthrough/04-prod-eval-judges.md](walkthrough/04-prod-eval-judges.md). Registered golden set + hybrid substring + LLM judges on hosted MaaS (`gpt-oss-120b`, Secret `wings3-judge-llm`); agent stays on in-cluster 3B. Scores in experiment `wings3-agent-eval-prod`. Pre-stage commands: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) → Customer UI hour.
+Not in the WINGS teaching hour. **Required on camera for the customer UI hour** (pre-logged, not live-run). Open `demo/notebooks/03_prod_eval_judges.ipynb` only if asked. Guide: [walkthrough/04-prod-eval-judges.md](walkthrough/04-prod-eval-judges.md). Registered golden set + hybrid substring + LLM judges via in-cluster MaaS (`gpt-oss-120b` external model, Secret `wings3-judge-llm`); agent stays on in-cluster 3B. Scores in experiment `wings3-agent-eval-prod`. Pre-stage commands: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) → Customer UI hour.
 
 ## Act 5 — EvalHub and Garak (Session 2)
 

@@ -95,6 +95,7 @@ def test_evalhub_instance_manifest_and_install_wiring():
     assert "type: sqlite" in manifest
     assert "lm-evaluation-harness" in manifest
     assert "tenancy: single" in manifest
+    assert "/mlflow" in manifest
     assert "evalhub-instance.yaml" in lib
     assert "evalhub.trustyai.opendatahub.io/tenant-" in lib
     assert "check_evalhub_instance" in check_py
@@ -168,6 +169,38 @@ def test_submit_evalhub_dry_run_mentions_lmevaljob():
     assert "lmevaljob" in out
 
 
+def test_submit_evalhub_eval_run_supports_garak_and_v1_endpoint():
+    script = WINGS3_ROOT / "scripts" / "submit_evalhub_eval_run.sh"
+    text = script.read_text()
+    assert "GARAK_BENCHMARKS=" in text
+    assert "quick" in text
+    assert 'provider_id": "garak"' in text
+    assert "normalize_openai_endpoint" in text
+    assert "*/v1" in text
+    result = _run(script, "--help")
+    assert result.returncode == 0, result.stderr
+    assert "quick" in result.stdout
+    assert "--provider" in result.stdout
+
+
+def test_garak_demo_json_uses_evalhub_api_format():
+    import json
+
+    data = json.loads((WINGS3_ROOT / "demo" / "evalhub" / "jobs" / "garak-demo.json").read_text())
+    assert data["benchmarks"][0]["provider_id"] == "garak"
+    assert data["benchmarks"][0]["id"] == "quick"
+    assert data["model"]["url"].endswith("/v1")
+
+
+def test_evalhub_garak_walkthrough_documents_v1_endpoint():
+    text = (WINGS3_ROOT / "walkthrough" / "05-evalhub-garak.md").read_text()
+    assert "404 Not Found" in text
+    assert "/v1" in text
+    assert "submit_evalhub_eval_run.sh --benchmark quick" in text
+    assert "List view vs detail" in text
+    assert "**Completed**" in text and "attack success rate" in text.lower()
+
+
 def test_configmap_manifest_has_endpoint_hostname():
     text = (WINGS3_ROOT / "manifests" / "configmap-wings3-llm-endpoint.yaml").read_text()
     assert "llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local" in text
@@ -203,21 +236,85 @@ def test_inferenceservice_manifest_has_catalog_storage():
 
 
 def test_judge_secret_is_empty_key_and_workbench_mounts_it():
-    secret = (WINGS3_ROOT / "manifests" / "secret-wings3-judge-llm.yaml").read_text()
+    secret = (WINGS3_ROOT / "manifests" / "secret-wings3-judge-llm.example.yaml").read_text()
     workbench = (WINGS3_ROOT / "manifests" / "workbench-wings3-demo.yaml").read_text()
     assert "name: wings3-judge-llm" in secret
     assert "JUDGE_BASE_URL:" in secret
-    assert "maas-rhdp.apps.maas.redhatworkshops.io/v1" in secret
+    assert "/gpt-oss-120b/v1" in secret
+    assert "maas.redhatworkshops.io" not in secret
     assert "JUDGE_MODEL:" in secret
     assert "gpt-oss-120b" in secret
-    assert "deepseek-r1-distill-qwen-14b" in secret
-    assert "llama-scout-17b" in secret
+    assert "MAAS_MODEL:" in secret
+    assert "llama-32-3b-instruct" in secret
+    assert "MAAS_BASE_URL:" in secret
+    assert "MAAS_API_KEY:" in secret
     assert 'JUDGE_API_KEY: ""' in secret
     assert "sk-" not in secret
     assert "mountPath: /etc/wings3-judge-llm" in workbench
     assert "secretName: wings3-judge-llm" in workbench
     assert "secretKeyRef:" not in workbench
     assert "envFrom:" not in workbench
+
+
+def test_maas_external_model_manifests():
+    external = (WINGS3_ROOT / "manifests" / "maas-external-model-gpt-oss-120b.yaml").read_text()
+    modelref = (WINGS3_ROOT / "manifests" / "maas-modelref-gpt-oss-120b.yaml").read_text()
+    auth_sub = (WINGS3_ROOT / "manifests" / "maas-auth-subscription-gpt-oss-120b.yaml").read_text()
+    lib = (WINGS3_ROOT / "scripts" / "wings3_lib.sh").read_text()
+    install = INSTALL.read_text()
+    uninstall = UNINSTALL.read_text()
+    check_py = CHECK_PY.read_text()
+    assert "kind: ExternalModel" in external
+    assert "maas-rhdp.apps.maas.redhatworkshops.io" in external
+    assert "targetModel: gpt-oss-120b" in external
+    assert "opendatahub.io/genai-asset" in external
+    assert "opendatahub.io/dashboard" in external
+    assert "kind: MaaSModelRef" in modelref
+    assert "kind: ExternalModel" in modelref
+    assert "kind: MaaSSubscription" in auth_sub
+    assert "kind: MaaSAuthPolicy" in auth_sub
+    assert "wings3-gpt-oss-120b" in auth_sub
+    kuadrant = (WINGS3_ROOT / "manifests" / "kuadrant-dev.yaml").read_text()
+    gateway = (WINGS3_ROOT / "manifests" / "maas-default-gateway.yaml").read_text()
+    assert "kind: Kuadrant" in kuadrant
+    assert "redhat-ai-gateway-infra" in gateway
+    assert "enable_maas()" in lib
+    assert "enable_genai_studio" in lib
+    assert "enable_ogx_dsc" in lib
+    assert "deploy_ogx_server" in lib
+    assert "enable_mcplifecycle" in lib
+    assert "ensure_servicemesh" in lib
+    assert "ensure_genai_dashboard_prereqs" in lib
+    assert "ensure_maas_dashboard_prereqs" in lib
+    assert "purge_ogx_resources" in lib
+    ogx_server = (WINGS3_ROOT / "manifests" / "ogx-server-wings3.yaml").read_text()
+    ogx_pg = (WINGS3_ROOT / "manifests" / "ogx-postgres-dev.yaml").read_text()
+    sm3 = (WINGS3_ROOT / "manifests" / "servicemesh3-operator.yaml").read_text()
+    sm3_istio = (WINGS3_ROOT / "manifests" / "servicemesh3-istio.yaml").read_text()
+    assert "kind: OGXServer" in ogx_server
+    assert "wings3-ogx" in ogx_server
+    assert "wings3-ogx-postgres" in ogx_pg
+    assert "servicemeshoperator3" in sm3
+    assert "kind: OperatorGroup" not in sm3
+    assert "kind: Istio" in sm3_istio
+    assert "ensure_kuadrant" in lib
+    assert "ensure_authorino_tls" in lib
+    assert "reconcile_maas_subscription" in lib
+    assert "sync_llm_endpoint_configmap" in lib
+    assert "purge_maas_resources()" in lib
+    assert "enable_maas" in install
+    assert "enable_genai_studio" in install
+    assert "purge_maas_resources" in uninstall
+    assert "purge_ogx_resources" in uninstall
+    assert "check_secret_data_key" in check_py
+    assert "agent secret MAAS_MODEL" in check_py
+    assert "check_maas_crds" in check_py
+    assert "check_ogx_managed" in check_py
+    assert "check_ogx_server" in check_py
+    assert "check_mcp_catalog" in check_py
+    assert "check_maas_ui" in check_py
+    assert "check_kuadrant_ready" in check_py
+    assert "maas.redhatworkshops.io" in check_py
 
 
 def test_presenter_docs_point_at_cluster_scripts():

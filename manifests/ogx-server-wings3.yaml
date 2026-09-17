@@ -1,0 +1,45 @@
+# Minimal OGXServer for Gen AI Studio Playground (wires to demo Llama 3.2 3B IS).
+apiVersion: ogx.io/v1beta1
+kind: OGXServer
+metadata:
+  name: wings3-ogx
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+spec:
+  overrideConfig:
+    name: wings3-ogx-base-config
+    key: config.yaml
+  distribution:
+    name: rh
+  workload:
+    replicas: 1
+    storage:
+      size: 20Gi
+    overrides:
+      env:
+        - name: VLLM_URL
+          value: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+        - name: INFERENCE_MODEL
+          value: llama-32-3b-instruct
+        - name: VLLM_TLS_VERIFY
+          value: "false"
+        - name: POSTGRES_HOST
+          value: wings3-ogx-postgres.my-first-model.svc
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: wings3-ogx-postgres
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: wings3-ogx-postgres
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: wings3-ogx-postgres
+              key: POSTGRES_PASSWORD

@@ -25,8 +25,8 @@ http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
 On RHOAI 3.5 there is no project-level **EvalHub** tile. Use:
 
 1. **Develop & train → Evaluations** → project filter **`my-first-model`**
-2. **Start evaluation run** → provider **lm-eval-harness** → target URL above
-3. **Start evaluation run** → provider **Garak** → same target → open HTML report
+2. **Start evaluation run** → benchmark **arc_easy** (lm-eval) → endpoint URL above (**must include `/v1`**)
+3. **Start evaluation run** → benchmark **quick** (Garak) → same endpoint → open HTML report
 
 Requires EvalHub CR `evalhub` in `my-first-model` (`manifests/evalhub-instance.yaml`, applied by `install.sh`).
 
@@ -35,12 +35,16 @@ Walkthrough: [`../../walkthrough/05-evalhub-garak.md`](../../walkthrough/05-eval
 ## Pre-stage (recommended)
 
 ```bash
-./scripts/submit_evalhub_demo_jobs.sh
-# or
-./scripts/submit_evalhub_demo_jobs.sh
+# lm-eval (auto: lm_evaluation_harness)
+./scripts/submit_evalhub_eval_run.sh --benchmark arc_easy --tokenizer gpt2
+
+# Garak (auto: provider garak; endpoint normalized to .../v1)
+./scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings3-demo-garak-quick
 ```
 
-Garak scans can exceed five minutes. Submit before the session or use screenshots in `demo/assets/placeholders/`.
+`submit_evalhub_eval_run.sh` auto-detects Garak benchmarks (`quick`, `intents`, `owasp_llm_top10`, …). Override with `--provider garak` or `--provider lm`.
+
+Garak scans can exceed five minutes for full suites. Submit **`quick`** before the session or use screenshots in `demo/assets/placeholders/`.
 
 ## Job templates
 

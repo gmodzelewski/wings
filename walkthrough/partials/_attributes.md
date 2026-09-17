@@ -4,16 +4,17 @@ Sandbox URLs belong **only** here. Walkthrough modules paste `mlflow_ui` from th
 
 | Attribute | Value |
 |-----------|-------|
-| `gateway_host` | `rhods-dashboard-redhat-ods-applications.apps.ocp.bbg4x.sandbox1838.opentlc.com` |
-| `mlflow_ui` | `https://rhods-dashboard-redhat-ods-applications.apps.ocp.bbg4x.sandbox1838.opentlc.com/mlflow` |
+| `gateway_host` | `rhods-dashboard-redhat-ods-applications.apps.ocp5.stormshift.coe.muc.redhat.com` |
+| `mlflow_ui` | `https://rhods-dashboard-redhat-ods-applications.apps.ocp5.stormshift.coe.muc.redhat.com/mlflow` |
+| `maas_gateway_host` | `openshift-ai-inference-openshift-ingress.apps.ocp5.stormshift.coe.muc.redhat.com` |
 | `dsc_name` | `default-dsc` |
 | `rhoai_version` | `3.5.0` |
 | `workbench_namespace` | `my-first-model` |
 | `mlflow_namespace` | `redhat-ods-applications` |
 | `mlflow_workspace` | `my-first-model` |
 | `llm_namespace` | `my-first-model` |
-| `llm_model` | `llama-32-3b-instruct` |
-| `llm_base_url` | `http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1` |
+| `llm_model` | `gpt-oss-120b` |
+| `llm_base_url` | `https://openshift-ai-inference-openshift-ingress.apps.ocp5.stormshift.coe.muc.redhat.com/llm/gpt-oss-120b/v1` |
 | `mlflow_experiment_tracing` | `wings3-agent-tracing` |
 | `mlflow_experiment_eval` | `wings3-agent-eval` |
 | `mlflow_experiment_eval_prod` | `wings3-agent-eval-prod` |
@@ -22,8 +23,8 @@ Sandbox URLs belong **only** here. Walkthrough modules paste `mlflow_ui` from th
 
 ```bash
 # Standalone MLflow UI (Act 2/3/Module 4 — Traces, Details & Timeline, Evaluation, Datasets)
-# https://rhods-dashboard-redhat-ods-applications.apps.ocp.bbg4x.sandbox1838.opentlc.com/mlflow
+# https://rhods-dashboard-redhat-ods-applications.apps.ocp5.stormshift.coe.muc.redhat.com/mlflow
 
 curl -sk -o /dev/null -w "%{http_code}\n" \
-  https://rhods-dashboard-redhat-ods-applications.apps.ocp.bbg4x.sandbox1838.opentlc.com/mlflow/health
+  https://rhods-dashboard-redhat-ods-applications.apps.ocp5.stormshift.coe.muc.redhat.com/mlflow/health
 ```

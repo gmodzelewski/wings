@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import os
 import subprocess
 import sys
@@ -14,6 +15,9 @@ class CheckResult:
     name: str
     ok: bool
     detail: str = ""
+
+
+NOTEBOOK_API = os.environ.get("WINGS3_NOTEBOOK_API", "notebook.kubeflow.org")
 
 
 def _oc(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -60,7 +64,7 @@ def check_notebook_ready(project: str, workbench: str) -> CheckResult:
     result = _oc(
         [
             "get",
-            "notebook",
+            NOTEBOOK_API,
             workbench,
             "-n",
             project,
@@ -246,6 +250,35 @@ def workbench_has_judge_mount(mount_paths: list[str], volume_secret_names: list[
     return "/etc/wings3-judge-llm" in mount_paths and "wings3-judge-llm" in volume_secret_names
 
 
+def decode_secret_value(b64: str) -> str | None:
+    if not b64.strip():
+        return None
+    try:
+        return base64.b64decode(b64).decode()
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
+def check_secret_data_key(project: str, key: str, label: str) -> CheckResult:
+    result = _oc(
+        [
+            "get",
+            "secret",
+            "wings3-judge-llm",
+            "-n",
+            project,
+            "-o",
+            f"jsonpath={{.data.{key}}}",
+        ]
+    )
+    if result.returncode != 0:
+        return CheckResult(label, False, "secret/wings3-judge-llm missing")
+    value = decode_secret_value(result.stdout)
+    if not value:
+        return CheckResult(label, False, f"empty {key}")
+    return CheckResult(label, True, value)
+
+
 def check_judge_secret_key(project: str) -> CheckResult:
     result = _oc(
         [
@@ -274,11 +307,335 @@ def check_judge_secret_key(project: str) -> CheckResult:
     )
 
 
+def crd_exists(suffix: str) -> bool:
+    result = _oc(["api-resources", "-o", "name"])
+    if result.returncode != 0:
+        return False
+    return any(suffix in line for line in result.stdout.splitlines())
+
+
+def check_maas_crds() -> CheckResult:
+    has_external = crd_exists("externalmodels.maas.opendatahub.io")
+    has_modelref = crd_exists("maasmodelrefs.maas.opendatahub.io") or crd_exists(
+        "maasmodelrefs.models.opendatahub.io"
+    )
+    if has_external and has_modelref:
+        return CheckResult("maas crds", True)
+    return CheckResult(
+        "maas crds",
+        False,
+        "externalmodels/maasmodelrefs CRDs missing — enable modelsAsService on DSC",
+    )
+
+
+def maas_resource_ready(kind: str, name: str, ns: str) -> bool:
+    phase = _oc(
+        [
+            "get",
+            kind,
+            name,
+            "-n",
+            ns,
+            "-o",
+            "jsonpath={.status.phase}",
+        ]
+    )
+    if phase.returncode == 0 and phase.stdout.strip() == "Ready":
+        return True
+    ready = _oc(
+        [
+            "get",
+            kind,
+            name,
+            "-n",
+            ns,
+            "-o",
+            "jsonpath={.status.conditions[?(@.type==\"Ready\")].status}",
+        ]
+    )
+    return ready.returncode == 0 and ready.stdout.strip() == "True"
+
+
+def check_maas_external_model(project: str, model: str) -> CheckResult:
+    if not crd_exists("externalmodels.maas.opendatahub.io"):
+        return CheckResult(
+            f"externalmodel {model}",
+            False,
+            "MaaS CRDs not installed",
+        )
+    exists = _oc(["get", "externalmodels.maas.opendatahub.io", model, "-n", project])
+    if exists.returncode != 0:
+        return CheckResult(
+            f"externalmodel {model}",
+            False,
+            f"externalmodel/{model} missing in {project}",
+        )
+    phase = _oc(
+        [
+            "get",
+            "externalmodels.maas.opendatahub.io",
+            model,
+            "-n",
+            project,
+            "-o",
+            "jsonpath={.metadata.name}",
+        ]
+    )
+    if phase.returncode == 0 and phase.stdout.strip() == model:
+        return CheckResult(f"externalmodel {model}", True)
+    return CheckResult(f"externalmodel {model}", False, "not found")
+
+
+def genai_studio_optional() -> bool:
+    return os.environ.get("WINGS3_SKIP_OGX", "0") == "1"
+
+
+def mcp_catalog_optional() -> bool:
+    return os.environ.get("WINGS3_SKIP_MCP", "0") == "1"
+
+
+def check_ogx_managed() -> CheckResult:
+    dsc = os.environ.get("WINGS3_DSC_NAME", "default-dsc")
+    has_crd = crd_exists("ogxservers.ogx.io")
+    state = _oc(
+        [
+            "get",
+            "datasciencecluster",
+            dsc,
+            "-o",
+            "jsonpath={.spec.components.ogx.managementState}",
+        ]
+    )
+    ogx_ready = _oc(
+        [
+            "get",
+            "datasciencecluster",
+            dsc,
+            "-o",
+            "jsonpath={.status.conditions[?(@.type==\"OGXReady\")].status}",
+        ]
+    )
+    mgmt = state.stdout.strip() if state.returncode == 0 else "missing"
+    ready = ogx_ready.stdout.strip() if ogx_ready.returncode == 0 else ""
+    if not has_crd:
+        if mgmt == "Managed":
+            return CheckResult(
+                "ogx",
+                False,
+                "Managed but ogx.io CRDs missing — run install.sh (Service Mesh + OGX)",
+            )
+        if genai_studio_optional():
+            return CheckResult(
+                "ogx",
+                True,
+                "skipped (WINGS3_SKIP_OGX=1)",
+            )
+        return CheckResult(
+            "ogx",
+            False,
+            "operator not on cluster — install.sh enables Service Mesh + OGX for Playground",
+        )
+    if mgmt == "Managed" and ready == "True":
+        return CheckResult("ogx", True)
+    if mgmt == "Managed":
+        return CheckResult("ogx", False, f"OGXReady={ready or 'False'}")
+    if genai_studio_optional():
+        return CheckResult("ogx", True, "skipped (WINGS3_SKIP_OGX=1)")
+    return CheckResult(
+        "ogx",
+        False,
+        f"managementState={mgmt} — run install.sh to enable OGX",
+    )
+
+
+def check_ogx_server(project: str) -> CheckResult:
+    name = os.environ.get("WINGS3_OGX_SERVER_NAME", "wings3-ogx")
+    if genai_studio_optional():
+        return CheckResult("ogxserver", True, "skipped (WINGS3_SKIP_OGX=1)")
+    if not crd_exists("ogxservers.ogx.io"):
+        return CheckResult("ogxserver", False, "ogx.io CRDs missing")
+    exists = _oc(["get", "ogxserver", name, "-n", project])
+    if exists.returncode != 0:
+        return CheckResult("ogxserver", False, f"ogxserver/{name} missing in {project}")
+    ready = _oc(
+        [
+            "get",
+            "ogxserver",
+            name,
+            "-n",
+            project,
+            "-o",
+            "jsonpath={.status.conditions[?(@.type==\"Ready\")].status}",
+        ]
+    )
+    phase = _oc(
+        [
+            "get",
+            "ogxserver",
+            name,
+            "-n",
+            project,
+            "-o",
+            "jsonpath={.status.phase}",
+        ]
+    )
+    if ready.returncode == 0 and ready.stdout.strip() == "True":
+        return CheckResult("ogxserver", True)
+    if phase.returncode == 0 and phase.stdout.strip() == "Ready":
+        return CheckResult("ogxserver", True)
+    detail = ready.stdout.strip() or phase.stdout.strip() or "not Ready"
+    return CheckResult("ogxserver", False, detail)
+
+
+def check_mcp_catalog() -> CheckResult:
+    mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    if mcp_catalog_optional():
+        return CheckResult("mcp catalog", True, "skipped (WINGS3_SKIP_MCP=1)")
+    flag = _oc(
+        [
+            "get",
+            "odhdashboardconfig",
+            "odh-dashboard-config",
+            "-n",
+            mlflow_ns,
+            "-o",
+            "jsonpath={.spec.dashboardConfig.mcpCatalog}",
+        ]
+    )
+    enabled = flag.returncode == 0 and flag.stdout.strip() == "true"
+    has_crd = crd_exists("mcpservers.mcp.x-k8s.io")
+    if enabled and has_crd:
+        return CheckResult("mcp catalog", True)
+    if not enabled:
+        return CheckResult("mcp catalog", False, "dashboardConfig.mcpCatalog not true")
+    return CheckResult(
+        "mcp catalog",
+        False,
+        "mcpservers.mcp.x-k8s.io CRD missing — run install.sh",
+    )
+
+
+def check_maas_ui() -> CheckResult:
+    mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    dep = _oc(["get", "deployment", "maas-ui", "-n", mlflow_ns])
+    if dep.returncode != 0:
+        return CheckResult("maas-ui", False, "deployment missing in redhat-ods-applications")
+    ready = _oc(
+        [
+            "get",
+            "deployment",
+            "maas-ui",
+            "-n",
+            mlflow_ns,
+            "-o",
+            "jsonpath={.status.readyReplicas}",
+        ]
+    )
+    if ready.returncode != 0 or ready.stdout.strip() != "1":
+        return CheckResult("maas-ui", False, "deployment not Ready")
+    logs = _oc(["logs", "-n", mlflow_ns, "deployment/maas-ui", "--tail=30"])
+    if logs.returncode == 0 and "SERVER_UNAVAILABLE" in logs.stdout:
+        return CheckResult(
+            "maas-ui",
+            False,
+            "recent SERVER_UNAVAILABLE in logs — oc rollout restart deployment/maas-ui -n "
+            f"{mlflow_ns}",
+        )
+    return CheckResult("maas-ui", True)
+
+
+def check_kuadrant_ready() -> CheckResult:
+    kuadrant_ns = os.environ.get("WINGS3_KUADRANT_NAMESPACE", "kuadrant-system")
+    if not crd_exists("kuadrants.kuadrant.io"):
+        return CheckResult("kuadrant", False, "kuadrants.kuadrant.io CRD missing")
+    exists = _oc(["get", "kuadrant", "kuadrant", "-n", kuadrant_ns])
+    if exists.returncode != 0:
+        return CheckResult(
+            "kuadrant",
+            False,
+            f"kuadrant/kuadrant missing in {kuadrant_ns}",
+        )
+    ready = _oc(
+        [
+            "get",
+            "kuadrant",
+            "kuadrant",
+            "-n",
+            kuadrant_ns,
+            "-o",
+            "jsonpath={.status.conditions[?(@.type==\"Ready\")].status}",
+        ]
+    )
+    if ready.returncode == 0 and ready.stdout.strip() == "True":
+        return CheckResult("kuadrant", True)
+    return CheckResult("kuadrant", False, "not Ready")
+
+
+def check_maas_modelref(project: str, model: str) -> CheckResult:
+    if not (
+        crd_exists("maasmodelrefs.maas.opendatahub.io")
+        or crd_exists("maasmodelrefs.models.opendatahub.io")
+    ):
+        return CheckResult(f"maasmodelref {model}", False, "MaaS CRDs not installed")
+    exists = _oc(["get", "maasmodelref", model, "-n", project])
+    if exists.returncode != 0:
+        return CheckResult(
+            f"maasmodelref {model}",
+            False,
+            f"maasmodelref/{model} missing in {project}",
+        )
+    if maas_resource_ready("maasmodelref", model, project):
+        return CheckResult(f"maasmodelref {model}", True)
+    return CheckResult(f"maasmodelref {model}", False, "not Ready")
+
+
+def check_judge_base_url_routed_via_local_maas(project: str) -> CheckResult:
+    result = _oc(
+        [
+            "get",
+            "secret",
+            "wings3-judge-llm",
+            "-n",
+            project,
+            "-o",
+            "jsonpath={.data.JUDGE_BASE_URL}",
+        ]
+    )
+    if result.returncode != 0:
+        return CheckResult(
+            "judge JUDGE_BASE_URL",
+            False,
+            "secret/wings3-judge-llm missing",
+        )
+    base_url = decode_secret_value(result.stdout)
+    if base_url is None:
+        return CheckResult("judge JUDGE_BASE_URL", False, "empty or invalid JUDGE_BASE_URL")
+    if "maas.redhatworkshops.io" in base_url:
+        return CheckResult(
+            "judge JUDGE_BASE_URL",
+            False,
+            "still points at workshop MaaS — re-run install.sh",
+        )
+    if "REPLACE_AT_INSTALL" in base_url:
+        return CheckResult(
+            "judge JUDGE_BASE_URL",
+            False,
+            "placeholder URL — re-run install.sh",
+        )
+    if "/llm/" not in base_url and f"/{project}/" not in base_url:
+        return CheckResult(
+            "judge JUDGE_BASE_URL",
+            False,
+            f"expected in-cluster MaaS path, got {base_url}",
+        )
+    return CheckResult("judge JUDGE_BASE_URL", True, base_url)
+
+
 def check_workbench_judge_mount(project: str, workbench: str) -> CheckResult:
     mount_result = _oc(
         [
             "get",
-            "notebook",
+            NOTEBOOK_API,
             workbench,
             "-n",
             project,
@@ -289,7 +646,7 @@ def check_workbench_judge_mount(project: str, workbench: str) -> CheckResult:
     volume_result = _oc(
         [
             "get",
-            "notebook",
+            NOTEBOOK_API,
             workbench,
             "-n",
             project,
@@ -322,16 +679,29 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
     llm_model = os.environ.get("WINGS3_LLM_MODEL", "llama-32-3b-instruct")
     sr_template = os.environ.get("WINGS3_SR_TEMPLATE", "vllm-cuda-runtime-template")
 
+    maas_model = os.environ.get("WINGS3_MAAS_MODEL", "gpt-oss-120b")
+
     results = [
         check_oc_login(),
         check_mlflow_cr(mlflow_ns),
         check_pod_ready(mlflow_ns, "mlflow", "mlflow pod"),
         check_evalhub_pod(mlflow_ns),
         check_evalhub_instance(project),
+        check_maas_crds(),
+        check_ogx_managed(),
+        check_ogx_server(project),
+        check_mcp_catalog(),
+        check_kuadrant_ready(),
+        check_maas_ui(),
+        check_maas_external_model(project, maas_model),
+        check_maas_modelref(project, maas_model),
         check_notebook_ready(project, workbench),
         check_resource("configmap", "wings3-llm-endpoint", project, "configmap wings3-llm-endpoint"),
         check_resource("secret", "wings3-judge-llm", project, "secret wings3-judge-llm"),
         check_judge_secret_key(project),
+        check_secret_data_key(project, "MAAS_MODEL", "agent secret MAAS_MODEL"),
+        check_secret_data_key(project, "MAAS_BASE_URL", "agent secret MAAS_BASE_URL"),
+        check_judge_base_url_routed_via_local_maas(project),
         check_workbench_judge_mount(project, workbench),
     ]
     if not skip_llm:

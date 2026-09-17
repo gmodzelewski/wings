@@ -9,3 +9,4 @@ __pycache__/
 *.pptx
 *.pptx.bak
 manifests/secret-wings3-judge-llm.yaml
+manifests/secret-wings3-maas-upstream-api-key.yaml

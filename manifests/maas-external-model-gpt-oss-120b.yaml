@@ -1,0 +1,15 @@
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: ExternalModel
+metadata:
+  name: gpt-oss-120b
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
+spec:
+  provider: openai
+  endpoint: maas-rhdp.apps.maas.redhatworkshops.io
+  targetModel: gpt-oss-120b
+  credentialRef:
+    name: wings3-maas-upstream-api-key

@@ -1,0 +1,16 @@
+# Demo Kuadrant instance for MaaS / Authorino (in-memory Limitador is fine for lab).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kuadrant-system
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+---
+apiVersion: kuadrant.io/v1beta1
+kind: Kuadrant
+metadata:
+  name: kuadrant
+  namespace: kuadrant-system
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+spec: {}

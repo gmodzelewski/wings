@@ -12,6 +12,7 @@ metadata:
     openshift.io/description: OpenAI-compatible URL for EvalHub and Garak evaluation jobs
 data:
   model_name: llama-32-3b-instruct
+  huggingface_tokenizer: meta-llama/Llama-3.2-3B-Instruct
   openai_base_url: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
   project: my-first-model
   notes: >-

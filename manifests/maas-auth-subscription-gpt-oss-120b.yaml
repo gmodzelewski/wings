@@ -1,0 +1,34 @@
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSSubscription
+metadata:
+  name: wings3-gpt-oss-120b
+  namespace: models-as-a-service
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+spec:
+  owner:
+    groups:
+      - name: system:authenticated
+    users: []
+  modelRefs:
+    - name: gpt-oss-120b
+      namespace: my-first-model
+      tokenRateLimits:
+        - limit: 1000000
+          window: 1m
+---
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSAuthPolicy
+metadata:
+  name: wings3-gpt-oss-120b
+  namespace: models-as-a-service
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+spec:
+  modelRefs:
+    - name: gpt-oss-120b
+      namespace: my-first-model
+  subjects:
+    groups:
+      - name: system:authenticated
+    users: []

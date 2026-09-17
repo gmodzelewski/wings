@@ -52,7 +52,7 @@ Fallback: `18-eval-metrics.png`, `19-eval-per-example.png`.
 
 ### 4. Datasets + judges — ship (this is the close)
 
-**Say first:** Llama 3.2 3B is the agent. Judges use hosted gpt-oss-120b. Scores with rationales plus a cheap substring safety net — that is a reviewable gate.
+**Say first:** The agent model comes from Secret `wings3-judge-llm` (`MAAS_MODEL`). Judges use `JUDGE_*` from the same secret (often hosted gpt-oss-120b). Scores with rationales plus a cheap substring safety net — that is a reviewable gate.
 
 Experiment **wings3-agent-eval-prod**:
 

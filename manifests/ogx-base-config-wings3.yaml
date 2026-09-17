@@ -1,0 +1,109 @@
+# Base OGX config.yaml — bypasses OCI label fetch from registry.redhat.io when
+# the operator cannot authenticate for manifest metadata (HTTP 401).
+# Source: opendatahub-io/ogx-distribution distribution/config.yaml (rh image).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wings3-ogx-base-config
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+    ogx.io/watch: "true"
+data:
+  config.yaml: |
+    version: 2
+    image_name: rh
+    apis:
+      - responses
+      - messages
+      - batches
+      - inference
+      - tool_runtime
+      - vector_io
+      - files
+      - file_processors
+    providers:
+      inference:
+        - provider_id: ${env.VLLM_URL:+vllm-inference}
+          provider_type: remote::vllm
+          config:
+            base_url: ${env.VLLM_URL:=}
+            max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
+            api_token: ${env.VLLM_API_TOKEN:=fake}
+            tls_verify: ${env.VLLM_TLS_VERIFY:=true}
+            refresh_models: ${env.VLLM_REFRESH_MODELS:=false}
+      responses:
+        - provider_id: meta-reference
+          provider_type: inline::builtin
+          config:
+            persistence:
+              agent_state:
+                backend: kv_default
+                namespace: agents::meta_reference
+              responses:
+                backend: sql_default
+                table_name: agents_responses
+                max_write_queue_size: 10000
+                num_writers: 4
+      messages:
+        - provider_id: builtin
+          provider_type: inline::builtin
+          config:
+            kvstore:
+              backend: kv_default
+              namespace: message_batches
+      tool_runtime:
+        - provider_id: model-context-protocol
+          provider_type: remote::model-context-protocol
+          config: {}
+      files:
+        - provider_id: meta-reference-files
+          provider_type: inline::localfs
+          config:
+            storage_dir: /opt/app-root/src/.ogx/distributions/rh/files
+            metadata_store:
+              backend: sql_default
+              table_name: files_metadata
+      file_processors:
+        - provider_id: auto
+          provider_type: inline::auto
+          config: {}
+      batches:
+        - provider_id: reference
+          provider_type: inline::reference
+          config:
+            sqlstore:
+              table_name: batches
+              backend: sql_default
+    storage:
+      backends:
+        kv_default:
+          type: kv_postgres
+          host: ${env.POSTGRES_HOST:=localhost}
+          port: ${env.POSTGRES_PORT:=5432}
+          db: ${env.POSTGRES_DB:=}
+          user: ${env.POSTGRES_USER:=}
+          password: ${env.POSTGRES_PASSWORD:=}
+          table_name: ${env.POSTGRES_TABLE_NAME:=ogx_kvstore}
+        sql_default:
+          type: sql_postgres
+          host: ${env.POSTGRES_HOST:=localhost}
+          port: ${env.POSTGRES_PORT:=5432}
+          db: ${env.POSTGRES_DB:=}
+          user: ${env.POSTGRES_USER:=}
+          password: ${env.POSTGRES_PASSWORD:=}
+      stores:
+        metadata:
+          backend: kv_default
+          namespace: registry
+        inference:
+          table_name: inference_store
+          backend: sql_default
+          max_write_queue_size: 10000
+          num_writers: 4
+    registered_resources:
+      models: []
+      tool_groups: []
+    server:
+      port: 8321
+      registry_refresh_interval_seconds: ${env.REGISTRY_REFRESH_INTERVAL_SECONDS:=300}

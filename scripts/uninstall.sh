@@ -33,6 +33,8 @@ need_oc
 delete_workbench_resources
 
 if [[ "$PURGE_ALL" == 1 ]]; then
+  purge_ogx_resources
+  purge_maas_resources
   purge_mlflow_cr
   purge_evalhub_resources
   delete_judge_secret

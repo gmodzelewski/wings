@@ -28,7 +28,12 @@ from prompts import (
     NUMERIC_AND_CLEAR_GUIDELINES,
     V2_AGENT_PROMPT,
 )
-from traced_agent import calculator, create_agent_graph, get_config_from_env
+from traced_agent import (
+    calculator,
+    create_agent_graph,
+    ensure_maas_env,
+    get_config_from_env,
+)
 
 GOLDEN_PATH = Path(__file__).resolve().parent.parent / "datasets" / "math_golden.jsonl"
 DATASET_NAME = "math_golden"
@@ -47,34 +52,18 @@ def load_golden_records(path: Path = GOLDEN_PATH) -> list[dict]:
     return records
 
 
-DEFAULT_JUDGE_BASE_URL = "https://maas-rhdp.apps.maas.redhatworkshops.io/v1"
+DEFAULT_JUDGE_BASE_URL = "https://REPLACE_AT_INSTALL/my-first-model/gpt-oss-120b/v1"
 DEFAULT_JUDGE_MODEL = "gpt-oss-120b"
-JUDGE_SECRET_DIR = Path("/etc/wings3-judge-llm")
-
-
-def load_judge_secret_env() -> None:
-    """Copy Secret files into os.environ.
-
-    RHOAI admission strips ``secretKeyRef`` / ``envFrom`` on the Notebook CR.
-    The workbench mounts ``wings3-judge-llm`` at ``JUDGE_SECRET_DIR`` instead.
-    """
-    if not JUDGE_SECRET_DIR.is_dir():
-        return
-    for key in ("JUDGE_API_KEY", "JUDGE_BASE_URL", "JUDGE_MODEL"):
-        if os.environ.get(key):
-            continue
-        path = JUDGE_SECRET_DIR / key
-        if path.is_file():
-            os.environ[key] = path.read_text().strip()
 
 
 def configure_cluster_judge() -> str:
     """Point MLflow LLM judges at hosted MaaS via LiteLLM hosted_vllm.
 
     Agent stays on MAAS_* (in-cluster 3B). Judges use JUDGE_* from Secret
-    ``wings3-judge-llm``. ``openai:/…`` always calls api.openai.com.
+    ``wings3-judge-llm`` (in-cluster MaaS gateway `/llm/gpt-oss-120b/v1`, not workshop
+    direct). ``openai:/…`` always calls api.openai.com.
     """
-    load_judge_secret_env()
+    ensure_maas_env()
     base = os.environ.get("JUDGE_BASE_URL") or DEFAULT_JUDGE_BASE_URL
     model = os.environ.get("JUDGE_MODEL") or DEFAULT_JUDGE_MODEL
     key = (os.environ.get("JUDGE_API_KEY") or os.environ.get("HOSTED_VLLM_API_KEY") or "").strip()

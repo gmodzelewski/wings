@@ -14,21 +14,44 @@ from calculator_ops import run_calculator
 from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
+from wings3_env import (
+    DEFAULT_MAAS_API_KEY,
+    DEFAULT_MAAS_BASE_URL,
+    DEFAULT_MAAS_MODEL,
+    ensure_maas_env,
+    load_wings3_secret_env,
+    print_secret_key_status,
+    print_workbench_env,
+)
+
+__all__ = [
+    "DEFAULT_MAAS_API_KEY",
+    "DEFAULT_MAAS_BASE_URL",
+    "DEFAULT_MAAS_MODEL",
+    "AgentConfig",
+    "calculator",
+    "create_agent_graph",
+    "ensure_maas_env",
+    "get_config_from_env",
+    "load_wings3_secret_env",
+    "print_secret_key_status",
+    "print_workbench_env",
+]
 
 
 @dataclass
 class AgentConfig:
     """Configuration for the LangChain agent."""
 
-    model: str = "llama-32-3b-instruct"
-    base_url: str = "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1"
-    api_key: str = ""
+    model: str = DEFAULT_MAAS_MODEL
+    base_url: str = DEFAULT_MAAS_BASE_URL
+    api_key: str = DEFAULT_MAAS_API_KEY
     temperature: float = 0.0
     max_tokens: int = 256
 
 
 def create_llm(config: AgentConfig) -> ChatOpenAI:
-    """Create ChatOpenAI instance with the in-cluster vLLM endpoint."""
+    """Create ChatOpenAI instance with the configured OpenAI-compatible endpoint."""
     return ChatOpenAI(
         model=config.model,
         api_key=config.api_key,
@@ -75,13 +98,11 @@ def create_agent_graph(
 
 def get_config_from_env() -> AgentConfig:
     """Load agent configuration from MAAS_* environment variables."""
+    ensure_maas_env()
     return AgentConfig(
-        model=os.environ.get("MAAS_MODEL", "llama-32-3b-instruct"),
-        base_url=os.environ.get(
-            "MAAS_BASE_URL",
-            "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1",
-        ),
-        api_key=os.environ.get("MAAS_API_KEY", "unused"),
+        model=os.environ["MAAS_MODEL"],
+        base_url=os.environ["MAAS_BASE_URL"],
+        api_key=os.environ.get("MAAS_API_KEY", DEFAULT_MAAS_API_KEY),
         temperature=0.0,
         max_tokens=int(os.environ.get("MAAS_MAX_TOKENS", "256")),
     )

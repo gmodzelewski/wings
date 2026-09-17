@@ -17,11 +17,11 @@ On RHOAI, annotation **`opendatahub.io/mlflow-instance=mlflow`** on the Notebook
 
 Dashboard workbenches created **after** MLflow is installed get that annotation **automatically**. This hour’s workbench is GitOps (`workbench-wings3-demo.yaml`) so the annotation is in the YAML — that is the only case where you must set it yourself.
 
-You still set **`MLFLOW_WORKSPACE`** to the project name (`my-first-model`) — that is the RBAC boundary. The LLM is the in-cluster vLLM predictor (KServe, Llama 3.2 3B) — no port-forward. The workbench pod must run as ServiceAccount **`wings3-demo`** (same name as the Notebook, from the YAML). Dashboard-created notebooks use `default` and get `PERMISSION_DENIED`.
+You still set **`MLFLOW_WORKSPACE`** to the project name (`my-first-model`) — that is the RBAC boundary. The agent LLM is **`MAAS_MODEL`** from Secret `wings3-judge-llm` (mounted at `/etc/wings3-judge-llm`; on GPU clusters that is usually in-cluster llama-32-3b-instruct). The workbench pod must run as ServiceAccount **`wings3-demo`** (same name as the Notebook, from the YAML). Dashboard-created notebooks use `default` and get `PERMISSION_DENIED`.
 
 **Pip (pre-stage):** RHOAI 3.4 RHAI index has langgraph 1.x only. Install with `--extra-index-url https://pypi.org/simple`. The venv is **not** on the PVC — re-pip after a workbench restart.
 
-**Llama 3.2 3B:** one tool call per turn; keep `max_tokens` small; calculator-only. Extra queries often land as **Error**. That is the Act 2 teaching object: open an Error row, show where it broke, then cut to the OK 256÷16 tree.
+**Small agent models** (e.g. llama-32-3b-instruct on GPU clusters): one tool call per turn; keep `max_tokens` small; calculator-only. Extra queries often land as **Error**. That is the Act 2 teaching object: open an Error row, show where it broke, then cut to the OK 256÷16 tree.
 
 **On stage:** dependencies already installed. Live: **one** query if the clock is tight.
 

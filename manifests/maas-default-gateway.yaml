@@ -1,0 +1,38 @@
+# MaaS expects Gateway openshift-ingress/maas-default-gateway. On sandboxes that only
+# have openshift-ai-inference, this mirrors that gateway for MaaS HTTPRoutes.
+# Cluster admins may already provide this; install applies only when missing.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: maas-default-gateway
+  namespace: openshift-ingress
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+  annotations:
+    opendatahub.io/managed: "false"
+    security.opendatahub.io/authorino-tls-bootstrap: "true"
+spec:
+  gatewayClassName: openshift-ai-inference
+  listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+      hostname: REPLACE_MAAS_GATEWAY_HOST
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: default-gateway-tls
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  - openshift-ingress
+                  - redhat-ods-applications
+                  - redhat-ai-gateway-infra
+                  - my-first-model
+                  - models-as-a-service

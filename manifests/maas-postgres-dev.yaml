@@ -1,0 +1,76 @@
+# Demo-only Postgres for MaaS API key storage (not production-grade).
+# Lab credentials are intentional; see manifests/README.md.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wings3-maas-postgres
+  namespace: redhat-ods-applications
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+type: Opaque
+stringData:
+  POSTGRES_USER: maas
+  POSTGRES_PASSWORD: wings3-maas-dev
+  POSTGRES_DB: maas
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wings3-maas-postgres
+  namespace: redhat-ods-applications
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+    app: wings3-maas-postgres
+spec:
+  selector:
+    app: wings3-maas-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wings3-maas-postgres
+  namespace: redhat-ods-applications
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+    app: wings3-maas-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wings3-maas-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: wings3-demo
+        app: wings3-maas-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:14
+          ports:
+            - containerPort: 5432
+          env:
+            - name: PGDATA
+              value: /tmp/pgdata
+          envFrom:
+            - secretRef:
+                name: wings3-maas-postgres
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - maas
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

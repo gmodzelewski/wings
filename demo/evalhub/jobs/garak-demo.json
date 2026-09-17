@@ -1,14 +1,14 @@
 {
   "name": "wings3-demo-garak",
-  "displayName": "WINGS3 demo — Garak red-team",
-  "namespace": "my-first-model",
-  "provider": "garak",
-  "target": {
+  "model": {
     "url": "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1",
-    "model": "llama-32-3b-instruct"
+    "name": "llama-32-3b-instruct"
   },
-  "config": {
-    "probe_set": "default",
-    "notes": "Pre-submit before session. Walk one resisted and one vulnerable probe category in the HTML report."
-  }
+  "benchmarks": [
+    {
+      "provider_id": "garak",
+      "id": "quick"
+    }
+  ],
+  "notes": "EvalHub REST API job body. Endpoint must end with /v1 for vLLM OpenAI compatibility. Submit via scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings3-demo-garak"
 }

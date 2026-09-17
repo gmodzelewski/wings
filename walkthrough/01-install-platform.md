@@ -148,13 +148,30 @@ MLFLOW_UI='https://…/mlflow'
 curl -skL -o /dev/null -w "%{http_code}\n" "${MLFLOW_UI}/health"
 ```
 
-### 7. Say the workspace rule
+### 7. Confirm MaaS external judge model (pre-staged)
+
+`install.sh` enables MaaS (`aigateway.modelsAsAService`), Gen AI Studio (Service Mesh 3 + OGX + MCP Catalog flags), registers workshop **gpt-oss-120b** as an `ExternalModel`, and patches judge Secret `wings3-judge-llm` with the in-cluster gateway URL. MaaS judges do not require Playground.
+
+```bash
+oc get datasciencecluster default-dsc \
+  -o jsonpath='{.spec.components.aigateway.modelsAsAService.managementState}{"\n"}'
+oc get externalmodel gpt-oss-120b -n my-first-model
+oc get maasmodelref gpt-oss-120b -n my-first-model
+```
+
+**Console (RHOAI 3.5):** **Gen AI Studio → AI asset endpoints → Models** — **gpt-oss-120b** listed; **Gen AI Studio → API keys** — create a MaaS key for subscription `wings3-gpt-oss-120b`.
+
+### 8. Say the workspace rule
 
 Workbench pods get `MLFLOW_TRACKING_URI` injected. You still set **`MLFLOW_WORKSPACE=my-first-model`**. EvalHub and Garak jobs target the ConfigMap endpoint above.
 
 ## Verification
 
 - [ ] `mlflowoperator` is `Managed`; MLflow pod `Running`
+- [ ] `modelsAsAService` is `Managed`; `externalmodel` / `maasmodelref` **gpt-oss-120b** Ready in `my-first-model`
+- [ ] `ogx` is `Managed` with `OGXReady=True`; `ogxserver/wings3-ogx` Ready in `my-first-model`
+- [ ] **Gen AI Studio → Playground** nav visible; **Gen AI hub → MCP server** catalog visible
+- [ ] **Gen AI Studio → AI asset endpoints** shows **gpt-oss-120b**; **API keys** page can mint a key
 - [ ] EvalHub CR `evalhub` Ready in `my-first-model` (`./check.sh` → `evalhub instance`)
 - [ ] **Develop & train → Evaluations** loads benchmarks for `my-first-model` (or screenshot fallback ready)
 - [ ] Garak provider visible when starting an evaluation run (or screenshot fallback ready)
@@ -173,6 +190,7 @@ Enable MLflow, EvalHub, and Garak as RHOAI components; verify lab CRs; map the s
 
 ## References
 
+- [Install MLflow (RHOAI 3.4)](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_mlflow/installing-mlflow_mlflow)
 - [Install MLflow (RHOAI 3.5)](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_mlflow/installing-mlflow_mlflow)
 - [Track and compare MLflow experiments (RHOAI 3.5)](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_mlflow/track-and-compare-mlflow-experiments_mlflow) — embedded **Experiments** view (docs: Experiments (MLflow))
 - Act 5 walkthrough: [05-evalhub-garak.md](05-evalhub-garak.md)

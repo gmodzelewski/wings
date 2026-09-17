@@ -22,7 +22,7 @@ Four different MLflow objects — do not treat them as one:
 
 `evaluate()` without `.register()` is enough for Evaluation columns. It is **not** enough for the Prompts or Judges catalogs. The `@scorer` substring check (`contains_expected`) cannot be registered — it stays on the `evaluate()` list only.
 
-**Say this before you run cells:** Llama 3.2 3B is the **agent**. Judges use hosted **gpt-oss-120b** from Secret `wings3-judge-llm` (`JUDGE_*`). Celebrate that scores now have **rationales** you can argue with. Hybrid scoring keeps `contains_expected` so a flaky judge row still has a cheap metric.
+**Say this before you run cells:** The **agent** uses `MAAS_MODEL` from Secret `wings3-judge-llm`. **Judges** use `JUDGE_*` from the same secret (often **gpt-oss-120b** through the in-cluster MaaS gateway). The workshop upstream is only on the `ExternalModel`; judges never call `maas.redhatworkshops.io` directly. Celebrate that scores now have **rationales** you can argue with. Hybrid scoring keeps `contains_expected` so a flaky judge row still has a cheap metric.
 
 | Piece | What it is |
 |-------|------------|
@@ -31,7 +31,7 @@ Four different MLflow objects — do not treat them as one:
 | `contains_expected` | Same substring check as Act 3 (`expected_answer` in the output). Eval-only — cannot register. |
 | `Correctness` | Built-in judge vs `expected_facts`. **Register** it so it appears under Judges / Scorers. |
 | `Guidelines` (`numeric_and_clear`) | Judge: digits in the response; one clear arithmetic result. **Register** it so guidelines appear under Judges. |
-| Judge model | `hosted_vllm:/gpt-oss-120b` via LiteLLM + `HOSTED_VLLM_API_BASE` = hosted MaaS (`JUDGE_BASE_URL` from Secret `wings3-judge-llm`). Agent stays on in-cluster 3B. Do **not** use `openai:/…` — that always calls api.openai.com. Alternatives on the same endpoint: `deepseek-r1-distill-qwen-14b`, `llama-scout-17b`. |
+| Judge model | `hosted_vllm:/gpt-oss-120b` via LiteLLM + `HOSTED_VLLM_API_BASE` = in-cluster MaaS (`JUDGE_BASE_URL` from Secret `wings3-judge-llm`, minted by `install.sh`). Agent stays on in-cluster 3B. Do **not** use `openai:/…` — that always calls api.openai.com. UI: **Gen AI Studio → Models as a Service** shows external model **gpt-oss-120b**. |
 | Agent prompt | **v2 only** (precise math assistant; always use calculator). Register as `wings3-agent-v2` in **Prompts**. |
 | Experiment | `wings3-agent-eval-prod` (Act 3 stays on `wings3-agent-eval`) |
 

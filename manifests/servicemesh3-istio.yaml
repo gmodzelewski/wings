@@ -1,0 +1,20 @@
+# Istio control plane for Service Mesh 3 — apply after servicemeshoperator3 CSV is Succeeded.
+apiVersion: sailoperator.io/v1
+kind: Istio
+metadata:
+  name: default
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+spec:
+  namespace: istio-system
+---
+apiVersion: sailoperator.io/v1
+kind: IstioCNI
+metadata:
+  name: default
+  namespace: istio-cni
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+spec:
+  namespace: istio-cni

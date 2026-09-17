@@ -1,0 +1,31 @@
+# Service Mesh 3.x prerequisite for OGX / Gen AI Playground (lab install).
+# Subscription only — uses existing global-operators OG in openshift-operators.
+# Do NOT add another OperatorGroup here (OLM allows one per namespace).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+    istio-discovery: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-cni
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: servicemeshoperator3
+  namespace: openshift-operators
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: servicemeshoperator3
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
