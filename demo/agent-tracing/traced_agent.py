@@ -7,6 +7,13 @@ with tools=[calculator]. This module is the library those notebooks import.
 from __future__ import annotations
 
 import os
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings(
+    "ignore",
+    message="The default value of `allowed_objects`",
+)
 from dataclasses import dataclass
 from typing import List, Optional
 

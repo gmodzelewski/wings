@@ -43,7 +43,9 @@ Do **not** use trace-based `make_judge(..., {{ trace }})` on stage. 3B already b
 
 ### 1. Open the notebook
 
-In JupyterLab: `demo/notebooks/03_prod_eval_judges.ipynb`
+In JupyterLab: **`demo/notebooks/03_prod_eval_judges.ipynb`** (Module 4 judges).
+
+Do **not** open `04_evalhub_garak.ipynb` — that is Act 5 (EvalHub/Garak) and prints `Job templates: …/evalhub/jobs`.
 
 ### 2. Stop at each SHOW comment (top to bottom)
 
