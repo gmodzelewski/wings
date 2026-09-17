@@ -1080,17 +1080,54 @@ mint_maas_api_key() {
   return 1
 }
 
+workshop_direct_base_url() {
+  printf 'https://%s/v1' "${MAAS_UPSTREAM_ENDPOINT}"
+}
+
+maas_inference_probe() {
+  local base_url="$1"
+  local api_key="$2"
+  local code=""
+  if [[ -z "$base_url" || -z "$api_key" ]]; then
+    return 1
+  fi
+  code=$(curl -fsSk --max-time 20 -o /dev/null -w '%{http_code}' \
+    -H "Authorization: Bearer ${api_key}" \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"${MAAS_MODEL}\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}" \
+    "${base_url%/}/chat/completions" 2>/dev/null || echo "000")
+  [[ "$code" == "200" ]]
+}
+
 patch_judge_secret_for_maas() {
   local base_url="$1"
   local api_key="$2"
+  local maas_base_url="$1"
+  local maas_api_key="$2"
+  if [[ -z "$base_url" ]]; then
+    echo "error: patch_judge_secret_for_maas requires base_url" >&2
+    return 1
+  fi
   if [[ -n "${WINGS3_JUDGE_API_KEY:-}" ]]; then
     api_key="${WINGS3_JUDGE_API_KEY}"
+    maas_api_key="${WINGS3_JUDGE_API_KEY}"
+  fi
+  if ! maas_inference_probe "$base_url" "$api_key"; then
+    local upstream_key=""
+    upstream_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
+    if [[ -n "$upstream_key" ]]; then
+      echo "warning: in-cluster MaaS gateway inference failed; using workshop direct for MAAS_* and JUDGE_*" >&2
+      maas_base_url=$(workshop_direct_base_url)
+      maas_api_key="$upstream_key"
+      base_url="$maas_base_url"
+      api_key="$upstream_key"
+    fi
   fi
   oc create secret generic wings3-judge-llm \
     -n "$PROJECT" \
     --from-literal=MAAS_MODEL="$MAAS_MODEL" \
-    --from-literal=MAAS_BASE_URL="$base_url" \
-    --from-literal=MAAS_API_KEY="$api_key" \
+    --from-literal=MAAS_BASE_URL="$maas_base_url" \
+    --from-literal=MAAS_API_KEY="$maas_api_key" \
     --from-literal=JUDGE_BASE_URL="$base_url" \
     --from-literal=JUDGE_MODEL="$MAAS_MODEL" \
     --from-literal=JUDGE_API_KEY="$api_key" \
@@ -1191,6 +1228,9 @@ apply_judge_secret() {
   fi
   if ! oc get secret wings3-judge-llm -n "$PROJECT" >/dev/null 2>&1; then
     oc apply -f "$secret"
+  else
+    echo "warning: secret/wings3-judge-llm already exists — not re-applying ${secret}" >&2
+    echo "warning: partial yaml would drop MAAS_* keys; use install.sh MaaS patch or oc set env" >&2
   fi
   if [[ -n "${WINGS3_JUDGE_API_KEY:-}" ]]; then
     oc set env "secret/wings3-judge-llm" -n "$PROJECT" "JUDGE_API_KEY=${WINGS3_JUDGE_API_KEY}"

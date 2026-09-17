@@ -50,6 +50,17 @@ def test_ensure_maas_env_fails_when_mount_missing_required_keys(tmp_path, monkey
         wings3_env.ensure_maas_env()
 
 
+def test_ensure_maas_env_falls_back_to_judge_api_key(tmp_path, monkeypatch):
+    monkeypatch.setattr(wings3_env, "WINGS3_SECRET_DIR", tmp_path)
+    (tmp_path / "MAAS_MODEL").write_text("gpt-oss-120b\n")
+    (tmp_path / "MAAS_BASE_URL").write_text("https://example.test/v1\n")
+    (tmp_path / "JUDGE_API_KEY").write_text("sk-oai-test-key\n")
+
+    wings3_env.ensure_maas_env()
+
+    assert os.environ["MAAS_API_KEY"] == "sk-oai-test-key"
+
+
 def test_print_secret_key_status_masks_values(capsys, monkeypatch):
     monkeypatch.setenv("MAAS_API_KEY", "sk-secret")
     wings3_env.print_secret_key_status("MAAS_API_KEY")

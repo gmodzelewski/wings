@@ -63,6 +63,24 @@ def ensure_maas_env(require_secret: bool = False) -> None:
     os.environ.setdefault("MAAS_BASE_URL", DEFAULT_MAAS_BASE_URL)
     os.environ.setdefault("MAAS_API_KEY", DEFAULT_MAAS_API_KEY)
 
+    # Partial secret applies often set JUDGE_* only; agent shares the MaaS gateway key.
+    judge_key = (os.environ.get("JUDGE_API_KEY") or "").strip()
+    maas_key = (os.environ.get("MAAS_API_KEY") or "").strip()
+    if judge_key and judge_key not in {"unused", "REPLACE_ME"} and (
+        not maas_key or maas_key in {"unused", "REPLACE_ME"}
+    ):
+        os.environ["MAAS_API_KEY"] = judge_key
+
+    judge_base = (os.environ.get("JUDGE_BASE_URL") or "").strip()
+    maas_base = (os.environ.get("MAAS_BASE_URL") or "").strip()
+    if judge_base and "REPLACE_AT_INSTALL" not in judge_base and not maas_base:
+        os.environ["MAAS_BASE_URL"] = judge_base
+
+    judge_model = (os.environ.get("JUDGE_MODEL") or "").strip()
+    maas_model = (os.environ.get("MAAS_MODEL") or "").strip()
+    if judge_model and maas_model in {"", DEFAULT_MAAS_MODEL} and judge_model != DEFAULT_MAAS_MODEL:
+        os.environ["MAAS_MODEL"] = judge_model
+
 
 def print_workbench_env(keys: Iterable[str]) -> None:
     """Print selected environment variables for notebook env cells."""
