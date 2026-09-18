@@ -16,6 +16,16 @@ spec:
       tokenRateLimits:
         - limit: 1000000
           window: 1m
+    - name: gpt-oss-20b
+      namespace: my-first-model
+      tokenRateLimits:
+        - limit: 1000000
+          window: 1m
+    - name: llama-scout-17b
+      namespace: my-first-model
+      tokenRateLimits:
+        - limit: 1000000
+          window: 1m
 ---
 apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSAuthPolicy
@@ -27,6 +37,10 @@ metadata:
 spec:
   modelRefs:
     - name: gpt-oss-120b
+      namespace: my-first-model
+    - name: gpt-oss-20b
+      namespace: my-first-model
+    - name: llama-scout-17b
       namespace: my-first-model
   subjects:
     groups:

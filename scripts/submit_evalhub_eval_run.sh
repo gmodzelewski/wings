@@ -17,6 +17,7 @@ LIMIT="${WINGS3_EVAL_LIMIT:-5}"
 RUN_NAME="${WINGS3_EVAL_NAME:-wings3-demo-${BENCHMARK}}"
 EVALHUB_DEPLOY="${WINGS3_EVALHUB_DEPLOY:-evalhub}"
 PROVIDER="${WINGS3_EVAL_PROVIDER:-auto}"
+MODEL_AUTH_SECRET="${WINGS3_EVAL_MODEL_AUTH_SECRET:-wings3-maas-upstream-api-key}"
 
 # Garak benchmark ids (EvalHub provider garak)
 GARAK_BENCHMARKS="quick intents owasp_llm_top10 avid avid_security avid_ethics avid_performance quality cwe"
@@ -41,6 +42,7 @@ Options:
   --tokenizer ID     HuggingFace tokenizer for lm-eval (default: ${TOKENIZER})
   --hf-secret NAME   Secret with key hf-token (default: ${HF_SECRET})
   --no-hf-secret     Omit model.auth even if secret exists
+  --model-auth-secret NAME  MaaS api-key secret (default: ${MODEL_AUTH_SECRET})
   -h, --help         Show this help
 
 Watch: Develop & train → Evaluations → project ${PROJECT}
@@ -66,6 +68,17 @@ is_garak_benchmark() {
   [[ " ${GARAK_BENCHMARKS} " == *" ${id} "* ]]
 }
 
+secret_has_api_key() {
+  local name="$1"
+  local b64=""
+  b64=$(oc get secret "$name" -n "$PROJECT" -o jsonpath='{.data.api-key}' 2>/dev/null || true)
+  [[ -n "$b64" ]]
+}
+
+endpoint_needs_maas_auth() {
+  [[ "$1" != *".svc.cluster.local"* ]]
+}
+
 resolve_provider() {
   case "$PROVIDER" in
     auto)
@@ -88,7 +101,8 @@ while [[ $# -gt 0 ]]; do
     --provider) PROVIDER="$2"; shift 2 ;;
     --tokenizer) TOKENIZER="$2"; shift 2 ;;
     --hf-secret) HF_SECRET="$2"; shift 2 ;;
-    --no-hf-secret) USE_HF_SECRET=0; shift ;;
+    --model-auth-secret) MODEL_AUTH_SECRET="$2"; shift 2 ;;
+    --no-hf-secret) USE_HF_SECRET=0; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
@@ -99,6 +113,12 @@ oc whoami >/dev/null || die "oc whoami failed; log in first"
 oc get deploy "$EVALHUB_DEPLOY" -n "$PROJECT" >/dev/null 2>&1 \
   || die "deploy/${EVALHUB_DEPLOY} not found in ${PROJECT} — apply manifests/evalhub-instance.yaml"
 
+cm_model=$(oc get configmap wings3-llm-endpoint -n "$PROJECT" \
+  -o jsonpath='{.data.model_name}' 2>/dev/null || true)
+if [[ -n "$cm_model" ]]; then
+  LLM_MODEL="$cm_model"
+fi
+
 endpoint=$(oc get configmap wings3-llm-endpoint -n "$PROJECT" \
   -o jsonpath='{.data.openai_base_url}' 2>/dev/null || true)
 if [[ -z "$endpoint" ]]; then
@@ -108,14 +128,29 @@ endpoint=$(normalize_openai_endpoint "$endpoint")
 
 resolved_provider=$(resolve_provider)
 
-auth_json=""
-if [[ "$resolved_provider" == lm ]]; then
-  if [[ "$USE_HF_SECRET" == 1 ]] && oc get secret "$HF_SECRET" -n "$PROJECT" >/dev/null 2>&1; then
-    auth_json=',"auth":{"secret_ref":"'"${HF_SECRET}"'"}'
-    echo "Using HuggingFace secret: ${PROJECT}/${HF_SECRET} (key hf-token)"
-  else
-    echo "warning: no model.auth.secret_ref — gated tokenizer ${TOKENIZER} will likely fail" >&2
-  fi
+model_auth_field=""
+auth_secret=""
+if secret_has_api_key "$MODEL_AUTH_SECRET"; then
+  auth_secret="$MODEL_AUTH_SECRET"
+  model_auth_field=$',
+    "auth": {"secret_ref": "'"${MODEL_AUTH_SECRET}"'"}'
+  echo "Using model auth secret: ${PROJECT}/${MODEL_AUTH_SECRET} (key api-key)"
+elif endpoint_needs_maas_auth "$endpoint"; then
+  echo "warning: MaaS endpoint needs api-key — create ${MODEL_AUTH_SECRET} or re-run ./install.sh" >&2
+elif [[ "$resolved_provider" == lm ]] && [[ "$USE_HF_SECRET" == 1 ]] \
+  && oc get secret "$HF_SECRET" -n "$PROJECT" >/dev/null 2>&1; then
+  auth_secret="$HF_SECRET"
+  model_auth_field=$',
+    "auth": {"secret_ref": "'"${HF_SECRET}"'"}'
+  echo "Using HuggingFace secret: ${PROJECT}/${HF_SECRET} (key hf-token)"
+fi
+
+if [[ "$resolved_provider" == lm ]] && [[ -z "$auth_secret" ]] && [[ "$USE_HF_SECRET" == 1 ]]; then
+  echo "warning: no model.auth.secret_ref — gated tokenizer ${TOKENIZER} will likely fail" >&2
+fi
+if [[ "$resolved_provider" == lm ]] && [[ "$auth_secret" == "$MODEL_AUTH_SECRET" ]] \
+  && [[ "$USE_HF_SECRET" == 1 ]] && [[ "$TOKENIZER" == meta-llama/* ]]; then
+  echo "warning: gated tokenizer ${TOKENIZER} needs hf-token in ${MODEL_AUTH_SECRET} or use --tokenizer gpt2" >&2
 fi
 
 if [[ "$resolved_provider" == garak ]]; then
@@ -124,7 +159,7 @@ if [[ "$resolved_provider" == garak ]]; then
   "name": "${RUN_NAME}",
   "model": {
     "url": "${endpoint}",
-    "name": "${LLM_MODEL}"
+    "name": "${LLM_MODEL}"${model_auth_field}
   },
   "benchmarks": [{
     "provider_id": "garak",
@@ -139,7 +174,7 @@ else
   "name": "${RUN_NAME}",
   "model": {
     "url": "${endpoint}",
-    "name": "${LLM_MODEL}"${auth_json}
+    "name": "${LLM_MODEL}"${model_auth_field}
   },
   "benchmarks": [{
     "provider_id": "lm_evaluation_harness",

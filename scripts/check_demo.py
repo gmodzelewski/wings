@@ -357,33 +357,46 @@ def maas_resource_ready(kind: str, name: str, ns: str) -> bool:
 
 
 def check_maas_external_model(project: str, model: str) -> CheckResult:
-    if not crd_exists("externalmodels.maas.opendatahub.io"):
+    apis = [
+        api
+        for api in (
+            "externalmodels.inference.opendatahub.io",
+            "externalmodels.maas.opendatahub.io",
+        )
+        if crd_exists(api)
+    ]
+    if not apis:
         return CheckResult(
             f"externalmodel {model}",
             False,
             "MaaS CRDs not installed",
         )
-    exists = _oc(["get", "externalmodels.maas.opendatahub.io", model, "-n", project])
-    if exists.returncode != 0:
-        return CheckResult(
-            f"externalmodel {model}",
-            False,
-            f"externalmodel/{model} missing in {project}",
+    for api in apis:
+        exists = _oc(["get", api, model, "-n", project])
+        if exists.returncode != 0:
+            continue
+        phase = _oc(
+            [
+                "get",
+                api,
+                model,
+                "-n",
+                project,
+                "-o",
+                "jsonpath={.status.phase}",
+            ]
         )
-    phase = _oc(
-        [
-            "get",
-            "externalmodels.maas.opendatahub.io",
-            model,
-            "-n",
-            project,
-            "-o",
-            "jsonpath={.metadata.name}",
-        ]
+        phase_val = phase.stdout.strip() if phase.returncode == 0 else ""
+        if phase_val in ("Ready", "True"):
+            return CheckResult(f"externalmodel {model}", True, phase_val)
+        # maas.opendatahub.io often has empty phase; presence is enough
+        if api.startswith("externalmodels.maas"):
+            return CheckResult(f"externalmodel {model}", True, phase_val or "present")
+    return CheckResult(
+        f"externalmodel {model}",
+        False,
+        f"externalmodel/{model} missing in {project}",
     )
-    if phase.returncode == 0 and phase.stdout.strip() == model:
-        return CheckResult(f"externalmodel {model}", True)
-    return CheckResult(f"externalmodel {model}", False, "not found")
 
 
 def genai_studio_optional() -> bool:
@@ -485,6 +498,86 @@ def check_ogx_server(project: str) -> CheckResult:
         return CheckResult("ogxserver", True)
     detail = ready.stdout.strip() or phase.stdout.strip() or "not Ready"
     return CheckResult("ogxserver", False, detail)
+
+
+def endpoint_needs_maas_auth(url: str) -> bool:
+    return ".svc.cluster.local" not in url
+
+
+def check_evalhub_endpoint_url(project: str) -> CheckResult:
+    cm = _oc(
+        [
+            "get",
+            "configmap",
+            "wings3-llm-endpoint",
+            "-n",
+            project,
+            "-o",
+            "jsonpath={.data.openai_base_url}",
+        ]
+    )
+    if cm.returncode != 0:
+        return CheckResult("evalhub endpoint", True, "configmap wings3-llm-endpoint missing — skipped")
+    url = cm.stdout.strip()
+    if not url:
+        return CheckResult("evalhub endpoint", False, "wings3-llm-endpoint openai_base_url empty")
+    if "openshift-ai-inference" in url:
+        return CheckResult(
+            "evalhub endpoint",
+            False,
+            "external openshift-ai-inference URL breaks EvalHub job pods — re-run install.sh --skip-llm",
+        )
+    if endpoint_needs_maas_auth(url) and "maas.redhatworkshops.io" not in url:
+        return CheckResult(
+            "evalhub endpoint",
+            False,
+            f"MaaS URL may be unreachable from EvalHub pods: {url}",
+        )
+    return CheckResult("evalhub endpoint", True, url)
+
+
+def check_evalhub_model_auth(project: str) -> CheckResult:
+    cm = _oc(
+        [
+            "get",
+            "configmap",
+            "wings3-llm-endpoint",
+            "-n",
+            project,
+            "-o",
+            "jsonpath={.data.openai_base_url}",
+        ]
+    )
+    if cm.returncode != 0:
+        return CheckResult("evalhub model auth", True, "configmap wings3-llm-endpoint missing — skipped")
+    url = cm.stdout.strip()
+    if not url or not endpoint_needs_maas_auth(url):
+        return CheckResult("evalhub model auth", True, "vLLM endpoint — api-key optional")
+    secret = _oc(
+        [
+            "get",
+            "secret",
+            "wings3-maas-upstream-api-key",
+            "-n",
+            project,
+            "-o",
+            "jsonpath={.data.api-key}",
+        ]
+    )
+    if secret.returncode != 0:
+        return CheckResult(
+            "evalhub model auth",
+            False,
+            "MaaS endpoint but secret/wings3-maas-upstream-api-key missing — re-run install.sh",
+        )
+    value = decode_secret_value(secret.stdout)
+    if value:
+        return CheckResult("evalhub model auth", True)
+    return CheckResult(
+        "evalhub model auth",
+        False,
+        "wings3-maas-upstream-api-key api-key empty — EvalHub sends DUMMY to MaaS gateway",
+    )
 
 
 def check_evaluations_nav() -> CheckResult:
@@ -710,6 +803,10 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
     sr_template = os.environ.get("WINGS3_SR_TEMPLATE", "vllm-cuda-runtime-template")
 
     maas_model = os.environ.get("WINGS3_MAAS_MODEL", "gpt-oss-120b")
+    maas_catalog = os.environ.get(
+        "WINGS3_MAAS_CATALOG_MODELS",
+        "gpt-oss-120b gpt-oss-20b llama-scout-17b",
+    ).split()
 
     results = [
         check_oc_login(),
@@ -717,6 +814,8 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
         check_pod_ready(mlflow_ns, "mlflow", "mlflow pod"),
         check_evalhub_pod(mlflow_ns),
         check_evalhub_instance(project),
+        check_evalhub_endpoint_url(project),
+        check_evalhub_model_auth(project),
         check_evaluations_nav(),
         check_maas_crds(),
         check_ogx_managed(),
@@ -724,8 +823,12 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
         check_mcp_catalog(),
         check_kuadrant_ready(),
         check_maas_ui(),
-        check_maas_external_model(project, maas_model),
-        check_maas_modelref(project, maas_model),
+    ]
+    for catalog_model in maas_catalog:
+        results.append(check_maas_external_model(project, catalog_model))
+        results.append(check_maas_modelref(project, catalog_model))
+    results.extend(
+        [
         check_notebook_ready(project, workbench),
         check_resource("configmap", "wings3-llm-endpoint", project, "configmap wings3-llm-endpoint"),
         check_resource("secret", "wings3-judge-llm", project, "secret wings3-judge-llm"),
@@ -734,7 +837,8 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
         check_secret_data_key(project, "MAAS_BASE_URL", "agent secret MAAS_BASE_URL"),
         check_judge_base_url_routed_via_local_maas(project),
         check_workbench_judge_mount(project, workbench),
-    ]
+        ]
+    )
     if not skip_llm:
         results.append(
             check_servingruntime_version(project, llm_model, mlflow_ns, sr_template)

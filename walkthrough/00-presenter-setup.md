@@ -100,9 +100,9 @@ Set `WINGS3_VERBOSE=1` for detailed progress. Default uninstall never removes op
 - [ ] `pip install -r agent-tracing/requirements.txt --extra-index-url https://pypi.org/simple` already succeeded in the workbench (RHOAI 3.4 RHAI index has no langgraph 0.2). Re-run after a workbench restart; the venv is not on the PVC.
 - [ ] Optional for **WINGS teaching**: v1 eval run already in experiment `wings3-agent-eval`
 - [ ] Optional for **WINGS teaching** (Module 4 follow-on, not in that hour): golden set registered as `math_golden` and one `v2-judged` run in experiment `wings3-agent-eval-prod`
-- [ ] **Module 4 / customer hour:** `install.sh` enables MaaS + external model **gpt-oss-120b**; upstream workshop token via `WINGS3_MAAS_UPSTREAM_API_KEY` (or existing judge secret before first MaaS install); judge `JUDGE_API_KEY` is a minted **sk-oai-** MaaS key
-- [ ] `./check.sh` passes MaaS CRD/model checks, `ogx`, `ogxserver`, `mcp catalog`, `maas-ui`, `judge JUDGE_BASE_URL` (not `maas.redhatworkshops.io`), `judge secret JUDGE_API_KEY`, and `workbench judge mount`
-- [ ] **Gen AI Studio → AI asset endpoints → Models** lists **gpt-oss-120b** (hard-refresh dashboard if empty); **Gen AI Studio → API keys** can create a key for `wings3-gpt-oss-120b`
+- [ ] **Module 4 / customer hour:** `install.sh` enables MaaS with **three** workshop ExternalModels (**gpt-oss-120b**, **gpt-oss-20b**, **llama-scout-17b**) sharing Secret `wings3-maas-upstream-api-key`; set upstream workshop token via `WINGS3_MAAS_UPSTREAM_API_KEY` (never commit it). Judge `JUDGE_API_KEY` is a minted **sk-oai-** MaaS key (default judge model remains **gpt-oss-120b**)
+- [ ] `./check.sh` passes MaaS CRD/model checks for all three catalog models, `ogx`, `ogxserver`, `mcp catalog`, `maas-ui`, `judge JUDGE_BASE_URL` (not `maas.redhatworkshops.io`), `judge secret JUDGE_API_KEY`, and `workbench judge mount`
+- [ ] **Gen AI Studio → AI asset endpoints → Models** lists **gpt-oss-120b**, **gpt-oss-20b**, and **llama-scout-17b** (hard-refresh dashboard if empty); **Gen AI Studio → API keys** can create a key for subscription `wings3-gpt-oss-120b`
 - [ ] **Gen AI Studio → Playground** visible; can create a playground in `my-first-model` (install.sh enables Service Mesh 3 + OGX + `wings3-ogx` OGXServer — first run may take 30–45 min)
 - [ ] **Gen AI hub → MCP server** catalog visible (browse only; no MCP deploy demo required). Set `WINGS3_SKIP_OGX=1` / `WINGS3_SKIP_MCP=1` to skip if cluster lacks capacity
 
@@ -123,10 +123,10 @@ Required in workspace `my-first-model` (in addition to the checklist above):
 
 Do this in the **workbench** terminal after `./install.sh` (venv already pip'd; tracking URI injected). Re-run after a workbench restart.
 
-Set the workshop upstream token **before** first MaaS install (do not commit it). `install.sh` mints a MaaS API key into `wings3-judge-llm` when MaaS is Ready:
+Set the workshop upstream token **before** first MaaS install (do not commit it). One Secret `wings3-maas-upstream-api-key` is shared by all three ExternalModels. `install.sh` mints a MaaS API key into `wings3-judge-llm` when MaaS is Ready:
 
 ```bash
-# Workshop upstream (ExternalModel only) — one of:
+# Workshop upstream (all ExternalModels) — one of:
 export WINGS3_MAAS_UPSTREAM_API_KEY='<workshop-token>'
 ./install.sh
 
@@ -134,6 +134,8 @@ export WINGS3_MAAS_UPSTREAM_API_KEY='<workshop-token>'
 export WINGS3_JUDGE_API_KEY='<sk-oai-…>'
 ./install.sh
 ```
+
+Catalog models (Gen AI Studio): **gpt-oss-120b** (default agent/judge), **gpt-oss-20b**, **llama-scout-17b**. Override with `WINGS3_MAAS_CATALOG_MODELS` if needed. Never put the workshop token or minted `sk-oai-` keys in git.
 
 If MaaS key mint fails, patch manually after confirming subscription `wings3-gpt-oss-120b` exists:
 

@@ -56,37 +56,40 @@ Service Mesh and DSC `ogx` / `mcplifecycleoperator` are **not** removed by `unin
 
 Sandboxes without `maas-default-gateway` get one from `maas-default-gateway.yaml` (hostname copied from `openshift-ai-inference`, TLS cert auto-detected from router secret, namespace `redhat-ai-gateway-infra` allowed for `maas-api` routes). `maas-db-config` is required in both `redhat-ods-applications` and `redhat-ai-gateway-infra`. API key mint goes through `https://<gateway>/maas-api/v1/api-keys` with `oc whoami -t`.
 
-Secret `wings3-judge-llm` sets both the **agent** (`MAAS_MODEL`, `MAAS_BASE_URL`, `MAAS_API_KEY`) and **judges** (`JUDGE_*`). On GPU clusters the example uses in-cluster llama; `install.sh` patches both to gpt-oss-120b on MaaS-only clusters. `wings3-llm-endpoint` ConfigMap is synced from `MAAS_*` for EvalHub/Garak. Judges call the in-cluster MaaS gateway, not the workshop URL directly. The workshop API key lives only in `wings3-maas-upstream-api-key` for the `ExternalModel`.
+Secret `wings3-judge-llm` sets both the **agent** (`MAAS_MODEL`, `MAAS_BASE_URL`, `MAAS_API_KEY`) and **judges** (`JUDGE_*`). On GPU clusters the example uses in-cluster llama; `install.sh` patches both to gpt-oss-120b on MaaS-only clusters. `wings3-llm-endpoint` ConfigMap is synced from `MAAS_*` for EvalHub/Garak. Judges call the in-cluster MaaS gateway, not the workshop URL directly. The workshop API key lives only in `wings3-maas-upstream-api-key` (shared by all ExternalModels) — inject via `WINGS3_MAAS_UPSTREAM_API_KEY` or a gitignored local yaml; never commit real keys.
 
 | File | Purpose |
 |------|---------|
 | `maas-postgres-dev.yaml` | Lab Postgres for MaaS API key storage (demo only, not HA) |
 | `maas-db-config-secret.yaml` | `maas-db-config` with `DB_CONNECTION_URL` |
-| `secret-wings3-maas-upstream-api-key.example.yaml` | Template for workshop upstream `api-key` |
-| `maas-external-model-gpt-oss-120b.yaml` | `ExternalModel` → `maas-rhdp.apps.maas.redhatworkshops.io` |
-| `maas-modelref-gpt-oss-120b.yaml` | Publish external model to MaaS |
-| `maas-auth-subscription-gpt-oss-120b.yaml` | Subscription + auth policy for `system:authenticated` |
+| `secret-wings3-maas-upstream-api-key.example.yaml` | Template for workshop upstream `api-key` (empty; gitignored copy holds the real value) |
+| `maas-external-model-gpt-oss-120b.yaml` | `ExternalModel` → workshop host (`targetModel: gpt-oss-120b`) |
+| `maas-external-model-gpt-oss-20b.yaml` | `ExternalModel` → same host / shared credential (`gpt-oss-20b`) |
+| `maas-external-model-llama-scout-17b.yaml` | `ExternalModel` → same host / shared credential (`llama-scout-17b`) |
+| `maas-modelref-*.yaml` | Publish each external model to MaaS |
+| `maas-auth-subscription-gpt-oss-120b.yaml` | Subscription + auth policy for all three modelRefs |
 
 ### Environment variables
 
 | Variable | Purpose |
 |----------|---------|
-| `WINGS3_MAAS_UPSTREAM_API_KEY` | Workshop token for `ExternalModel` (else reuse existing `JUDGE_API_KEY` if still workshop direct) |
+| `WINGS3_MAAS_UPSTREAM_API_KEY` | Workshop token for **all** ExternalModels (shared Secret) |
+| `WINGS3_MAAS_CATALOG_MODELS` | Space-separated catalog ids (default: `gpt-oss-120b gpt-oss-20b llama-scout-17b`) |
 | `WINGS3_JUDGE_API_KEY` | Optional override for judge secret after install mints a MaaS key |
 
 ### UI verification (RHOAI 3.5)
 
-- **Gen AI Studio → AI asset endpoints → Models tab** — external model **gpt-oss-120b** listed; **View** shows **Model as a Service** badge
+- **Gen AI Studio → AI asset endpoints → Models tab** — **gpt-oss-120b**, **gpt-oss-20b**, **llama-scout-17b**; **View** shows **Model as a Service** badge
 - **Gen AI Studio → API keys** — create a key scoped to subscription `wings3-gpt-oss-120b`
 - **Gen AI Studio → Playground** — create playground after `ogxserver/wings3-ogx` is Ready
 - **Gen AI hub → MCP server** — catalog browse (deploy requires MCP lifecycle CRD; no demo deploy needed)
 
-Inference URL shape on this cluster: `https://<gateway>/my-first-model/gpt-oss-120b/v1`.
+Inference URL shape on this cluster: `https://<gateway>/my-first-model/<model>/v1`.
 
 ```bash
-oc get externalmodel gpt-oss-120b -n my-first-model
-oc get maasmodelref gpt-oss-120b -n my-first-model
+oc get externalmodel -n my-first-model
+oc get maasmodelref -n my-first-model
 oc get secret wings3-judge-llm -n my-first-model -o jsonpath='{.data.JUDGE_BASE_URL}' | base64 -d; echo
 ```
 
-`JUDGE_BASE_URL` must **not** contain `maas.redhatworkshops.io` after install.
+`JUDGE_BASE_URL` must **not** contain `maas.redhatworkshops.io` after install (in-cluster gateway preferred; workshop fallback is OK for notebooks when gateway probe fails).

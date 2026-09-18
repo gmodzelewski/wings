@@ -1,0 +1,13 @@
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSModelRef
+metadata:
+  name: llama-scout-17b
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
+spec:
+  modelRef:
+    kind: ExternalModel
+    name: llama-scout-17b

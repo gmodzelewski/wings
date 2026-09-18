@@ -16,7 +16,8 @@ Install WINGS3 demo (MLflow, EvalHub, workbench, LLM, pip deps).
 
 Environment: WINGS3_PROJECT, WINGS3_LLM_STORAGE_URI, WINGS3_DSC_NAME,
              WINGS3_JUDGE_API_KEY (override judge secret after MaaS key mint),
-             WINGS3_MAAS_UPSTREAM_API_KEY (workshop token for ExternalModel),
+             WINGS3_MAAS_UPSTREAM_API_KEY (workshop token for all ExternalModels; never commit),
+             WINGS3_MAAS_CATALOG_MODELS (default: gpt-oss-120b gpt-oss-20b llama-scout-17b),
              WINGS3_SKIP_OGX, WINGS3_SKIP_MCP, WINGS3_SKIP_SERVICEMESH
 EOF
 }

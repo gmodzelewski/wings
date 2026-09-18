@@ -27,11 +27,14 @@
 - Optional: submit jobs from **Evaluations** UI or `scripts/submit_evalhub_demo_jobs.sh` before the session
 - Session 1 end state: `v2-judged` in experiment `wings3-agent-eval-prod`
 
-Endpoint (from ConfigMap):
+Endpoint (read from ConfigMap — do not hardcode):
 
-```text
-http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+```bash
+oc get configmap wings3-llm-endpoint -n my-first-model \
+  -o jsonpath='model={.data.model_name}{"\n"}url={.data.openai_base_url}{"\n"}'
 ```
+
+On MaaS-only clusters (e.g. stormshift) this is **`gpt-oss-120b`** at the in-cluster MaaS gateway URL. On GPU sandbox clusters it may still be **`llama-32-3b-instruct`** at an in-cluster vLLM URL (`*.svc.cluster.local`).
 
 ## Demo A — EvalHub lm-eval job (6 min)
 
@@ -122,14 +125,10 @@ The script auto-selects provider `garak` for benchmarks like `quick`, `intents`,
 
 1. **Select evaluation type:** **Benchmark**
 2. **Benchmark:** a Garak probe — for live demo use **`quick`** (~2 min smoke test). For a richer story use **`intents`** or **`owasp_llm_top10`** (longer; pre-stage before the session)
-3. **Endpoint URL** — must end with **`/v1`** (copy verbatim from ConfigMap):
-
-```text
-http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
-```
-
-4. **Model name:** `llama-32-3b-instruct`
-5. **Evaluate**
+3. **Endpoint URL** — must end with **`/v1`** (copy verbatim from ConfigMap `wings3-llm-endpoint`)
+4. **Model name** — copy from the same ConfigMap (`model_name`; often `gpt-oss-120b` on MaaS clusters)
+5. **API key** — paste a minted MaaS `sk-*` key (not `DUMMY`) when the endpoint is a MaaS gateway
+6. **Evaluate**
 
 Garak runs as the `garak` provider under the hood; you choose it by picking a Garak benchmark, not a provider field. If the endpoint omits `/v1`, Garak calls `...:8080/chat/completions` and vLLM returns **404 Not Found**.
 
@@ -178,6 +177,8 @@ Open MLflow → `v2-judged` where the judge passed — *"correct but not necessa
 
 | Symptom | Fix |
 |---------|-----|
+| `LiteLLM Virtual Key expected. Received=DUMMY` / `401 auth_error` | MaaS gateway needs an `sk-*` API key. UI: replace default `DUMMY` in the **API key** field with a minted key (`oc get secret wings3-judge-llm -n my-first-model -o jsonpath='{.data.JUDGE_API_KEY}' \| base64 -d`). Or use `./scripts/submit_evalhub_eval_run.sh` (wires `model.auth.secret_ref` → `wings3-maas-upstream-api-key`). |
+| Garak **Scan timed out after 600 seconds** / TLS `x509: certificate signed by unknown authority` in job logs | EvalHub job pods cannot reach the **external** `openshift-ai-inference-*` Route reliably. Re-run `./install.sh --skip-llm` (or `source scripts/wings3_lib.sh && sync_llm_endpoint_configmap`) so `wings3-llm-endpoint` uses the **workshop-direct** URL that probes successfully from the cluster. Then re-submit via `./scripts/submit_evalhub_eval_run.sh --benchmark quick`. |
 | No **Evaluations** under **Develop & train** | RHOAI 3.5 default: `OdhDashboardConfig.spec.dashboardConfig.disableLMEval` is `true`. Set to `false`: `oc patch odhdashboardconfig odh-dashboard-config -n redhat-ods-applications --type=merge -p '{"spec":{"dashboardConfig":{"disableLMEval":false}}}'` then hard-refresh the dashboard; or re-run `./install.sh` |
 | No **EvalHub** in project view | Normal on 3.5 — use **Develop & train → Evaluations** |
 | List shows **No evaluation runs** | Normal until you submit a run from **Start evaluation run** |

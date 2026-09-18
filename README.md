@@ -35,7 +35,7 @@ Values: [walkthrough/partials/_attributes.md](walkthrough/partials/_attributes.m
 
 ## Install / uninstall / check
 
-RHOAI must already be installed (3.4 or 3.5). Install patches `mlflowoperator` to Managed, discovers EvalHub (`evalhuboperator` on 3.4, `trustyai` on 3.5), enables **Models-as-a-Service** with an external **gpt-oss-120b** judge model (lab Postgres + `ExternalModel`), applies manifests, and creates the GPU InferenceService from `vllm-cuda-runtime-template` (set `WINGS3_LLM_STORAGE_URI` if none exists yet). Set `WINGS3_MAAS_UPSTREAM_API_KEY` for the workshop upstream token. Reuses an existing Ready InferenceService and reconciles the ServingRuntime when the cluster template version is newer. Use `--skip-llm` on a GPU-less sandbox.
+RHOAI must already be installed (3.4 or 3.5). Install patches `mlflowoperator` to Managed, discovers EvalHub (`evalhuboperator` on 3.4, `trustyai` on 3.5), enables **Models-as-a-Service** with three workshop ExternalModels (**gpt-oss-120b**, **gpt-oss-20b**, **llama-scout-17b**) sharing one upstream Secret (lab Postgres + `ExternalModel`), applies manifests, and creates the GPU InferenceService from `vllm-cuda-runtime-template` (set `WINGS3_LLM_STORAGE_URI` if none exists yet). Set `WINGS3_MAAS_UPSTREAM_API_KEY` for the workshop upstream token (never commit it). Reuses an existing Ready InferenceService and reconciles the ServingRuntime when the cluster template version is newer. Use `--skip-llm` on a GPU-less sandbox.
 
 ```bash
 # After oc login, from this repo root:

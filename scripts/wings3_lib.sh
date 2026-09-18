@@ -24,6 +24,8 @@ GARAK_DSC_COMPONENT="${WINGS3_GARAK_DSC_COMPONENT:-}"
 
 MAAS_NS="${WINGS3_MAAS_NAMESPACE:-models-as-a-service}"
 MAAS_MODEL="${WINGS3_MAAS_MODEL:-gpt-oss-120b}"
+# Catalog models for Gen AI Studio (shared wings3-maas-upstream-api-key). Primary judge stays MAAS_MODEL.
+MAAS_CATALOG_MODELS="${WINGS3_MAAS_CATALOG_MODELS:-gpt-oss-120b gpt-oss-20b llama-scout-17b}"
 MAAS_SUBSCRIPTION="${WINGS3_MAAS_SUBSCRIPTION:-wings3-gpt-oss-120b}"
 MAAS_UPSTREAM_ENDPOINT="${WINGS3_MAAS_UPSTREAM_ENDPOINT:-maas-rhdp.apps.maas.redhatworkshops.io}"
 MAAS_PART_OF="${WINGS3_MAAS_PART_OF:-wings3-demo}"
@@ -465,21 +467,24 @@ enable_mcplifecycle() {
 }
 
 label_maas_external_model_assets() {
-  if oc get externalmodels.maas.opendatahub.io "$MAAS_MODEL" -n "$PROJECT" >/dev/null 2>&1; then
-    oc label externalmodels.maas.opendatahub.io "$MAAS_MODEL" -n "$PROJECT" \
-      opendatahub.io/dashboard=true opendatahub.io/genai-asset=true \
-      --overwrite >/dev/null 2>&1 || true
-  fi
-  if oc get externalmodels.inference.opendatahub.io "$MAAS_MODEL" -n "$PROJECT" >/dev/null 2>&1; then
-    oc label externalmodels.inference.opendatahub.io "$MAAS_MODEL" -n "$PROJECT" \
-      opendatahub.io/dashboard=true opendatahub.io/genai-asset=true \
-      --overwrite >/dev/null 2>&1 || true
-  fi
-  if oc get maasmodelref "$MAAS_MODEL" -n "$PROJECT" >/dev/null 2>&1; then
-    oc label maasmodelref "$MAAS_MODEL" -n "$PROJECT" \
-      opendatahub.io/dashboard=true opendatahub.io/genai-asset=true \
-      --overwrite >/dev/null 2>&1 || true
-  fi
+  local model=""
+  for model in $MAAS_CATALOG_MODELS; do
+    if oc get externalmodels.maas.opendatahub.io "$model" -n "$PROJECT" >/dev/null 2>&1; then
+      oc label externalmodels.maas.opendatahub.io "$model" -n "$PROJECT" \
+        opendatahub.io/dashboard=true opendatahub.io/genai-asset=true \
+        --overwrite >/dev/null 2>&1 || true
+    fi
+    if oc get externalmodels.inference.opendatahub.io "$model" -n "$PROJECT" >/dev/null 2>&1; then
+      oc label externalmodels.inference.opendatahub.io "$model" -n "$PROJECT" \
+        opendatahub.io/dashboard=true opendatahub.io/genai-asset=true \
+        --overwrite >/dev/null 2>&1 || true
+    fi
+    if oc get maasmodelref "$model" -n "$PROJECT" >/dev/null 2>&1; then
+      oc label maasmodelref "$model" -n "$PROJECT" \
+        opendatahub.io/dashboard=true opendatahub.io/genai-asset=true \
+        --overwrite >/dev/null 2>&1 || true
+    fi
+  done
 }
 
 restart_maas_dashboard_ui_if_unhealthy() {
@@ -946,19 +951,27 @@ bootstrap_maas_upstream_secret() {
 }
 
 apply_maas_manifests() {
-  run oc apply -f "${MANIFESTS}/maas-external-model-gpt-oss-120b.yaml"
-  run oc apply -f "${MANIFESTS}/maas-modelref-gpt-oss-120b.yaml"
+  local model=""
+  for model in $MAAS_CATALOG_MODELS; do
+    if [[ -f "${MANIFESTS}/maas-external-model-${model}.yaml" ]]; then
+      run oc apply -f "${MANIFESTS}/maas-external-model-${model}.yaml"
+    fi
+    if [[ -f "${MANIFESTS}/maas-modelref-${model}.yaml" ]]; then
+      run oc apply -f "${MANIFESTS}/maas-modelref-${model}.yaml"
+    fi
+  done
   run oc apply -f "${MANIFESTS}/maas-auth-subscription-gpt-oss-120b.yaml"
 }
 
-wait_for_maas_modelref_ready() {
-  local timeout="${1:-600}"
+wait_for_one_maas_modelref_ready() {
+  local model="$1"
+  local timeout="${2:-600}"
   local elapsed=0 phase=""
   while ((elapsed < timeout)); do
-    phase=$(oc get maasmodelref "$MAAS_MODEL" -n "$PROJECT" \
+    phase=$(oc get maasmodelref "$model" -n "$PROJECT" \
       -o jsonpath='{.status.phase}' 2>/dev/null || true)
     if [[ -z "$phase" ]]; then
-      phase=$(oc get maasmodelref "$MAAS_MODEL" -n "$PROJECT" \
+      phase=$(oc get maasmodelref "$model" -n "$PROJECT" \
         -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
     fi
     if [[ "$phase" == "Ready" || "$phase" == "True" ]]; then
@@ -967,8 +980,22 @@ wait_for_maas_modelref_ready() {
     sleep 5
     elapsed=$((elapsed + 5))
   done
-  echo "warning: MaaSModelRef/${MAAS_MODEL} not Ready after ${timeout}s (phase=${phase})" >&2
+  echo "warning: MaaSModelRef/${model} not Ready after ${timeout}s (phase=${phase})" >&2
   return 1
+}
+
+wait_for_maas_modelref_ready() {
+  local timeout="${1:-600}"
+  local model="" failed=0
+  # Primary judge model first (blocks install path), then remaining catalog models.
+  wait_for_one_maas_modelref_ready "$MAAS_MODEL" "$timeout" || failed=1
+  for model in $MAAS_CATALOG_MODELS; do
+    if [[ "$model" == "$MAAS_MODEL" ]]; then
+      continue
+    fi
+    wait_for_one_maas_modelref_ready "$model" "$timeout" || failed=1
+  done
+  return "$failed"
 }
 
 discover_maas_gateway_host() {
@@ -1250,22 +1277,85 @@ ensure_workbench_judge_mount() {
   run oc apply -f "${MANIFESTS}/workbench-wings3-demo.yaml"
 }
 
+resolve_evalhub_openai_base_url() {
+  local api_key="" gateway_url="" maas_url="" workshop_url=""
+  api_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
+  if [[ -z "$api_key" ]]; then
+    api_key=$(read_secret_key wings3-judge-llm "$PROJECT" JUDGE_API_KEY)
+  fi
+  maas_url=$(read_secret_key wings3-judge-llm "$PROJECT" MAAS_BASE_URL)
+  gateway_url=$(discover_maas_judge_base_url)
+  workshop_url=$(workshop_direct_base_url)
+  if [[ -n "$gateway_url" ]] && [[ -n "$api_key" ]] && maas_inference_probe "$gateway_url" "$api_key"; then
+    printf '%s' "$gateway_url"
+    return 0
+  fi
+  if [[ -n "$maas_url" ]] && [[ -n "$api_key" ]] && maas_inference_probe "$maas_url" "$api_key"; then
+    printf '%s' "$maas_url"
+    return 0
+  fi
+  if [[ -n "$workshop_url" ]] && [[ -n "$api_key" ]] && maas_inference_probe "$workshop_url" "$api_key"; then
+    echo "warning: in-cluster MaaS gateway unreachable; EvalHub will use workshop direct" >&2
+    printf '%s' "$workshop_url"
+    return 0
+  fi
+  if [[ -n "$maas_url" ]]; then
+    printf '%s' "$maas_url"
+    return 0
+  fi
+  if [[ -n "$gateway_url" ]]; then
+    printf '%s' "$gateway_url"
+    return 0
+  fi
+  printf '%s' "$workshop_url"
+}
+
 sync_llm_endpoint_configmap() {
   local model="" url=""
   run oc apply -f "${MANIFESTS}/configmap-wings3-llm-endpoint.yaml"
   model=$(read_secret_key wings3-judge-llm "$PROJECT" MAAS_MODEL)
-  url=$(read_secret_key wings3-judge-llm "$PROJECT" MAAS_BASE_URL)
+  url=$(resolve_evalhub_openai_base_url)
   if [[ -z "$model" || -z "$url" ]]; then
-    log "skip wings3-llm-endpoint sync (MAAS_MODEL/MAAS_BASE_URL missing on secret)"
+    log "skip wings3-llm-endpoint sync (MAAS_MODEL or EvalHub endpoint URL missing)"
     return 0
   fi
   oc patch configmap wings3-llm-endpoint -n "$PROJECT" --type merge -p \
-    "{\"data\":{\"model_name\":\"${model}\",\"openai_base_url\":\"${url}\"}}" >/dev/null
-  info "wings3-llm-endpoint: model=${model}"
+    "{\"data\":{\"model_name\":\"${model}\",\"openai_base_url\":\"${url}\",\"notes\":\"EvalHub endpoint auto-selected; workshop fallback when in-cluster gateway probe fails\"}}" \
+    >/dev/null
+  info "wings3-llm-endpoint: model=${model} url=${url}"
+}
+
+ensure_evalhub_model_auth_secret() {
+  local api_key="" judge_key=""
+  api_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
+  judge_key=$(read_secret_key wings3-judge-llm "$PROJECT" JUDGE_API_KEY)
+  if [[ -z "$api_key" ]]; then
+    api_key="$judge_key"
+  fi
+  if [[ -z "$api_key" ]]; then
+    log "skip EvalHub model auth secret (no api-key or JUDGE_API_KEY)"
+    return 1
+  fi
+  if oc get secret wings3-maas-upstream-api-key -n "$PROJECT" >/dev/null 2>&1; then
+    oc set data secret/wings3-maas-upstream-api-key -n "$PROJECT" "api-key=${api_key}" >/dev/null
+  else
+    run oc create secret generic wings3-maas-upstream-api-key \
+      -n "$PROJECT" \
+      --from-literal=api-key="$api_key" \
+      --dry-run=client -o yaml \
+      | oc label -f - --local app.kubernetes.io/part-of="$MAAS_PART_OF" \
+        inference.networking.k8s.io/bbr-managed=true --overwrite \
+      | oc apply -f -
+  fi
+  oc patch secret wings3-maas-upstream-api-key -n "$PROJECT" --type=merge \
+    -p "{\"metadata\":{\"labels\":{\"app.kubernetes.io/part-of\":\"${MAAS_PART_OF}\",\"inference.networking.k8s.io/bbr-managed\":\"true\"}}}" \
+    >/dev/null 2>&1 || true
+  info "EvalHub model auth: wings3-maas-upstream-api-key (api-key)"
 }
 
 apply_evalhub_manifests() {
   sync_llm_endpoint_configmap
+  ensure_evalhub_model_auth_secret || true
   if [[ -f "${MANIFESTS}/evalhub-rbac-wings3.yaml" ]]; then
     run oc apply -f "${MANIFESTS}/evalhub-rbac-wings3.yaml"
   fi
@@ -1510,8 +1600,11 @@ purge_evalhub_resources() {
 }
 
 purge_maas_resources() {
-  run oc delete maasmodelref "$MAAS_MODEL" -n "$PROJECT" --ignore-not-found=true
-  run oc delete externalmodel "$MAAS_MODEL" -n "$PROJECT" --ignore-not-found=true
+  local model=""
+  for model in $MAAS_CATALOG_MODELS; do
+    run oc delete maasmodelref "$model" -n "$PROJECT" --ignore-not-found=true
+    run oc delete externalmodel "$model" -n "$PROJECT" --ignore-not-found=true
+  done
   run oc delete maassubscription "$MAAS_SUBSCRIPTION" -n "$MAAS_NS" --ignore-not-found=true
   run oc delete maasauthpolicy "$MAAS_SUBSCRIPTION" -n "$MAAS_NS" --ignore-not-found=true
   run oc delete secret wings3-maas-upstream-api-key -n "$PROJECT" --ignore-not-found=true

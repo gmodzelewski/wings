@@ -106,8 +106,13 @@ def test_evalhub_instance_manifest_and_install_wiring():
     assert "evalhub.trustyai.opendatahub.io/tenant-" in lib
     assert "check_evalhub_instance" in check_py
     assert "check_evaluations_nav" in check_py
+    assert "check_evalhub_model_auth" in check_py
+    assert "check_evalhub_endpoint_url" in check_py
+    assert "check_evalhub_endpoint_url" in check_py
     assert "evalhub_cr_is_single_tenant" in check_py
     assert "disableLMEval" in lib
+    assert "ensure_evalhub_model_auth_secret" in lib
+    assert "resolve_evalhub_openai_base_url" in lib
 
 
 def test_evalhub_tenant_label_helper():
@@ -185,6 +190,9 @@ def test_submit_evalhub_eval_run_supports_garak_and_v1_endpoint():
     assert 'provider_id": "garak"' in text
     assert "normalize_openai_endpoint" in text
     assert "*/v1" in text
+    assert "wings3-maas-upstream-api-key" in text
+    assert "secret_ref" in text
+    assert "MODEL_AUTH_SECRET" in text
     result = _run(script, "--help")
     assert result.returncode == 0, result.stderr
     assert "quick" in result.stdout
@@ -277,6 +285,8 @@ def test_maas_external_model_manifests():
     assert "kind: ExternalModel" in external
     assert "maas-rhdp.apps.maas.redhatworkshops.io" in external
     assert "targetModel: gpt-oss-120b" in external
+    assert "credentialRef:" in external
+    assert "wings3-maas-upstream-api-key" in external
     assert "opendatahub.io/genai-asset" in external
     assert "opendatahub.io/dashboard" in external
     assert "kind: MaaSModelRef" in modelref
@@ -284,6 +294,25 @@ def test_maas_external_model_manifests():
     assert "kind: MaaSSubscription" in auth_sub
     assert "kind: MaaSAuthPolicy" in auth_sub
     assert "wings3-gpt-oss-120b" in auth_sub
+    assert "gpt-oss-20b" in auth_sub
+    assert "llama-scout-17b" in auth_sub
+    for model in ("gpt-oss-120b", "gpt-oss-20b", "llama-scout-17b"):
+        em = (WINGS3_ROOT / "manifests" / f"maas-external-model-{model}.yaml").read_text()
+        mr = (WINGS3_ROOT / "manifests" / f"maas-modelref-{model}.yaml").read_text()
+        assert f"name: {model}" in em
+        assert f"targetModel: {model}" in em
+        assert "credentialRef:" in em
+        assert "name: wings3-maas-upstream-api-key" in em
+        assert f"name: {model}" in mr
+    assert "MAAS_CATALOG_MODELS" in lib
+    assert "maas-external-model-${model}.yaml" in lib or 'maas-external-model-${model}.yaml' in lib
+    assert "WINGS3_MAAS_CATALOG_MODELS" in check_py
+    assert "gpt-oss-20b" in check_py
+    assert "llama-scout-17b" in check_py
+    assert "enable_maas" in install
+    assert "purge_maas_resources" in uninstall
+    assert "check_maas_external_model" in check_py
+    assert "check_maas_modelref" in check_py
     kuadrant = (WINGS3_ROOT / "manifests" / "kuadrant-dev.yaml").read_text()
     gateway = (WINGS3_ROOT / "manifests" / "maas-default-gateway.yaml").read_text()
     assert "kind: Kuadrant" in kuadrant
