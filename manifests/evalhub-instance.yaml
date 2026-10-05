@@ -22,5 +22,10 @@ spec:
     - standard-llm-evals-v1
     - safety-and-fairness-v1
   env:
+    # Point through wings3-mlflow-ws-proxy so X-MLflow-Workspace is always set.
+    # Upstream EvalHub may skip the header when its workspace probe fails, while
+    # RHOAI MLflow still requires workspace context for experiment APIs.
     - name: MLFLOW_TRACKING_URI
-      value: https://mlflow.redhat-ods-applications.svc:8443/mlflow
+      value: http://wings3-mlflow-ws-proxy.my-first-model.svc.cluster.local:8080/mlflow
+    - name: MLFLOW_WORKSPACE
+      value: my-first-model

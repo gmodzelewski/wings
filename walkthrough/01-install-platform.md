@@ -159,7 +159,7 @@ oc get externalmodel gpt-oss-120b -n my-first-model
 oc get maasmodelref gpt-oss-120b -n my-first-model
 ```
 
-**Console (RHOAI 3.5):** **Gen AI Studio → AI asset endpoints → Models** — **gpt-oss-120b** listed; **Gen AI Studio → API keys** — create a MaaS key for subscription `wings3-gpt-oss-120b`.
+**Console (RHOAI 3.5):** **Gen AI Studio → AI asset endpoints → Models** — **gpt-oss-120b** listed; **Gen AI Studio → API keys** — create a MaaS key for subscription `redhat-maas`.
 
 ### 8. Say the workspace rule
 

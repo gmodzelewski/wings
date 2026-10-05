@@ -35,7 +35,14 @@ def test_workbench_clones_public_wings_repo():
 
 
 def test_scripts_are_valid_bash():
-    for script in (INSTALL, UNINSTALL, CHECK):
+    scripts = (
+        INSTALL,
+        UNINSTALL,
+        CHECK,
+        WINGS3_ROOT / "scripts" / "enable_guardrails_ui.sh",
+    )
+    for script in scripts:
+        assert script.is_file(), f"missing {script}"
         result = subprocess.run(
             ["bash", "-n", str(script)],
             check=False,
@@ -112,7 +119,10 @@ def test_evalhub_instance_manifest_and_install_wiring():
     assert "evalhub_cr_is_single_tenant" in check_py
     assert "disableLMEval" in lib
     assert "ensure_evalhub_model_auth_secret" in lib
+    assert "ensure_maas_gateway_api_key_secret" in lib
+    assert "wings3-maas-gateway-api-key" in lib
     assert "resolve_evalhub_openai_base_url" in lib
+    assert "maas-gateway." in lib
 
 
 def test_evalhub_tenant_label_helper():
@@ -193,10 +203,28 @@ def test_submit_evalhub_eval_run_supports_garak_and_v1_endpoint():
     assert "wings3-maas-upstream-api-key" in text
     assert "secret_ref" in text
     assert "MODEL_AUTH_SECRET" in text
+    assert '"experiment"' in text
+    assert "wings3-evalhub-garak" in text
+    assert "--experiment" in text
+    assert "lower_is_better" in text
+    assert "attack_success_rate" in text
+    assert "infer_endpoint_kind" in text
+    assert '"description"' in text
+    assert "target:%s" in text
+    assert "wait_and_log_mlflow_endpoint_params" in text
+    assert "model_url" in text
+    assert "target_endpoint_kind" in text
+    assert "log-parameter" in text
+    # Post-run MLflow param logging is script-side (curl from EvalHub pod; no python3 there).
+    assert "runs/log-parameter" in text
+    assert "base64" in text
     result = _run(script, "--help")
     assert result.returncode == 0, result.stderr
     assert "quick" in result.stdout
     assert "--provider" in result.stdout
+    assert "--experiment" in result.stdout
+    assert "--wait" in result.stdout
+    assert "model_url" in result.stdout
 
 
 def test_garak_demo_json_uses_evalhub_api_format():
@@ -206,6 +234,16 @@ def test_garak_demo_json_uses_evalhub_api_format():
     assert data["benchmarks"][0]["provider_id"] == "garak"
     assert data["benchmarks"][0]["id"] == "quick"
     assert data["model"]["url"].endswith("/v1")
+    assert data["experiment"]["name"] == "wings3-evalhub-garak"
+    assert data["benchmarks"][0]["primary_score"]["lower_is_better"] is True
+    assert data["benchmarks"][0]["primary_score"]["metric"] == "attack_success_rate"
+    assert data["pass_criteria"]["threshold"] == 0.3
+    assert "description" in data
+    assert "tags" in data
+    assert "garak" in data["tags"]
+    assert any(t.startswith("target:") for t in data["tags"])
+    assert "model_url" in data["notes"]
+    assert "target_endpoint_kind" in data["notes"]
 
 
 def test_evalhub_garak_walkthrough_documents_v1_endpoint():
@@ -215,6 +253,13 @@ def test_evalhub_garak_walkthrough_documents_v1_endpoint():
     assert "submit_evalhub_eval_run.sh --benchmark quick" in text
     assert "List view vs detail" in text
     assert "**Completed**" in text and "attack success rate" in text.lower()
+    assert "run ID: None" in text
+    assert "GenAI → Traces" in text
+    assert "wings3-evalhub-garak" in text
+    assert "lower_is_better" in text
+    assert "target:unguarded" in text
+    assert "model_url" in text
+    assert "target_endpoint_kind" in text
 
 
 def test_configmap_manifest_has_endpoint_hostname():
@@ -277,7 +322,7 @@ def test_judge_secret_is_empty_key_and_workbench_mounts_it():
 def test_maas_external_model_manifests():
     external = (WINGS3_ROOT / "manifests" / "maas-external-model-gpt-oss-120b.yaml").read_text()
     modelref = (WINGS3_ROOT / "manifests" / "maas-modelref-gpt-oss-120b.yaml").read_text()
-    auth_sub = (WINGS3_ROOT / "manifests" / "maas-auth-subscription-gpt-oss-120b.yaml").read_text()
+    auth_sub = (WINGS3_ROOT / "manifests" / "maas-auth-subscription-redhat-maas.yaml").read_text()
     lib = (WINGS3_ROOT / "scripts" / "wings3_lib.sh").read_text()
     install = INSTALL.read_text()
     uninstall = UNINSTALL.read_text()
@@ -289,14 +334,22 @@ def test_maas_external_model_manifests():
     assert "wings3-maas-upstream-api-key" in external
     assert "opendatahub.io/genai-asset" in external
     assert "opendatahub.io/dashboard" in external
+    assert "label_maas_external_model_assets" in lib
+    assert "externalproviders.inference.opendatahub.io" in lib
+    assert "gen-ai-aa-custom-model-endpoints" in lib
+    cm_aa = (WINGS3_ROOT / "manifests" / "gen-ai-aa-custom-model-endpoints.yaml").read_text()
+    assert "endpoints.json" in cm_aa
+    assert "gpt-oss-120b" in cm_aa
+    assert "llama-scout-17b" in cm_aa
     assert "kind: MaaSModelRef" in modelref
     assert "kind: ExternalModel" in modelref
     assert "kind: MaaSSubscription" in auth_sub
     assert "kind: MaaSAuthPolicy" in auth_sub
-    assert "wings3-gpt-oss-120b" in auth_sub
+    assert "redhat-maas" in auth_sub
     assert "gpt-oss-20b" in auth_sub
     assert "llama-scout-17b" in auth_sub
-    for model in ("gpt-oss-120b", "gpt-oss-20b", "llama-scout-17b"):
+    assert "qwen36-35b-a3b" in auth_sub
+    for model in ("gpt-oss-120b", "gpt-oss-20b", "llama-scout-17b", "qwen36-35b-a3b"):
         em = (WINGS3_ROOT / "manifests" / f"maas-external-model-{model}.yaml").read_text()
         mr = (WINGS3_ROOT / "manifests" / f"maas-modelref-{model}.yaml").read_text()
         assert f"name: {model}" in em
@@ -306,17 +359,37 @@ def test_maas_external_model_manifests():
         assert f"name: {model}" in mr
     assert "MAAS_CATALOG_MODELS" in lib
     assert "maas-external-model-${model}.yaml" in lib or 'maas-external-model-${model}.yaml' in lib
+    assert "inference.llm-d.ai/ipp-managed" in lib
+    upstream_example = (
+        WINGS3_ROOT / "manifests" / "secret-wings3-maas-upstream-api-key.example.yaml"
+    ).read_text()
+    assert "inference.llm-d.ai/ipp-managed" in upstream_example
+    assert "inference.networking.k8s.io/bbr-managed" in upstream_example
     assert "WINGS3_MAAS_CATALOG_MODELS" in check_py
     assert "gpt-oss-20b" in check_py
     assert "llama-scout-17b" in check_py
+    assert "qwen36-35b-a3b" in check_py
+    assert "qwen36-35b-a3b" in lib
     assert "enable_maas" in install
     assert "purge_maas_resources" in uninstall
     assert "check_maas_external_model" in check_py
     assert "check_maas_modelref" in check_py
     kuadrant = (WINGS3_ROOT / "manifests" / "kuadrant-dev.yaml").read_text()
     gateway = (WINGS3_ROOT / "manifests" / "maas-default-gateway.yaml").read_text()
+    gw_cfg = (WINGS3_ROOT / "manifests" / "maas-default-gateway-config.yaml").read_text()
     assert "kind: Kuadrant" in kuadrant
     assert "redhat-ai-gateway-infra" in gateway
+    assert "maas-default-gateway-config" in gateway
+    assert "parametersRef" in gateway
+    assert "type: ClusterIP" in gw_cfg
+    assert "maas-default-gateway-config.yaml" in lib
+    assert "maas-default-gateway-route.yaml" in lib
+    assert "ensure_maas_gateway_route" in lib
+    assert "LoadBalancer address pending" in lib
+    gw_route = (WINGS3_ROOT / "manifests" / "maas-default-gateway-route.yaml").read_text()
+    assert "kind: Route" in gw_route
+    assert "maas-default-gateway" in gw_route
+    assert "reencrypt" in gw_route
     assert "enable_maas()" in lib
     assert "enable_genai_studio" in lib
     assert "enable_ogx_dsc" in lib
@@ -325,6 +398,12 @@ def test_maas_external_model_manifests():
     assert "ensure_servicemesh" in lib
     assert "ensure_genai_dashboard_prereqs" in lib
     assert "ensure_maas_dashboard_prereqs" in lib
+    assert '"guardrails":true' in lib
+    assert "guardrails" in lib
+    assert '"agentsCatalog":true' in lib
+    assert '"agentOps":true' in lib
+    assert '"agentConfigManagement":true' in lib
+    assert '"aiAssetCustomEndpoints":true' in lib
     assert "purge_ogx_resources" in lib
     ogx_server = (WINGS3_ROOT / "manifests" / "ogx-server-wings3.yaml").read_text()
     ogx_pg = (WINGS3_ROOT / "manifests" / "ogx-postgres-dev.yaml").read_text()
@@ -337,6 +416,13 @@ def test_maas_external_model_manifests():
     assert "kind: OperatorGroup" not in sm3
     assert "kind: Istio" in sm3_istio
     assert "ensure_kuadrant" in lib
+    assert "ensure_connectivity_link_operator" in lib
+    assert "wait_for_connectivity_link" in lib
+    assert "connectivity-link-operator.yaml" in lib
+    rhcl = (WINGS3_ROOT / "manifests" / "connectivity-link-operator.yaml").read_text()
+    assert "name: rhcl-operator" in rhcl
+    assert "source: redhat-operators" in rhcl
+    assert "kind: OperatorGroup" not in rhcl
     assert "ensure_authorino_tls" in lib
     assert "reconcile_maas_subscription" in lib
     assert "sync_llm_endpoint_configmap" in lib
@@ -351,6 +437,7 @@ def test_maas_external_model_manifests():
     assert "check_ogx_managed" in check_py
     assert "check_ogx_server" in check_py
     assert "check_mcp_catalog" in check_py
+    assert "check_agents_catalog" in check_py
     assert "check_evaluations_nav" in check_py
     assert "check_maas_ui" in check_py
     assert "check_kuadrant_ready" in check_py

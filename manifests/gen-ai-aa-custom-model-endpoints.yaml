@@ -1,0 +1,113 @@
+# Gen AI Studio → AI asset endpoints reads THIS ConfigMap (not ExternalModel CRs).
+# Without it, listAAModels returns externalModels=0 for the namespace even when
+# MaaSModelRefs / ExternalProviders are Ready.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gen-ai-aa-custom-model-endpoints
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+data:
+  endpoints.json: |
+    [
+      {
+        "id": "gpt-oss-120b",
+        "name": "gpt-oss-120b",
+        "displayName": "gpt-oss-120b",
+        "model": "gpt-oss-120b",
+        "modelName": "gpt-oss-120b",
+        "url": "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
+        "baseUrl": "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
+        "provider": "openai",
+        "apiProtocol": "v2",
+        "status": "Running",
+        "enabled": true
+      },
+      {
+        "id": "gpt-oss-20b",
+        "name": "gpt-oss-20b",
+        "displayName": "gpt-oss-20b",
+        "model": "gpt-oss-20b",
+        "modelName": "gpt-oss-20b",
+        "url": "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
+        "baseUrl": "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
+        "provider": "openai",
+        "apiProtocol": "v2",
+        "status": "Running",
+        "enabled": true
+      },
+      {
+        "id": "llama-scout-17b",
+        "name": "llama-scout-17b",
+        "displayName": "llama-scout-17b",
+        "model": "llama-scout-17b",
+        "modelName": "llama-scout-17b",
+        "url": "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
+        "baseUrl": "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
+        "provider": "openai",
+        "apiProtocol": "v2",
+        "status": "Running",
+        "enabled": true
+      },
+      {
+        "id": "qwen36-35b-a3b",
+        "name": "qwen36-35b-a3b",
+        "displayName": "qwen36-35b-a3b",
+        "model": "qwen36-35b-a3b",
+        "modelName": "qwen36-35b-a3b",
+        "url": "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
+        "baseUrl": "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
+        "provider": "openai",
+        "apiProtocol": "v2",
+        "status": "Running",
+        "enabled": true
+      }
+    ]
+  config.yaml: |
+    providers:
+      inference:
+      - provider_id: endpoint-1
+        provider_type: remote::openai
+        config:
+          base_url: https://maas-rhdp.apps.maas.redhatworkshops.io/v1
+          allowed_models:
+          - gpt-oss-120b
+          - gpt-oss-20b
+          - llama-scout-17b
+          - qwen36-35b-a3b
+          custom_gen_ai:
+            api_key:
+              secretRef:
+                name: endpoint-api-key-1
+                key: api_key
+    registered_resources:
+      models:
+      - provider_id: endpoint-1
+        model_id: gpt-oss-120b
+        model_type: llm
+        metadata:
+          display_name: GPT-OSS 120B (workshop)
+          custom_gen_ai:
+            use_cases: Text Generation, Chat
+      - provider_id: endpoint-1
+        model_id: gpt-oss-20b
+        model_type: llm
+        metadata:
+          display_name: GPT-OSS 20B (workshop)
+          custom_gen_ai:
+            use_cases: Text Generation, Chat
+      - provider_id: endpoint-1
+        model_id: llama-scout-17b
+        model_type: llm
+        metadata:
+          display_name: Llama Scout 17B (workshop)
+          custom_gen_ai:
+            use_cases: Text Generation, Chat
+      - provider_id: endpoint-1
+        model_id: qwen36-35b-a3b
+        model_type: llm
+        metadata:
+          display_name: Qwen 3.6 35B A3B (workshop)
+          custom_gen_ai:
+            use_cases: Text Generation, Chat

@@ -1,0 +1,142 @@
+# Injects X-MLflow-Workspace for EvalHub → MLflow calls. EvalHub may skip the
+# header when its workspace probe fails; RHOAI MLflow still requires it.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wings3-mlflow-ws-proxy
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+data:
+  proxy.py: |
+    #!/usr/bin/env python3
+    import http.client
+    import os
+    import ssl
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    UPSTREAM = os.environ.get("UPSTREAM_HOST", "mlflow.redhat-ods-applications.svc")
+    UPSTREAM_PORT = int(os.environ.get("UPSTREAM_PORT", "8443"))
+    WORKSPACE = os.environ.get("MLFLOW_WORKSPACE", "my-first-model")
+    LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "8080"))
+    CTX = ssl._create_unverified_context()
+
+    class Handler(BaseHTTPRequestHandler):
+        def _proxy(self):
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            body = self.rfile.read(length) if length else None
+            headers = {k: v for k, v in self.headers.items()
+                       if k.lower() not in ("host", "transfer-encoding", "connection")}
+            headers["Host"] = UPSTREAM
+            headers["X-MLflow-Workspace"] = WORKSPACE
+            conn = http.client.HTTPSConnection(UPSTREAM, UPSTREAM_PORT, context=CTX, timeout=60)
+            try:
+                conn.request(self.command, self.path, body=body, headers=headers)
+                resp = conn.getresponse()
+                data = resp.read()
+                self.send_response(resp.status)
+                for k, v in resp.getheaders():
+                    if k.lower() in ("transfer-encoding", "connection"):
+                        continue
+                    self.send_header(k, v)
+                self.end_headers()
+                if data:
+                    self.wfile.write(data)
+            finally:
+                conn.close()
+
+        def do_GET(self):
+            self._proxy()
+
+        def do_POST(self):
+            self._proxy()
+
+        def do_PUT(self):
+            self._proxy()
+
+        def do_PATCH(self):
+            self._proxy()
+
+        def do_DELETE(self):
+            self._proxy()
+
+        def log_message(self, fmt, *args):
+            print("[%s] %s" % (self.log_date_time_string(), fmt % args), flush=True)
+
+    print(f"proxy listening :{LISTEN_PORT} -> https://{UPSTREAM}:{UPSTREAM_PORT} workspace={WORKSPACE}", flush=True)
+    ThreadingHTTPServer(("0.0.0.0", LISTEN_PORT), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wings3-mlflow-ws-proxy
+  namespace: my-first-model
+  labels:
+    app: wings3-mlflow-ws-proxy
+    app.kubernetes.io/part-of: wings3-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wings3-mlflow-ws-proxy
+  template:
+    metadata:
+      labels:
+        app: wings3-mlflow-ws-proxy
+    spec:
+      containers:
+        - name: proxy
+          image: registry.access.redhat.com/ubi9/python-312:latest
+          command: ["python3", "/app/proxy.py"]
+          env:
+            - name: MLFLOW_WORKSPACE
+              value: my-first-model
+            - name: UPSTREAM_HOST
+              value: mlflow.redhat-ods-applications.svc
+            - name: UPSTREAM_PORT
+              value: "8443"
+            - name: LISTEN_PORT
+              value: "8080"
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: app
+              mountPath: /app
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: app
+          configMap:
+            name: wings3-mlflow-ws-proxy
+            defaultMode: 0555
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wings3-mlflow-ws-proxy
+  namespace: my-first-model
+  labels:
+    app: wings3-mlflow-ws-proxy
+    app.kubernetes.io/part-of: wings3-demo
+spec:
+  selector:
+    app: wings3-mlflow-ws-proxy
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

@@ -25,8 +25,8 @@ GARAK_DSC_COMPONENT="${WINGS3_GARAK_DSC_COMPONENT:-}"
 MAAS_NS="${WINGS3_MAAS_NAMESPACE:-models-as-a-service}"
 MAAS_MODEL="${WINGS3_MAAS_MODEL:-gpt-oss-120b}"
 # Catalog models for Gen AI Studio (shared wings3-maas-upstream-api-key). Primary judge stays MAAS_MODEL.
-MAAS_CATALOG_MODELS="${WINGS3_MAAS_CATALOG_MODELS:-gpt-oss-120b gpt-oss-20b llama-scout-17b}"
-MAAS_SUBSCRIPTION="${WINGS3_MAAS_SUBSCRIPTION:-wings3-gpt-oss-120b}"
+MAAS_CATALOG_MODELS="${WINGS3_MAAS_CATALOG_MODELS:-gpt-oss-120b gpt-oss-20b llama-scout-17b qwen36-35b-a3b}"
+MAAS_SUBSCRIPTION="${WINGS3_MAAS_SUBSCRIPTION:-redhat-maas}"
 MAAS_UPSTREAM_ENDPOINT="${WINGS3_MAAS_UPSTREAM_ENDPOINT:-maas-rhdp.apps.maas.redhatworkshops.io}"
 MAAS_PART_OF="${WINGS3_MAAS_PART_OF:-wings3-demo}"
 KUADRANT_NS="${WINGS3_KUADRANT_NAMESPACE:-kuadrant-system}"
@@ -121,10 +121,12 @@ dsc_component_state() {
 }
 
 crd_registered() {
+  # Accept either plain CRD names (kuadrants.kuadrant.io) or grep-escaped
+  # patterns (kuadrants\.kuadrant\.io). Prefer `oc get crd` for dotted names.
   local suffix="$1"
-  local name="${suffix%%.*}"
-  if [[ "$suffix" == *.* ]]; then
-    oc get crd "$suffix" >/dev/null 2>&1 && return 0
+  local crd_name="${suffix//\\/}"
+  if [[ "$crd_name" == *.* ]]; then
+    oc get crd "$crd_name" >/dev/null 2>&1 && return 0
   fi
   oc api-resources -o name 2>/dev/null | grep -q "$suffix"
 }
@@ -479,6 +481,13 @@ label_maas_external_model_assets() {
         opendatahub.io/dashboard=true opendatahub.io/genai-asset=true \
         --overwrite >/dev/null 2>&1 || true
     fi
+    # Gen AI Studio → AI asset endpoints lists ExternalProviders when
+    # genAiStudioConfig.aiAssetCustomEndpoints.externalProviders is true.
+    if oc get externalproviders.inference.opendatahub.io "$model" -n "$PROJECT" >/dev/null 2>&1; then
+      oc label externalproviders.inference.opendatahub.io "$model" -n "$PROJECT" \
+        opendatahub.io/dashboard=true opendatahub.io/genai-asset=true \
+        --overwrite >/dev/null 2>&1 || true
+    fi
     if oc get maasmodelref "$model" -n "$PROJECT" >/dev/null 2>&1; then
       oc label maasmodelref "$model" -n "$PROJECT" \
         opendatahub.io/dashboard=true opendatahub.io/genai-asset=true \
@@ -509,7 +518,8 @@ restart_maas_dashboard_ui_if_unhealthy() {
 }
 
 ensure_genai_dashboard_prereqs() {
-  local gen_ai="" maas_tab="" mcp_catalog="" disable_lmeval=""
+  local gen_ai="" maas_tab="" mcp_catalog="" disable_lmeval="" guardrails=""
+  local agents_catalog="" agent_ops="" agent_cfg="" ai_asset_eps=""
   gen_ai=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
     -o jsonpath='{.spec.dashboardConfig.genAiStudio}' 2>/dev/null || true)
   maas_tab=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
@@ -518,13 +528,30 @@ ensure_genai_dashboard_prereqs() {
     -o jsonpath='{.spec.dashboardConfig.mcpCatalog}' 2>/dev/null || true)
   disable_lmeval=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
     -o jsonpath='{.spec.dashboardConfig.disableLMEval}' 2>/dev/null || true)
-  if [[ "$gen_ai" != "true" || "$maas_tab" != "true" || "$mcp_catalog" != "true" || "$disable_lmeval" == "true" ]]; then
-    log "patch OdhDashboardConfig genAiStudio + modelAsService + mcpCatalog + disableLMEval"
+  guardrails=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
+    -o jsonpath='{.spec.dashboardConfig.guardrails}' 2>/dev/null || true)
+  agents_catalog=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
+    -o jsonpath='{.spec.dashboardConfig.agentsCatalog}' 2>/dev/null || true)
+  agent_ops=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
+    -o jsonpath='{.spec.dashboardConfig.agentOps}' 2>/dev/null || true)
+  agent_cfg=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
+    -o jsonpath='{.spec.dashboardConfig.agentConfigManagement}' 2>/dev/null || true)
+  ai_asset_eps=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
+    -o jsonpath='{.spec.dashboardConfig.aiAssetCustomEndpoints}' 2>/dev/null || true)
+  if [[ "$gen_ai" != "true" || "$maas_tab" != "true" || "$mcp_catalog" != "true" \
+    || "$disable_lmeval" == "true" || "$guardrails" != "true" \
+    || "$agents_catalog" != "true" || "$agent_ops" != "true" \
+    || "$agent_cfg" != "true" || "$ai_asset_eps" != "true" ]]; then
+    log "patch OdhDashboardConfig genAiStudio + MaaS + MCP + Agents + guardrails"
     oc patch odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" --type=merge \
-      -p '{"spec":{"dashboardConfig":{"genAiStudio":true,"modelAsService":true,"mcpCatalog":true,"disableLMEval":false}}}' \
+      -p '{"spec":{"dashboardConfig":{"genAiStudio":true,"modelAsService":true,"mcpCatalog":true,"disableLMEval":false,"guardrails":true,"agentsCatalog":true,"agentOps":true,"agentConfigManagement":true,"aiAssetCustomEndpoints":true}}}' \
       >/dev/null 2>&1 || true
   fi
   label_maas_external_model_assets || true
+  # Gen AI Studio AI asset endpoints lists models from this ConfigMap (not CRs).
+  if [[ -f "${MANIFESTS}/gen-ai-aa-custom-model-endpoints.yaml" ]]; then
+    run oc apply -f "${MANIFESTS}/gen-ai-aa-custom-model-endpoints.yaml"
+  fi
   restart_maas_dashboard_ui_if_unhealthy || true
 }
 
@@ -666,23 +693,108 @@ discover_gateway_tls_secret() {
   printf ''
 }
 
+maas_lb_claimed_hostname() {
+  # Hostname published by openshift-ai-inference LoadBalancer DNSRecord — Routes for
+  # ClusterIP maas-default-gateway cannot steal that DNS.
+  oc get gateway openshift-ai-inference -n "$GATEWAY_NS" \
+    -o jsonpath='{.spec.listeners[?(@.protocol=="HTTPS")].hostname}' 2>/dev/null || true
+}
+
 discover_maas_route_hostname() {
-  local host=""
-  host=$(oc get route openshift-ai-inference -n "$GATEWAY_NS" \
+  local host="" name domain="" claimed=""
+  claimed=$(maas_lb_claimed_hostname)
+  domain=$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}' 2>/dev/null || true)
+  # MaaS public host — do not use data-science-gateway (rh-ai) Route; that is dashboard.
+  host=$(oc get route maas-default-gateway -n "$GATEWAY_NS" \
     -o jsonpath='{.spec.host}' 2>/dev/null || true)
-  if [[ -n "$host" ]]; then
+  if [[ -n "$host" && "$host" != HostAlreadyClaimed && "$host" != "$claimed" ]]; then
     printf '%s' "$host"
     return 0
   fi
-  for name in maas-default-gateway openshift-ai-inference data-science-gateway; do
+  if [[ -n "$domain" ]]; then
+    # Prefer maas-gateway.<apps-domain>: inference-gateway.* is often claimed by the
+    # openshift-ai-inference LoadBalancer DNSRecord and never reaches the Route.
+    printf 'maas-gateway.%s' "$domain"
+    return 0
+  fi
+  host=$(oc get route openshift-ai-inference -n "$GATEWAY_NS" \
+    -o jsonpath='{.spec.host}' 2>/dev/null || true)
+  if [[ -n "$host" && "$host" != HostAlreadyClaimed ]]; then
+    printf '%s' "$host"
+    return 0
+  fi
+  for name in maas-default-gateway openshift-ai-inference; do
     host=$(oc get gateway "$name" -n "$GATEWAY_NS" \
       -o jsonpath='{.spec.listeners[?(@.protocol=="HTTPS")].hostname}' 2>/dev/null || true)
-    if [[ -n "$host" ]]; then
+    if [[ -n "$host" && "$host" != "$claimed" ]]; then
       printf '%s' "$host"
       return 0
     fi
   done
   printf ''
+}
+
+maas_gateway_has_reencrypt_route() {
+  local name
+  for name in maas-default-gateway openshift-ai-inference; do
+    if oc get route "$name" -n "$GATEWAY_NS" \
+      -o jsonpath='{.spec.tls.termination}' 2>/dev/null | grep -q reencrypt; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+remove_maas_gateway_https_hostname() {
+  local idx="" current=""
+  current=$(oc get gateway maas-default-gateway -n "$GATEWAY_NS" \
+    -o jsonpath='{.spec.listeners[?(@.protocol=="HTTPS")].hostname}' 2>/dev/null || true)
+  [[ -z "$current" ]] && return 0
+  idx=$(oc get gateway maas-default-gateway -n "$GATEWAY_NS" -o json 2>/dev/null \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((i for i,l in enumerate(d.get("spec",{}).get("listeners",[])) if l.get("protocol")=="HTTPS"), ""))' || true)
+  [[ -z "$idx" ]] && return 1
+  log "remove maas-default-gateway HTTPS hostname (reencrypt Route SNI mismatch)"
+  oc patch gateway maas-default-gateway -n "$GATEWAY_NS" --type=json \
+    -p "[{\"op\":\"remove\",\"path\":\"/spec/listeners/${idx}/hostname\"}]" \
+    >/dev/null 2>&1 || true
+}
+
+ensure_maas_gateway_route() {
+  local host="" svc="" route_svc="" route_host=""
+  if [[ ! -f "${MANIFESTS}/maas-default-gateway-route.yaml" ]]; then
+    return 0
+  fi
+  if ! oc get gateway maas-default-gateway -n "$GATEWAY_NS" >/dev/null 2>&1; then
+    return 1
+  fi
+  svc=$(oc get svc -n "$GATEWAY_NS" \
+    -l gateway.networking.k8s.io/gateway-name=maas-default-gateway \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  if [[ -z "$svc" ]]; then
+    echo "warning: no Service for maas-default-gateway; skip Route" >&2
+    return 1
+  fi
+  host=$(discover_maas_route_hostname)
+  if [[ -z "$host" ]]; then
+    echo "warning: cannot discover hostname for maas-default-gateway Route" >&2
+    return 1
+  fi
+  route_svc=$(oc get route maas-default-gateway -n "$GATEWAY_NS" \
+    -o jsonpath='{.spec.to.name}' 2>/dev/null || true)
+  route_host=$(oc get route maas-default-gateway -n "$GATEWAY_NS" \
+    -o jsonpath='{.spec.host}' 2>/dev/null || true)
+  if [[ "$route_svc" != "$svc" || "$route_host" != "$host" ]]; then
+    log "expose maas-default-gateway via Route ${host} -> ${svc}"
+    sed -e "s/REPLACE_MAAS_GATEWAY_HOST/${host}/g" \
+      -e "s/REPLACE_MAAS_GATEWAY_SERVICE/${svc}/g" \
+      "${MANIFESTS}/maas-default-gateway-route.yaml" | oc apply -f -
+  fi
+  # Reencrypt Routes send internal SNI (service CA host), not the public hostname.
+  # A hostname filter on the HTTPS listener causes filter_chain_not_found / 503.
+  if maas_gateway_has_reencrypt_route; then
+    remove_maas_gateway_https_hostname || true
+  fi
+  ensure_maas_bff_api_url "$host"
 }
 
 patch_maas_gateway_hostname() {
@@ -692,22 +804,10 @@ patch_maas_gateway_hostname() {
     echo "warning: cannot discover Route hostname for maas-default-gateway" >&2
     return 1
   fi
-  # Reencrypt Routes (openshift-ai-inference) send internal SNI to the gateway listener.
+  # Reencrypt Routes send internal SNI to the gateway listener.
   # A hostname filter on the HTTPS listener causes filter_chain_not_found / 503 (RHOAI 3.5).
-  if oc get route openshift-ai-inference -n "$GATEWAY_NS" \
-    -o jsonpath='{.spec.tls.termination}' 2>/dev/null | grep -q reencrypt; then
-    current=$(oc get gateway maas-default-gateway -n "$GATEWAY_NS" \
-      -o jsonpath='{.spec.listeners[?(@.protocol=="HTTPS")].hostname}' 2>/dev/null || true)
-    if [[ -n "$current" ]]; then
-      idx=$(oc get gateway maas-default-gateway -n "$GATEWAY_NS" -o json 2>/dev/null \
-        | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((i for i,l in enumerate(d.get("spec",{}).get("listeners",[])) if l.get("protocol")=="HTTPS"), ""))' || true)
-      if [[ -n "$idx" ]]; then
-        log "remove maas-default-gateway HTTPS hostname (reencrypt Route SNI mismatch)"
-        oc patch gateway maas-default-gateway -n "$GATEWAY_NS" --type=json \
-          -p "[{\"op\":\"remove\",\"path\":\"/spec/listeners/${idx}/hostname\"}]" \
-          >/dev/null 2>&1 || true
-      fi
-    fi
+  if maas_gateway_has_reencrypt_route; then
+    remove_maas_gateway_https_hostname || true
     ensure_maas_bff_api_url "$host"
     return 0
   fi
@@ -758,7 +858,12 @@ ensure_maas_bff_api_url() {
 
 patch_maas_gateway_tls() {
   local cert=""
-  cert=$(discover_gateway_tls_secret)
+  # Prefer the serving-cert issued for the MaaS gateway Service (ClusterIP path).
+  if oc get secret maas-default-gateway-service-tls -n "$GATEWAY_NS" >/dev/null 2>&1; then
+    cert="maas-default-gateway-service-tls"
+  else
+    cert=$(discover_gateway_tls_secret)
+  fi
   if [[ -z "$cert" ]]; then
     echo "warning: no TLS secret found for maas-default-gateway in ${GATEWAY_NS}" >&2
     return 1
@@ -776,28 +881,59 @@ patch_maas_gateway_tls() {
 }
 
 ensure_maas_gateway() {
-  local host=""
+  local host="" svc="" pref="" stype="" gclass="data-science-gateway-class" cert="maas-default-gateway-service-tls"
+  # ClusterIP service params — without this, Gateway defaults to LoadBalancer and
+  # stays Programmed=False on sandboxes with no cloud LB (AddressNotAssigned).
+  if [[ -f "${MANIFESTS}/maas-default-gateway-config.yaml" ]]; then
+    run oc apply -f "${MANIFESTS}/maas-default-gateway-config.yaml"
+  fi
   if ! oc get gateway maas-default-gateway -n "$GATEWAY_NS" >/dev/null 2>&1; then
-    host=$(oc get gateway openshift-ai-inference -n "$GATEWAY_NS" \
-      -o jsonpath='{.spec.listeners[0].hostname}' 2>/dev/null || true)
+    # Dedicated host (maas-gateway.*) — do not copy openshift-ai-inference's
+    # inference-gateway.* hostname (LoadBalancer DNSRecord conflict).
+    host=$(discover_maas_route_hostname)
     if [[ -z "$host" ]]; then
-      echo "warning: cannot discover inference gateway hostname for maas-default-gateway" >&2
+      echo "warning: cannot discover hostname for maas-default-gateway" >&2
       return 1
     fi
     if [[ -f "${MANIFESTS}/maas-default-gateway.yaml" ]]; then
-      local cert=""
-      cert=$(discover_gateway_tls_secret)
-      if [[ -n "$cert" ]]; then
-        sed -e "s/REPLACE_MAAS_GATEWAY_HOST/${host}/" \
-          -e "s/default-gateway-tls/${cert}/" \
-          "${MANIFESTS}/maas-default-gateway.yaml" | oc apply -f -
-      else
-        sed "s/REPLACE_MAAS_GATEWAY_HOST/${host}/" "${MANIFESTS}/maas-default-gateway.yaml" | oc apply -f -
+      if ! oc get gatewayclass "$gclass" >/dev/null 2>&1; then
+        gclass="openshift-ai-inference"
+      fi
+      if ! oc get secret "$cert" -n "$GATEWAY_NS" >/dev/null 2>&1; then
+        cert=$(discover_gateway_tls_secret)
+        cert="${cert:-default-gateway-tls}"
+      fi
+      sed -e "s/REPLACE_MAAS_GATEWAY_HOST/${host}/" \
+        -e "s/name: maas-default-gateway-service-tls/name: ${cert}/" \
+        -e "s/gatewayClassName: data-science-gateway-class/gatewayClassName: ${gclass}/" \
+        "${MANIFESTS}/maas-default-gateway.yaml" | oc apply -f -
+    fi
+  fi
+  # Ensure existing gateways also use ClusterIP params (idempotent).
+  if oc get gateway maas-default-gateway -n "$GATEWAY_NS" >/dev/null 2>&1 \
+    && oc get configmap maas-default-gateway-config -n "$GATEWAY_NS" >/dev/null 2>&1; then
+    pref=$(oc get gateway maas-default-gateway -n "$GATEWAY_NS" \
+      -o jsonpath='{.spec.infrastructure.parametersRef.name}' 2>/dev/null || true)
+    if [[ "$pref" != "maas-default-gateway-config" ]]; then
+      log "patch maas-default-gateway infrastructure.parametersRef -> maas-default-gateway-config"
+      oc patch gateway maas-default-gateway -n "$GATEWAY_NS" --type=merge \
+        -p '{"spec":{"infrastructure":{"parametersRef":{"group":"","kind":"ConfigMap","name":"maas-default-gateway-config"}}}}' \
+        >/dev/null 2>&1 || true
+    fi
+    svc=$(oc get svc -n "$GATEWAY_NS" \
+      -l gateway.networking.k8s.io/gateway-name=maas-default-gateway \
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [[ -n "$svc" ]]; then
+      stype=$(oc get svc "$svc" -n "$GATEWAY_NS" -o jsonpath='{.spec.type}' 2>/dev/null || true)
+      if [[ "$stype" == "LoadBalancer" ]]; then
+        log "recreate ${svc} as ClusterIP (LoadBalancer address pending)"
+        oc delete svc "$svc" -n "$GATEWAY_NS" --wait=false >/dev/null 2>&1 || true
       fi
     fi
   fi
   patch_maas_gateway_hostname || true
   patch_maas_gateway_tls || true
+  ensure_maas_gateway_route || true
   if ! oc get gateway maas-default-gateway -n "$GATEWAY_NS" \
     -o jsonpath='{.spec.listeners[0].allowedRoutes.namespaces.selector.matchExpressions[0].values}' 2>/dev/null \
     | grep -q redhat-ai-gateway-infra; then
@@ -811,13 +947,52 @@ ensure_maas_gateway() {
   fi
 }
 
+wait_for_kuadrant_crds() {
+  local timeout="${1:-600}"
+  local elapsed=0
+  while ((elapsed < timeout)); do
+    # Unescaped CRD name — crd_registered uses `oc get crd`.
+    if crd_registered 'kuadrants.kuadrant.io'; then
+      return 0
+    fi
+    sleep 5
+    elapsed=$((elapsed + 5))
+  done
+  return 1
+}
+
+wait_for_connectivity_link() {
+  wait_for_kuadrant_crds "${1:-600}"
+}
+
+ensure_connectivity_link_operator() {
+  if crd_registered 'kuadrants.kuadrant.io'; then
+    return 0
+  fi
+  if [[ ! -f "${MANIFESTS}/connectivity-link-operator.yaml" ]]; then
+    die "missing ${MANIFESTS}/connectivity-link-operator.yaml (Connectivity Link Subscription)"
+  fi
+  info "installing Red Hat Connectivity Link (rhcl-operator)"
+  run oc apply -f "${MANIFESTS}/connectivity-link-operator.yaml"
+  if ! wait_for_connectivity_link 600; then
+    die "Connectivity Link did not install (kuadrants.kuadrant.io CRD missing). Check Subscription rhcl-operator in openshift-operators"
+  fi
+  info "Connectivity Link CRDs ready"
+}
+
 ensure_kuadrant() {
   if [[ "${WINGS3_SKIP_KUADRANT:-0}" == 1 ]]; then
     return 0
   fi
+  ensure_connectivity_link_operator
+  if ! wait_for_kuadrant_crds 120; then
+    die "kuadrants.kuadrant.io CRD still missing after Connectivity Link install"
+  fi
   if ! oc get kuadrant kuadrant -n "$KUADRANT_NS" >/dev/null 2>&1; then
     if [[ -f "${MANIFESTS}/kuadrant-dev.yaml" ]]; then
       run oc apply -f "${MANIFESTS}/kuadrant-dev.yaml"
+    else
+      die "missing ${MANIFESTS}/kuadrant-dev.yaml"
     fi
   fi
 }
@@ -882,7 +1057,7 @@ reconcile_maas_subscription() {
   fi
   log "reconcile failed MaaSSubscription ${MAAS_SUBSCRIPTION}"
   run oc delete tokenratelimitpolicy "maas-trlp-${MAAS_MODEL}" -n "$PROJECT" --ignore-not-found=true
-  run oc apply -f "${MANIFESTS}/maas-auth-subscription-gpt-oss-120b.yaml"
+  run oc apply -f "${MANIFESTS}/maas-auth-subscription-redhat-maas.yaml"
   local elapsed=0
   while ((elapsed < 120)); do
     phase=$(oc get maassubscription "$MAAS_SUBSCRIPTION" -n "$MAAS_NS" \
@@ -930,23 +1105,24 @@ bootstrap_maas_upstream_secret() {
   fi
   if [[ -f "$secret_file" ]]; then
     run oc apply -f "$secret_file"
-  else
+  elif ! oc get secret wings3-maas-upstream-api-key -n "$PROJECT" >/dev/null 2>&1; then
     run oc create secret generic wings3-maas-upstream-api-key \
       -n "$PROJECT" \
-      --from-literal=api-key="$upstream_key" \
-      --dry-run=client -o yaml \
-      | oc label -f - --local app.kubernetes.io/part-of="$MAAS_PART_OF" \
-        inference.networking.k8s.io/bbr-managed=true --overwrite \
-      | oc apply -f -
+      --from-literal=api-key="$upstream_key"
+  else
+    oc set data secret/wings3-maas-upstream-api-key -n "$PROJECT" "api-key=${upstream_key}" >/dev/null
   fi
   if ! oc get secret wings3-maas-upstream-api-key -n "$PROJECT" >/dev/null 2>&1; then
     return 1
   fi
-  oc patch secret wings3-maas-upstream-api-key -n "$PROJECT" --type=merge \
-    -p "{\"metadata\":{\"labels\":{\"app.kubernetes.io/part-of\":\"${MAAS_PART_OF}\",\"inference.networking.k8s.io/bbr-managed\":\"true\"}}}" \
-    >/dev/null 2>&1 || true
+  oc label secret wings3-maas-upstream-api-key -n "$PROJECT" \
+    "app.kubernetes.io/part-of=${MAAS_PART_OF}" \
+    inference.llm-d.ai/ipp-managed=true \
+    inference.networking.k8s.io/bbr-managed=true \
+    --overwrite >/dev/null 2>&1 || true
   if [[ -n "${WINGS3_MAAS_UPSTREAM_API_KEY:-}" ]]; then
-    oc set data secret/wings3-maas-upstream-api-key -n "$PROJECT" "api-key=${WINGS3_MAAS_UPSTREAM_API_KEY}"
+    oc set data secret/wings3-maas-upstream-api-key -n "$PROJECT" \
+      "api-key=${WINGS3_MAAS_UPSTREAM_API_KEY}" >/dev/null
   fi
 }
 
@@ -960,7 +1136,7 @@ apply_maas_manifests() {
       run oc apply -f "${MANIFESTS}/maas-modelref-${model}.yaml"
     fi
   done
-  run oc apply -f "${MANIFESTS}/maas-auth-subscription-gpt-oss-120b.yaml"
+  run oc apply -f "${MANIFESTS}/maas-auth-subscription-redhat-maas.yaml"
 }
 
 wait_for_one_maas_modelref_ready() {
@@ -1000,6 +1176,12 @@ wait_for_maas_modelref_ready() {
 
 discover_maas_gateway_host() {
   local host="" name
+  # Prefer OpenShift Route host (public DNS) over ClusterIP gateway addresses.
+  host=$(discover_maas_route_hostname)
+  if [[ -n "$host" ]]; then
+    printf '%s' "$host"
+    return 0
+  fi
   for name in maas-default-gateway openshift-ai-inference data-science-gateway; do
     host=$(oc get gateway "$name" -n "$GATEWAY_NS" \
       -o jsonpath='{.spec.listeners[0].hostname}' 2>/dev/null || true)
@@ -1034,38 +1216,97 @@ discover_maas_gateway_host() {
   printf ''
 }
 
+discover_maas_httproute_path() {
+  local model="${1:-$MAAS_MODEL}"
+  local path="" name
+  # RHOAI 3.5 ExternalModel routes are named <model>, not maas-<model>.
+  for name in "$model" "maas-${model}"; do
+    path=$(oc get httproute "$name" -n "$PROJECT" -o json 2>/dev/null \
+      | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+want = "/'"$PROJECT"'/'"$model"'"
+for rule in d.get("spec", {}).get("rules", []) or []:
+  for m in rule.get("matches") or []:
+    p = (m.get("path") or {}).get("value") or ""
+    if p == want or p.startswith(want + "/"):
+      print(p.rstrip("/"))
+      raise SystemExit
+# fallback: first PathPrefix that is not "/"
+for rule in d.get("spec", {}).get("rules", []) or []:
+  for m in rule.get("matches") or []:
+    p = (m.get("path") or {}).get("value") or ""
+    if p and p != "/":
+      print(p.rstrip("/"))
+      raise SystemExit
+' || true)
+    if [[ -n "$path" ]]; then
+      printf '%s' "$path"
+      return 0
+    fi
+  done
+  printf '/%s/%s' "$PROJECT" "$model"
+}
+
 discover_maas_judge_base_url() {
-  local endpoint="" path="" host=""
-  endpoint=$(oc get maasmodelref "$MAAS_MODEL" -n "$PROJECT" \
-    -o jsonpath='{.status.endpoint}' 2>/dev/null || true)
-  path=$(oc get httproute "maas-${MAAS_MODEL}" -n "$PROJECT" \
-    -o jsonpath='{.spec.rules[0].matches[0].path.value}' 2>/dev/null || true)
-  if [[ -n "$endpoint" && -n "$path" ]]; then
-    endpoint=${endpoint%/}
-    path=${path#/}
-    printf '%s/%s/v1' "$endpoint" "$path"
+  local path="" host="" endpoint=""
+  host=$(discover_maas_gateway_host)
+  path=$(discover_maas_httproute_path "$MAAS_MODEL")
+  path=${path#/}
+  if [[ -n "$host" && -n "$path" ]]; then
+    # Always prefer the public Route host. ModelRef status.endpoint may still
+    # advertise inference-gateway.* (openshift-ai-inference LB DNS), which does
+    # not reach ClusterIP maas-default-gateway.
+    printf 'https://%s/%s/v1' "$host" "$path"
     return 0
   fi
-  host=$(discover_maas_gateway_host)
-  if [[ -n "$host" ]]; then
-    printf 'https://%s/llm/%s/v1' "$host" "$MAAS_MODEL"
+  endpoint=$(oc get maasmodelref "$MAAS_MODEL" -n "$PROJECT" \
+    -o jsonpath='{.status.endpoint}' 2>/dev/null || true)
+  if [[ -n "$endpoint" && -n "$path" ]]; then
+    endpoint=${endpoint%/}
+    printf '%s/%s/v1' "$endpoint" "$path"
     return 0
   fi
   printf ''
 }
 
+# maas-api requires Authorino-injected identity headers when called directly
+# (port-forward). X-MaaS-Group must be a JSON array string, e.g. ["system:authenticated"].
+maas_identity_headers() {
+  local user=""
+  user=$(oc whoami 2>/dev/null || true)
+  [[ -z "$user" ]] && user="admin"
+  printf 'X-MaaS-Username: %s\nX-MaaS-Group: ["system:authenticated"]\n' "$user"
+}
+
 mint_maas_api_key_via_portforward() {
-  local token="" body="" key="" pf_pid=""
+  local token="" body="" key="" pf_pid="" user=""
   token=$(oc whoami -t 2>/dev/null || true)
-  if [[ -z "$token" ]]; then
+  user=$(oc whoami 2>/dev/null || true)
+  if [[ -z "$token" || -z "$user" ]]; then
     return 1
   fi
   oc port-forward -n redhat-ai-gateway-infra svc/maas-api 18443:8443 >/dev/null 2>&1 &
   pf_pid=$!
-  sleep 2
-  body=$(curl -fsS --max-time 15 -X POST "https://127.0.0.1:18443/v1/api-keys" \
+  local ready=0 i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    if curl -sk --max-time 2 "https://127.0.0.1:18443/health" >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+    sleep 1
+  done
+  if [[ "$ready" != 1 ]]; then
+    kill "$pf_pid" >/dev/null 2>&1 || true
+    wait "$pf_pid" 2>/dev/null || true
+    return 1
+  fi
+  # Group header must be JSON array (Authorino format), not a bare group name.
+  body=$(curl -fsSk --max-time 20 -X POST "https://127.0.0.1:18443/v1/api-keys" \
     -H "Authorization: Bearer ${token}" \
     -H "Content-Type: application/json" \
+    -H "X-MaaS-Username: ${user}" \
+    -H 'X-MaaS-Group: ["system:authenticated"]' \
     -d "{\"name\":\"wings3-judge\",\"subscription\":\"${MAAS_SUBSCRIPTION}\",\"expiresIn\":\"90d\"}" \
     2>/dev/null || true)
   kill "$pf_pid" >/dev/null 2>&1 || true
@@ -1074,7 +1315,7 @@ mint_maas_api_key_via_portforward() {
     return 1
   fi
   key=$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("key",""))' 2>/dev/null || true)
-  if [[ -z "$key" ]]; then
+  if [[ -z "$key" || "$key" != sk-oai-* ]]; then
     return 1
   fi
   printf '%s' "$key"
@@ -1088,6 +1329,8 @@ mint_maas_api_key() {
     echo "warning: oc whoami -t failed; cannot mint MaaS API key" >&2
     return 1
   fi
+  # Via Gateway+Authorino: do NOT send X-MaaS-* — Authorino injects them from the
+  # bearer token. Client-supplied identity headers are rejected (HTTP 403).
   if [[ -n "$gateway_host" ]]; then
     body=$(curl -fsSk --max-time 20 -X POST "https://${gateway_host}/maas-api/v1/api-keys" \
       -H "Authorization: Bearer ${token}" \
@@ -1095,17 +1338,18 @@ mint_maas_api_key() {
       -d "{\"name\":\"wings3-judge\",\"subscription\":\"${MAAS_SUBSCRIPTION}\",\"expiresIn\":\"90d\"}" \
       2>/dev/null || true)
     key=$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("key",""))' 2>/dev/null || true)
-    if [[ -n "$key" ]]; then
+    if [[ -n "$key" && "$key" == sk-oai-* ]]; then
       printf '%s' "$key"
       return 0
     fi
   fi
+  # Port-forward bypasses Authorino — must inject identity headers manually.
   key=$(mint_maas_api_key_via_portforward || true)
   if [[ -n "$key" ]]; then
     printf '%s' "$key"
     return 0
   fi
-  echo "warning: MaaS API key mint failed (Authorino/OIDC may be missing on cluster)" >&2
+  echo "warning: MaaS API key mint failed (gateway Authorino path or port-forward)" >&2
   return 1
 }
 
@@ -1120,7 +1364,8 @@ maas_inference_probe() {
   if [[ -z "$base_url" || -z "$api_key" ]]; then
     return 1
   fi
-  code=$(curl -fsSk --max-time 20 -o /dev/null -w '%{http_code}' \
+  # Workshop upstream via gateway often needs >20s; OpenShift router may 504 near 30s.
+  code=$(curl -fsSk --max-time 45 -o /dev/null -w '%{http_code}' \
     -H "Authorization: Bearer ${api_key}" \
     -H "Content-Type: application/json" \
     -d "{\"model\":\"${MAAS_MODEL}\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}" \
@@ -1141,7 +1386,9 @@ patch_judge_secret_for_maas() {
     api_key="${WINGS3_JUDGE_API_KEY}"
     maas_api_key="${WINGS3_JUDGE_API_KEY}"
   fi
-  if ! maas_inference_probe "$base_url" "$api_key"; then
+  # Minted gateway keys (sk-oai-*) only work on the local MaaS gateway — never fall
+  # back to workshop upstream for those. Workshop fallback is for upstream tokens only.
+  if [[ "$api_key" != sk-oai-* ]] && ! maas_inference_probe "$base_url" "$api_key"; then
     local upstream_key=""
     upstream_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
     if [[ -n "$upstream_key" ]]; then
@@ -1151,6 +1398,9 @@ patch_judge_secret_for_maas() {
       base_url="$maas_base_url"
       api_key="$upstream_key"
     fi
+  fi
+  if [[ "$api_key" == sk-oai-* ]] && ! maas_inference_probe "$base_url" "$api_key"; then
+    echo "warning: minted sk-oai key saved but gateway probe failed (check Route maas-default-gateway)" >&2
   fi
   oc create secret generic wings3-judge-llm \
     -n "$PROJECT" \
@@ -1207,6 +1457,8 @@ enable_maas() {
     return 0
   fi
   patch_judge_secret_for_maas "$base_url" "$maas_key"
+  ensure_maas_gateway_api_key_secret || true
+  sync_llm_endpoint_configmap || true
   info "MaaS judge endpoint: ${base_url}"
 }
 
@@ -1278,23 +1530,22 @@ ensure_workbench_judge_mount() {
 }
 
 resolve_evalhub_openai_base_url() {
-  local api_key="" gateway_url="" maas_url="" workshop_url=""
-  api_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
-  if [[ -z "$api_key" ]]; then
-    api_key=$(read_secret_key wings3-judge-llm "$PROJECT" JUDGE_API_KEY)
-  fi
+  local judge_key="" upstream_key="" gateway_url="" maas_url="" workshop_url=""
+  judge_key=$(read_secret_key wings3-judge-llm "$PROJECT" JUDGE_API_KEY)
+  upstream_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
   maas_url=$(read_secret_key wings3-judge-llm "$PROJECT" MAAS_BASE_URL)
   gateway_url=$(discover_maas_judge_base_url)
   workshop_url=$(workshop_direct_base_url)
-  if [[ -n "$gateway_url" ]] && [[ -n "$api_key" ]] && maas_inference_probe "$gateway_url" "$api_key"; then
+  # Local gateway accepts minted sk-oai keys; workshop upstream token does not.
+  if [[ -n "$gateway_url" && "$judge_key" == sk-oai-* ]] && maas_inference_probe "$gateway_url" "$judge_key"; then
     printf '%s' "$gateway_url"
     return 0
   fi
-  if [[ -n "$maas_url" ]] && [[ -n "$api_key" ]] && maas_inference_probe "$maas_url" "$api_key"; then
+  if [[ -n "$maas_url" && "$judge_key" == sk-oai-* ]] && maas_inference_probe "$maas_url" "$judge_key"; then
     printf '%s' "$maas_url"
     return 0
   fi
-  if [[ -n "$workshop_url" ]] && [[ -n "$api_key" ]] && maas_inference_probe "$workshop_url" "$api_key"; then
+  if [[ -n "$workshop_url" && -n "$upstream_key" ]] && maas_inference_probe "$workshop_url" "$upstream_key"; then
     echo "warning: in-cluster MaaS gateway unreachable; EvalHub will use workshop direct" >&2
     printf '%s' "$workshop_url"
     return 0
@@ -1325,32 +1576,42 @@ sync_llm_endpoint_configmap() {
   info "wings3-llm-endpoint: model=${model} url=${url}"
 }
 
-ensure_evalhub_model_auth_secret() {
-  local api_key="" judge_key=""
-  api_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
+ensure_maas_gateway_api_key_secret() {
+  # Minted sk-oai keys for the local gateway — separate from workshop upstream IPP secret.
+  local judge_key=""
   judge_key=$(read_secret_key wings3-judge-llm "$PROJECT" JUDGE_API_KEY)
-  if [[ -z "$api_key" ]]; then
-    api_key="$judge_key"
+  if [[ "$judge_key" != sk-oai-* ]]; then
+    judge_key=$(read_secret_key wings3-judge-llm "$PROJECT" MAAS_API_KEY)
   fi
-  if [[ -z "$api_key" ]]; then
-    log "skip EvalHub model auth secret (no api-key or JUDGE_API_KEY)"
+  if [[ "$judge_key" != sk-oai-* ]]; then
+    log "skip wings3-maas-gateway-api-key (no minted sk-oai JUDGE/MAAS key)"
     return 1
   fi
-  if oc get secret wings3-maas-upstream-api-key -n "$PROJECT" >/dev/null 2>&1; then
-    oc set data secret/wings3-maas-upstream-api-key -n "$PROJECT" "api-key=${api_key}" >/dev/null
-  else
-    run oc create secret generic wings3-maas-upstream-api-key \
-      -n "$PROJECT" \
-      --from-literal=api-key="$api_key" \
-      --dry-run=client -o yaml \
-      | oc label -f - --local app.kubernetes.io/part-of="$MAAS_PART_OF" \
-        inference.networking.k8s.io/bbr-managed=true --overwrite \
-      | oc apply -f -
+  oc create secret generic wings3-maas-gateway-api-key \
+    -n "$PROJECT" \
+    --from-literal=api-key="$judge_key" \
+    --dry-run=client -o yaml | oc apply -f - >/dev/null
+  oc label secret wings3-maas-gateway-api-key -n "$PROJECT" \
+    "app.kubernetes.io/part-of=${MAAS_PART_OF}" --overwrite >/dev/null 2>&1 || true
+  info "MaaS gateway auth: wings3-maas-gateway-api-key (minted sk-oai)"
+}
+
+ensure_evalhub_model_auth_secret() {
+  local api_key=""
+  # Never overwrite workshop upstream with minted sk-oai — ExternalModels need upstream.
+  api_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
+  if [[ -z "$api_key" ]]; then
+    log "skip EvalHub upstream auth secret (wings3-maas-upstream-api-key empty)"
+    ensure_maas_gateway_api_key_secret || true
+    return 1
   fi
-  oc patch secret wings3-maas-upstream-api-key -n "$PROJECT" --type=merge \
-    -p "{\"metadata\":{\"labels\":{\"app.kubernetes.io/part-of\":\"${MAAS_PART_OF}\",\"inference.networking.k8s.io/bbr-managed\":\"true\"}}}" \
-    >/dev/null 2>&1 || true
-  info "EvalHub model auth: wings3-maas-upstream-api-key (api-key)"
+  oc label secret wings3-maas-upstream-api-key -n "$PROJECT" \
+    "app.kubernetes.io/part-of=${MAAS_PART_OF}" \
+    inference.llm-d.ai/ipp-managed=true \
+    inference.networking.k8s.io/bbr-managed=true \
+    --overwrite >/dev/null 2>&1 || true
+  ensure_maas_gateway_api_key_secret || true
+  info "EvalHub model auth: wings3-maas-upstream-api-key (upstream) + gateway secret if minted"
 }
 
 apply_evalhub_manifests() {

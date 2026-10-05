@@ -527,12 +527,20 @@ def check_evalhub_endpoint_url(project: str) -> CheckResult:
             False,
             "external openshift-ai-inference URL breaks EvalHub job pods — re-run install.sh --skip-llm",
         )
-    if endpoint_needs_maas_auth(url) and "maas.redhatworkshops.io" not in url:
-        return CheckResult(
-            "evalhub endpoint",
-            False,
-            f"MaaS URL may be unreachable from EvalHub pods: {url}",
+    # Prefer local MaaS Route (maas-gateway.*) or workshop direct. Reject other
+    # external hosts (e.g. openshift-ai-inference LB) that EvalHub pods cannot use.
+    if endpoint_needs_maas_auth(url):
+        allowed = (
+            "maas.redhatworkshops.io" in url
+            or "maas-gateway." in url
+            or f"/{project}/" in url
         )
+        if not allowed:
+            return CheckResult(
+                "evalhub endpoint",
+                False,
+                f"MaaS URL may be unreachable from EvalHub pods: {url}",
+            )
     return CheckResult("evalhub endpoint", True, url)
 
 
@@ -553,11 +561,16 @@ def check_evalhub_model_auth(project: str) -> CheckResult:
     url = cm.stdout.strip()
     if not url or not endpoint_needs_maas_auth(url):
         return CheckResult("evalhub model auth", True, "vLLM endpoint — api-key optional")
+    # Local gateway uses minted sk-oai; workshop upstream is for ExternalModel IPP.
+    gateway = url.find("maas-gateway.") >= 0 or f"/{project}/" in url
+    secret_name = (
+        "wings3-maas-gateway-api-key" if gateway else "wings3-maas-upstream-api-key"
+    )
     secret = _oc(
         [
             "get",
             "secret",
-            "wings3-maas-upstream-api-key",
+            secret_name,
             "-n",
             project,
             "-o",
@@ -565,18 +578,33 @@ def check_evalhub_model_auth(project: str) -> CheckResult:
         ]
     )
     if secret.returncode != 0:
-        return CheckResult(
-            "evalhub model auth",
-            False,
-            "MaaS endpoint but secret/wings3-maas-upstream-api-key missing — re-run install.sh",
-        )
+        # Fall back: gateway URL may still work with upstream secret on some labs.
+        if gateway:
+            secret = _oc(
+                [
+                    "get",
+                    "secret",
+                    "wings3-maas-upstream-api-key",
+                    "-n",
+                    project,
+                    "-o",
+                    "jsonpath={.data.api-key}",
+                ]
+            )
+            secret_name = "wings3-maas-upstream-api-key"
+        if secret.returncode != 0:
+            return CheckResult(
+                "evalhub model auth",
+                False,
+                f"MaaS endpoint but secret/{secret_name} missing — re-run install.sh",
+            )
     value = decode_secret_value(secret.stdout)
     if value:
-        return CheckResult("evalhub model auth", True)
+        return CheckResult("evalhub model auth", True, secret_name)
     return CheckResult(
         "evalhub model auth",
         False,
-        "wings3-maas-upstream-api-key api-key empty — EvalHub sends DUMMY to MaaS gateway",
+        f"{secret_name} api-key empty — EvalHub sends DUMMY to MaaS gateway",
     )
 
 
@@ -608,6 +636,28 @@ def check_evaluations_nav() -> CheckResult:
             '\'{"spec":{"dashboardConfig":{"disableLMEval":false}}}\''
         )
     return CheckResult("evaluations nav", False, detail)
+
+
+def check_agents_catalog() -> CheckResult:
+    mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    flag = _oc(
+        [
+            "get",
+            "odhdashboardconfig",
+            "odh-dashboard-config",
+            "-n",
+            mlflow_ns,
+            "-o",
+            "jsonpath={.spec.dashboardConfig.agentsCatalog}",
+        ]
+    )
+    if flag.returncode == 0 and flag.stdout.strip() == "true":
+        return CheckResult("agents catalog", True)
+    return CheckResult(
+        "agents catalog",
+        False,
+        "dashboardConfig.agentsCatalog not true — AI Hub → Agents hidden",
+    )
 
 
 def check_mcp_catalog() -> CheckResult:
@@ -805,7 +855,7 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
     maas_model = os.environ.get("WINGS3_MAAS_MODEL", "gpt-oss-120b")
     maas_catalog = os.environ.get(
         "WINGS3_MAAS_CATALOG_MODELS",
-        "gpt-oss-120b gpt-oss-20b llama-scout-17b",
+        "gpt-oss-120b gpt-oss-20b llama-scout-17b qwen36-35b-a3b",
     ).split()
 
     results = [
@@ -821,6 +871,7 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
         check_ogx_managed(),
         check_ogx_server(project),
         check_mcp_catalog(),
+        check_agents_catalog(),
         check_kuadrant_ready(),
         check_maas_ui(),
     ]

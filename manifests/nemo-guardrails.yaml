@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nemo-quickstart-config
+  namespace: nemo-quickstart
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+data:
+  # Main LLM is the lab unguarded stub (or workshop ExternalModel once upstream key works).
+  # Rails block adversarial / PII-shaped input before the model answers.
+  config.yaml: |
+    models:
+      - type: main
+        engine: openai
+        model: qwen36-35b-a3b
+        api_key_env_var: OPENAI_API_KEY
+        parameters:
+          base_url: "http://wings3-unguarded-llm.nemo-quickstart.svc.cluster.local:8080/v1"
+    rails:
+      config:
+        sensitive_data_detection:
+          input:
+            entities:
+              - EMAIL_ADDRESS
+              - PERSON
+              - PHONE_NUMBER
+        regex_detection:
+          input:
+            patterns:
+              - "\\b(password|secret|api[_-]?key|token)\\b"
+              - "\\d{3}-\\d{2}-\\d{4}"
+              - "(?i)ignore previous"
+              - "(?i)jailbreak"
+              - "(?i)do anything now"
+              - "(?i)without restrictions"
+            case_insensitive: true
+      input:
+        flows:
+          - detect sensitive data on input
+          - regex check input
+  rails.co: |
+    # Built-in sensitive_data + regex rails only (no LLM self-check).
+---
+apiVersion: trustyai.opendatahub.io/v1alpha1
+kind: NemoGuardrails
+metadata:
+  name: nemoguardrails
+  namespace: nemo-quickstart
+  labels:
+    opendatahub.io/dashboard: "true"
+    app.kubernetes.io/part-of: wings3-demo
+  annotations:
+    security.opendatahub.io/enable-auth: "true"
+spec:
+  replicas: 1
+  env:
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: wings3-maas-upstream-api-key
+          key: api-key
+  nemoConfigs:
+    - name: nemo-quickstart-config
+      default: true
+      configMaps:
+        - nemo-quickstart-config

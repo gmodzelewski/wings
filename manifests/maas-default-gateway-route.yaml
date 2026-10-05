@@ -1,0 +1,27 @@
+# Expose ClusterIP maas-default-gateway via OpenShift Route.
+# Host is maas-gateway.<apps-domain> (substituted by ensure_maas_gateway_route).
+# Do not use inference-gateway.* — openshift-ai-inference's LoadBalancer DNSRecord
+# usually owns that name, so Routes never receive traffic.
+#
+# REPLACE_MAAS_GATEWAY_HOST / REPLACE_MAAS_GATEWAY_SERVICE are filled by install.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: maas-default-gateway
+  namespace: openshift-ingress
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+  annotations:
+    router.openshift.io/service-ca-certificate: "true"
+spec:
+  host: REPLACE_MAAS_GATEWAY_HOST
+  port:
+    targetPort: 443
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: reencrypt
+  to:
+    kind: Service
+    name: REPLACE_MAAS_GATEWAY_SERVICE
+    weight: 100
+  wildcardPolicy: None

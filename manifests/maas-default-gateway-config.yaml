@@ -1,0 +1,18 @@
+# Service parameters for maas-default-gateway. Without type: ClusterIP the
+# Gateway controller defaults to LoadBalancer; on sandboxes without a cloud LB
+# EXTERNAL-IP stays <pending> and Gateway Programmed=False (AddressNotAssigned),
+# which leaves every MaaSModelRef Failed with "gateway has no hostname or addresses".
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maas-default-gateway-config
+  namespace: openshift-ingress
+  labels:
+    app.kubernetes.io/part-of: wings3-demo
+data:
+  service: |
+    metadata:
+      annotations:
+        service.beta.openshift.io/serving-cert-secret-name: "maas-default-gateway-service-tls"
+    spec:
+      type: ClusterIP

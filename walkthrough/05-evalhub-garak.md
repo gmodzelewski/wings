@@ -20,6 +20,16 @@
 
 > Same endpoint the calculator agent called in Act 2. MLflow is the system of record; EvalHub and Garak are platform gates before promote.
 
+## UI roles (do not conflate)
+
+| Surface | Job in the story | What it is **not** |
+|---------|------------------|--------------------|
+| **Develop & train → Evaluations** | **Measure** — list EvalHub jobs, start **benchmark** / **Garak** scans, open HTML reports | Not a NeMo / Colang / GuardrailsOrchestrator settings page |
+| **Gen AI studio → Playground → Guardrails** | **Intervene (optics)** — TP experiment toggles for “we add safety” | Not what retargets the next EvalHub job URL |
+| **NemoGuardrails CR + Route `…/v1`** | **Intervene (real)** — OpenAI-compatible **guarded** endpoint for the second Garak run | Not configured inside the Evaluations form |
+
+There is no “project settings → TrustyAI → Guardrails” admin page that flips protection for whatever endpoint EvalHub is hitting. Playground toggles alone do **not** rewrite the Garak target URL — you must point the second job at the NeMo Route (or another guarded URL) on purpose.
+
 ## Prerequisites
 
 - `./scripts/install.sh` completed (InferenceService Ready, ConfigMap `wings3-llm-endpoint` applied)
@@ -136,19 +146,21 @@ Garak runs as the `garak` provider under the hood; you choose it by picking a Ga
 
 Garak uses two different success concepts. Do not treat the list row as the security gate.
 
-| UI surface | What it usually means | Example on `quick` |
-|------------|----------------------|-------------------|
-| **Status: Completed** | The scan **ran to completion** (no adapter crash). | Job finished; probes executed. |
-| **Score: 100%** (list) | Often the raw **attack success rate** (ASR), not lm-eval accuracy. | ASR = 1.0 → shown as 100%. |
-| **Pass / Fail** (detail) | Whether the model met the **benchmark gate**. | ASR 1.0 **>** threshold 0.3 → **Fail**. |
+WINGS submit scripts set `primary_score.lower_is_better: true` on Garak jobs. That flips the list **Score** into a **normalised evaluation score** (higher = better), not raw ASR.
 
-For Garak, **lower ASR is better** — it measures how often adversarial probes **exploited** the model. The `quick` benchmark passes when ASR ≤ **0.3** (30%). A **100% list score is bad news**: every attack in the smoke probe succeeded.
+| UI surface | What it means (with WINGS Garak submit) | Example on `quick` |
+|------------|------------------------------------------|-------------------|
+| **Status: Completed** | The scan **ran to completion** (no adapter crash). | Job finished; probes executed. |
+| **Score** (list) | Normalised evaluation score from ASR. List hides Score when job-level `pass` is **false** (shows **-**). | Unguarded ASR 1.0 → Fail → **-**. Guarded ASR 0.0 → Pass → **100%**. |
+| **Pass / Fail** + metrics (detail) | Benchmark gate on **attack success rate** (lower is better; threshold **0.3**). | Unguarded ASR **1.0 Fail**; guarded ASR **0.0 Pass**. |
+
+Raw ASR still lives in the **benchmark detail**, HTML report, and MLflow metric `attack_success_rate` (1.0 vs 0.0). Do not read the list Score as “attack success %” once `lower_is_better` is set.
 
 **Say on stage:**
 
 > Completed means the platform job finished. Fail on the benchmark detail means the model did not pass the safety gate — which is a valid demo outcome. We are not looking for a green check on Garak; we are looking for signal.
 
-The job-level summary can show **Pass** with a default 0.5 threshold while the benchmark detail correctly shows **Fail** (ASR vs 0.3). Trust the **benchmark detail** and the HTML report, not the list-row percentage alone.
+Trust the **benchmark detail** and the HTML report for ASR. The list Score is only a coarse pass/fail percentage after polarity correction.
 
 A **Completed + Fail** Garak run is ideal for Demo B: open the report and walk one **vulnerable** probe (model complied) — that is the “correct in MLflow, not safe under attack” beat.
 
@@ -169,6 +181,25 @@ Walk **two** probe categories:
 
 Open MLflow → `v2-judged` where the judge passed — *"correct but not necessarily safe."*
 
+## Demo C — Guardrails coda (before / intervene / after)
+
+Optional short beat after Demo B when you want the full “measure → change → re-measure” story.
+
+1. **Before:** Open pre-staged **`wings3-demo-garak-unguarded`** in **Evaluations** (or Demo B’s failing `quick` run). List Score is often **-** (job-level Fail); open detail for ASR **100%** / **Fail** and the HTML report.
+2. **Intervene (UI-friendly):** Cut to **Gen AI studio → Playground → Guardrails** — flip input/output rails. **Say honestly:** this is TP Playground config for the safety story, not an EvalHub form control.
+3. **Wire for re-eval (must be real):** Second Garak job must target a **guarded** OpenAI-compatible URL. Prefer NeMo Route `…/v1` when EvalHub pods can reach it (TLS + auth). On this lab cluster, `./scripts/prestage_garak_before_after.sh` uses in-cluster **`wings3-guarded-llm`** (refuse-mode stub mirroring guarded behavior) because EvalHub job pods hit service-CA / kube-rbac issues against `nemoguardrails` HTTPS. Live Playground / curl demos still use the NeMo Route.
+4. **After:** Open **`wings3-demo-garak-guarded`** — list Score **100%** (normalised: ASR 0), detail **Pass** / ASR **0.0**.
+
+**Where to see which endpoint was tested:** Evaluations list/detail — job **tags** (`target:unguarded` / `target:guarded`) and **description**; detail **model.url**. MLflow → experiment `wings3-evalhub-garak` → run → **Parameters** `model_url` and `target_endpoint_kind` (logged by `submit_evalhub_eval_run.sh` after the job completes; default `--wait`). There is no product “guardrails used” badge.
+
+Pre-stage both jobs (clock-safe):
+
+```bash
+./scripts/prestage_garak_before_after.sh
+```
+
+Lab fallback when the workshop upstream key is 401: apply `manifests/demo-openai-stub.yaml` (unguarded stub + shared server.py) plus `wings3-guarded-llm` refuse Deployment, and the updated `manifests/nemo-guardrails.yaml` (NeMo → stub + regex rails for live Route demos). Replace the upstream key for real Qwen with `./scripts/rotate_maas_upstream_key.sh` when you have a fresh `sk-oai-…` token.
+
 ## Notebook aid
 
 [`demo/notebooks/04_evalhub_garak.ipynb`](../demo/notebooks/04_evalhub_garak.ipynb) — endpoint + job JSON templates. Primary demo remains the **Evaluations** console.
@@ -187,6 +218,8 @@ Open MLflow → `v2-judged` where the judge passed — *"correct but not necessa
 | `EvalHub CR not found` in eval-hub-ui logs | Same — deploy `evalhub/evalhub` in `my-first-model` |
 | LMEvalJob exists but UI empty | `LMEvalJob` is a separate TrustyAI CR; dashboard list is populated by evaluation runs started from **Evaluations** |
 | `Workspace context is required` on **Evaluate** | EvalHub `MLFLOW_TRACKING_URI` must include the `/mlflow` path (see `manifests/evalhub-instance.yaml`). Re-apply and restart: `oc apply -f manifests/evalhub-instance.yaml && oc rollout restart deploy/evalhub -n my-first-model` |
+| Empty **GenAI → Traces** for Garak / experiment `wings3-evalhub-garak` has no Traces | Expected. Garak does **not** use `mlflow.langchain.autolog()`. Look under **Runs** (metrics/HTML artifacts), or **Develop & train → Evaluations**. Traces are Act 2 only (`01_agent_tracing_autolog.ipynb`). |
+| MLflow experiment exists but **no Runs**; adapter logs `run ID: None` | Job was submitted **without** `experiment.name`. Re-submit via `./scripts/submit_evalhub_eval_run.sh` (defaults to `wings3-evalhub-garak` / `wings3-evalhub-lmeval`) or include `"experiment": {"name": "wings3-evalhub-garak"}` in the REST body. Console forms that omit experiment tracking will skip MLflow. |
 | `not a valid model identifier listed on huggingface.co` | Keep **model name** `llama-32-3b-instruct`; set **Benchmark parameters** `tokenizer` to `meta-llama/Llama-3.2-3B-Instruct` (see Demo A step 9) |
 | Gated HuggingFace / `authentication required` / `not in the authorized list` | Check adapter log: `HF_TOKEN set from model auth secret` means the secret **is** wired. If download still fails, the HF account behind the token has **not accepted** the [Llama license](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct) — run `./scripts/verify_hf_gated_access.sh`. UI cannot set `secret_ref` on 3.5; use `./scripts/submit_evalhub_eval_run.sh`. |
 | Secret exists but job still fails HF auth | Creating the Secret is not enough; the job must include `model.auth.secret_ref: hf-token` (script or API). UI-only submits do not mount it. |
@@ -194,7 +227,9 @@ Open MLflow → `v2-judged` where the judge passed — *"correct but not necessa
 | Job fails — endpoint unreachable | `oc get inferenceservice llama-32-3b-instruct -n my-first-model` must be Ready |
 | No Garak benchmarks in dropdown | EvalHub CR must include `garak` in `spec.providers`; use `demo/assets/placeholders/demo3-garak-pipeline.png` as fallback |
 | Garak `404 Not Found` / `openai.NotFoundError` | **Endpoint URL must end with `/v1`**. UI often submits `...:8080` without the suffix; use the ConfigMap value or `./scripts/submit_evalhub_eval_run.sh --benchmark quick` (script normalizes the URL). |
-| Garak list shows **Completed** and **100%**, detail shows **Fail** | Normal. **Completed** = scan finished. **100%** is often attack success rate (higher = more exploited). **Fail** = ASR above benchmark threshold (e.g. 1.0 > 0.3 on `quick`). Lower ASR is better. See Demo B step 2. |
+| Garak list shows **Completed** and **100%**, detail shows **Fail** | Older jobs submitted **without** `lower_is_better` treat list Score as raw ASR (1.0 → 100%) while benchmark detail correctly **Fails** ASR > 0.3. Re-submit with `./scripts/submit_evalhub_eval_run.sh` (sets `lower_is_better: true`). |
+| Guarded Garak list Score is **-** instead of a percentage | EvalHub list hides Score when job-level `pass` is false. Without `lower_is_better`, ASR 0 → `pass: false` → **-**. WINGS Garak submit sets `lower_is_better: true` so guarded ASR 0 becomes normalised Score **100%** and `pass: true`. Raw ASR **0.0** is still on the detail / MLflow run. |
+| Guarded list shows **100%** but you expected **0%** | List Score is **not** ASR after polarity correction — **100%** means “evaluation passed / ASR 0”. Open detail or MLflow `attack_success_rate` for the **0.0** attack rate. |
 | Garak slow (>5 min) | Use benchmark **`quick`** on stage, or pre-stage **`intents`** / **`owasp_llm_top10`** before the session |
 | RBAC denied | Platform admin account or pre-configured namespace |
 

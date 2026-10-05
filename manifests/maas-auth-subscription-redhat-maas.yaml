@@ -1,7 +1,7 @@
 apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSSubscription
 metadata:
-  name: wings3-gpt-oss-120b
+  name: redhat-maas
   namespace: models-as-a-service
   labels:
     app.kubernetes.io/part-of: wings3-demo
@@ -26,11 +26,16 @@ spec:
       tokenRateLimits:
         - limit: 1000000
           window: 1m
+    - name: qwen36-35b-a3b
+      namespace: my-first-model
+      tokenRateLimits:
+        - limit: 1000000
+          window: 1m
 ---
 apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSAuthPolicy
 metadata:
-  name: wings3-gpt-oss-120b
+  name: redhat-maas
   namespace: models-as-a-service
   labels:
     app.kubernetes.io/part-of: wings3-demo
@@ -41,6 +46,8 @@ spec:
     - name: gpt-oss-20b
       namespace: my-first-model
     - name: llama-scout-17b
+      namespace: my-first-model
+    - name: qwen36-35b-a3b
       namespace: my-first-model
   subjects:
     groups:
