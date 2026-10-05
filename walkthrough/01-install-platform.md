@@ -1,6 +1,6 @@
 # Module 1 — Install platform (MLflow + EvalHub + Garak)
 
-**Time:** 10 minutes live (operators pre-enabled) | **Role:** Platform engineer  
+**Time:** 8 minutes live (operators pre-enabled) | **Role:** Platform engineer  
 **Where:** Laptop terminal (`oc get` only), standalone MLflow UI (`/mlflow`), RHOAI console (**Develop & train → Evaluations**)
 
 ## Know

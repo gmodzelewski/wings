@@ -75,7 +75,7 @@ From the repo root, after `oc login`. RHOAI must already be installed. Install e
 ./check.sh                  # verify demo is healthy; exit 1 on failure
 
 ./uninstall.sh              # workbench only (shared-cluster safe)
-./uninstall.sh --all        # round-trip reset: workbench + EvalHub + judge secret + MLflow CR (keeps LLM)
+./uninstall.sh --all        # round-trip reset: workbench + EvalHub (+ ws-proxy) + judge secret + MaaS/OGX demo resources + MLflow CR (keeps LLM + operators)
 ```
 
 Set `WINGS3_VERBOSE=1` for detailed progress. Default uninstall never removes operators or the InferenceService.

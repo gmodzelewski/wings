@@ -60,8 +60,6 @@ Garak scans can exceed five minutes for full suites. Submit **`quick`** before t
 - [`jobs/lm-eval-demo.json`](jobs/lm-eval-demo.json) — REST/UI payload for lm-eval-harness
 - [`jobs/garak-demo.json`](jobs/garak-demo.json) — REST/UI payload for Garak
 
-Manifest equivalents: [`../../manifests/evalhub-demo-lm-eval.yaml`](../../manifests/evalhub-demo-lm-eval.yaml), [`../../manifests/evalhub-demo-garak.yaml`](../../manifests/evalhub-demo-garak.yaml)
-
 ## Notebook
 
 Presenter aid: [`../notebooks/04_evalhub_garak.ipynb`](../notebooks/04_evalhub_garak.ipynb)

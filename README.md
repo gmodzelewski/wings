@@ -1,104 +1,76 @@
-# WINGS3 — Agent observability with MLflow on OpenShift AI (Deep Dive)
+# WINGS3 — Agent observability with MLflow on OpenShift AI
+
+Demo assets for a 60-minute deep dive: trace a tool-using agent with MLflow on
+OpenShift AI, evaluate a prompt change, gate it with a golden dataset + LLM
+judges, then run platform benchmarks (EvalHub) and safety scans (Garak).
 
 Public repo: https://github.com/gmodzelewski/wings
 
-Two 60-minute paths on the same cluster:
+Two 60-minute paths run on the same cluster:
 
 | Hour | On camera | Guide |
 |------|-----------|-------|
 | WINGS teaching | Notebooks + slides | [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) |
-| Customer / partner | Pre-staged `/mlflow` only — no deck | [walkthrough/customer-ui-click-script.md](walkthrough/customer-ui-click-script.md) |
+| Customer / partner | Pre-staged `/mlflow` UI only — no deck | [walkthrough/customer-ui-click-script.md](walkthrough/customer-ui-click-script.md) |
 
-**WINGS red thread:** Tracking server on the platform — you can **see** the agent; traces — you can **fix** it; eval — you can **prove** a prompt change helped; dataset + judge — you can **ship**; EvalHub + Garak — **platform gates** before promote (Act 5).
+## Quickstart
 
-**Customer red thread:** operate → fix → prove → ship (golden set + judges in the hour; `math_golden` and `v2-judged` are required pre-stage).
-
-## 60-minute run-of-show (WINGS teaching)
-
-See [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md).
-
-| Block | Minutes | Live |
-|-------|---------|------|
-| Intro + terms + product tour | 6 | Slides |
-| Act 1 Install | 10 | Pre-apply CRs; live `oc get` + `/mlflow` + EvalHub/Garak check |
-| Act 2 Autolog | 22 | Workbench `wings3-demo` (YAML); one query; Error then OK trace |
-| Act 3 Evaluate | 15 | Same workbench notebook; substring scorer, not a production SLO |
-| Production + Q&A | 9 | Slides |
-
-## Where to run code
-
-Acts 2 and 3 run in JupyterLab workbench **`wings3-demo`** in project `my-first-model`. Create it only with `oc apply -f manifests/workbench-wings3-demo.yaml` (named ServiceAccount `wings3-demo`). Dashboard **Create workbench** uses `default` and gets `PERMISSION_DENIED`. The workbench clones this repo to `/opt/app-root/src/wings` so you can `git pull` from JupyterLab. Laptop port-forward is rehearsal-only (appendix in Module 2).
-
-## Cluster
-
-Values: [walkthrough/partials/_attributes.md](walkthrough/partials/_attributes.md).
-
-## Install / uninstall / check
-
-RHOAI must already be installed (3.4 or 3.5). Install patches `mlflowoperator` to Managed, discovers EvalHub (`evalhuboperator` on 3.4, `trustyai` on 3.5), enables **Models-as-a-Service** with four workshop ExternalModels (**gpt-oss-120b**, **gpt-oss-20b**, **llama-scout-17b**, **qwen36-35b-a3b**) sharing one upstream Secret (lab Postgres + `ExternalModel`), applies manifests, and creates the GPU InferenceService from `vllm-cuda-runtime-template` (set `WINGS3_LLM_STORAGE_URI` if none exists yet). Set `WINGS3_MAAS_UPSTREAM_API_KEY` for the workshop upstream token (never commit it). Reuses an existing Ready InferenceService and reconciles the ServingRuntime when the cluster template version is newer. Use `--skip-llm` on a GPU-less sandbox.
+Prerequisites: `oc login` to a cluster with **RHOAI 3.4 or 3.5 already installed**.
 
 ```bash
-# After oc login, from this repo root:
-./install.sh              # full demo install
+./install.sh              # install the full demo
 ./install.sh --skip-llm   # GPU-less sandbox (no InferenceService)
 
-./check.sh                # verify demo is healthy; exit 1 on failure
+./check.sh                # verify the demo is healthy; exit 1 on failure
 
-./uninstall.sh            # workbench only (shared-cluster safe)
-./uninstall.sh --all      # full reset for reinstall (keeps LLM + operators)
+./uninstall.sh            # remove the workbench only (shared-cluster safe)
+./uninstall.sh --all      # full demo reset (keeps LLM InferenceService + operators)
 ```
 
-Set `WINGS3_VERBOSE=1` for detailed progress. Details: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md).
+Install patches the MLflow + EvalHub operators to `Managed`, enables
+Models-as-a-Service with four workshop ExternalModels, applies everything in
+`manifests/`, creates the workbench and (on GPU clusters) the LLM
+InferenceService, and clones this repo into the workbench at
+`/opt/app-root/src/wings`.
 
-## Workbench — autolog
+Useful environment variables (all optional):
 
-JupyterLab root is this clone. Open `demo/notebooks/01_agent_tracing_autolog.ipynb`. Optional first cell: `git pull --ff-only`. On stage, stop at each **SHOW:** comment (calculator tool, `mlflow.langchain.autolog()`, one query `256 ÷ 16`).
+| Variable | Purpose |
+|----------|---------|
+| `WINGS3_MAAS_UPSTREAM_API_KEY` | Workshop upstream token for the ExternalModels (never commit it) |
+| `WINGS3_LLM_STORAGE_URI` | Model storage URI if no InferenceService exists yet |
+| `WINGS3_VERBOSE=1` | Detailed install progress |
+| `WINGS3_SKIP_OGX` / `WINGS3_SKIP_MCP` / `WINGS3_SKIP_SERVICEMESH` | Skip Gen AI Studio layers on small clusters |
 
-CLI / warmup only:
+Full pre-stage checklist and run-of-show:
+[walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md).
+Cluster-specific URLs: [walkthrough/partials/_attributes.md](walkthrough/partials/_attributes.md).
 
-```bash
-cd demo/agent-tracing
-pip install -r requirements.txt --extra-index-url https://pypi.org/simple
-export MLFLOW_WORKSPACE=my-first-model
-export MLFLOW_EXPERIMENT_NAME=wings3-agent-tracing
-export MAAS_API_KEY=unused
-export MAAS_MODEL=llama-32-3b-instruct
-export MAAS_BASE_URL=http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
-export WINGS3_ONE_QUERY=1
-python3 run_tracing_demo_autolog.py
-```
+## Where the demo runs
 
-## Workbench — evaluation
-
-Open `demo/notebooks/02_eval_improvement.ipynb`. On stage, stop at each **SHOW:** comment (prompts, four-row dataset, substring scorer, `mlflow.genai.evaluate()`).
-
-## Workbench — production-grade eval (follow-on for WINGS teaching)
-
-Not in the WINGS teaching hour. **Required on camera for the customer UI hour** (pre-logged, not live-run). Open `demo/notebooks/03_prod_eval_judges.ipynb` only if asked. Guide: [walkthrough/04-prod-eval-judges.md](walkthrough/04-prod-eval-judges.md). Registered golden set + hybrid substring + LLM judges via in-cluster MaaS (`gpt-oss-120b` external model, Secret `wings3-judge-llm`); agent stays on in-cluster 3B. Scores in experiment `wings3-agent-eval-prod`. Pre-stage commands: [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md) → Customer UI hour.
-
-## Act 5 — EvalHub and Garak (Session 2)
-
-Same `llama-32-3b-instruct` endpoint as Acts 2–4. Primary demo is the **EvalHub console** (lm-eval-harness job, then Garak scan + HTML report). Presenter aid: `demo/notebooks/04_evalhub_garak.ipynb`. Guide: [walkthrough/05-evalhub-garak.md](walkthrough/05-evalhub-garak.md). Job templates: `demo/evalhub/jobs/`. Pre-stage: submit jobs from the EvalHub UI or `scripts/submit_evalhub_demo_jobs.sh`.
-
-## Build presentation
-
-Plain deck (default Office layouts, speaker notes on every slide). Teach → PAUSE → RETURN wrap. Run-of-show times stay 6 / 8 / 22 / 15 / 9; Module 4 is a follow-on section in the same file.
-
-```bash
-python3 scripts/build_wings3_deck.py          # plain Office deck
-python3 scripts/revise_wings3_branded_deck.py # branded AI Wings 3 - Deep Dive.pptx
-```
-
-Output: [`MLflow-on-RHOAI-Deep-Dive.pptx`](MLflow-on-RHOAI-Deep-Dive.pptx)
+Acts 2–4 run in the JupyterLab workbench **`wings3-demo`** (namespace
+`my-first-model`). Create it only with
+`oc apply -f manifests/workbench-wings3-demo.yaml` — the dashboard **Create
+workbench** button uses the wrong ServiceAccount and gets `PERMISSION_DENIED`.
+Notebooks live in `demo/notebooks/` (01 tracing, 02 evaluation, 03 judges,
+04 EvalHub/Garak); Act 5 runs in the **Develop & train → Evaluations** console.
 
 ## Layout
 
-- `walkthrough/` — presenter setup, modules 1–5, and [customer-ui-click-script.md](walkthrough/customer-ui-click-script.md)
-- `demo/agent-tracing/` — autolog + evaluate scripts
-- `demo/evalhub/` — Act 5 job templates and endpoint reference
-- `demo/datasets/` — golden eval JSONL for Module 4
-- `demo/notebooks/` — Acts 2–4 notebooks + `04_evalhub_garak.ipynb` (Act 5)
-- `manifests/` — MLflow CR, workbench, judge Secret, InferenceService, EvalHub endpoint ConfigMap, demo evaluation job templates
-- `install.sh` / `uninstall.sh` / `check.sh` — unified demo install, health check, teardown
-- `scripts/` — diagrams, slide content, deck builder, `submit_evalhub_demo_jobs.sh`
-- `tests/` — unit tests for deck, calculator, cluster scripts
+- `walkthrough/` — presenter guides: [index](walkthrough/index.md), modules 0–5, customer click script
+- `manifests/` — all cluster YAML applied by install; apply order and details in [manifests/README.md](manifests/README.md)
+- `demo/notebooks/` — the four on-camera notebooks
+- `demo/agent-tracing/` — Python sources behind the notebooks (agent, eval, judges)
+- `demo/evalhub/` — Act 5 job templates; `demo/datasets/` — golden eval set; `demo/assets/` — fallback screenshots
+- `scripts/` — install/uninstall/check engine (`wings3_lib.sh`, `check_demo.py`), deck builders, helper scripts
+- `tests/` — pytest suite for scripts, deck content, and demo code
+- `install.sh` / `check.sh` / `uninstall.sh` — thin wrappers into `scripts/`
+
+## Rebuild the slides
+
+```bash
+python3 scripts/build_wings3_deck.py           # plain deck → MLflow-on-RHOAI-Deep-Dive.pptx
+python3 scripts/revise_wings3_branded_deck.py  # branded deck → AI Wings 3 - Deep Dive.pptx
+```
+
+Both `.pptx` outputs are gitignored — rebuild after cloning.

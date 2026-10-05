@@ -37,7 +37,7 @@ Do **not** create a workbench from the dashboard during this hour. Dashboard not
 
 ### 2. Confirm the git clone
 
-JupyterLab root **is** this repo (`/opt/app-root/src/wings`). The workbench initContainer clones https://github.com/gmodzelewski/wings.git if `.git` is missing. Do **not** clone slideorama.
+JupyterLab root **is** this repo (`/opt/app-root/src/wings`). The workbench initContainer clones https://github.com/gmodzelewski/wings.git if `.git` is missing.
 
 In the JupyterLab **terminal** (or the optional notebook cell):
 

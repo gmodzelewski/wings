@@ -881,6 +881,7 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
     results.extend(
         [
         check_notebook_ready(project, workbench),
+        check_pod_ready(project, "wings3-mlflow-ws-proxy", "mlflow workspace proxy"),
         check_resource("configmap", "wings3-llm-endpoint", project, "configmap wings3-llm-endpoint"),
         check_resource("secret", "wings3-judge-llm", project, "secret wings3-judge-llm"),
         check_judge_secret_key(project),

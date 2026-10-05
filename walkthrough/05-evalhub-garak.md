@@ -34,7 +34,7 @@ There is no “project settings → TrustyAI → Guardrails” admin page that f
 
 - `./scripts/install.sh` completed (InferenceService Ready, ConfigMap `wings3-llm-endpoint` applied)
 - EvalHub operator `Managed` and **EvalHub CR** `evalhub` in `my-first-model` (`./check.sh` → `evalhub instance`)
-- Optional: submit jobs from **Evaluations** UI or `scripts/submit_evalhub_demo_jobs.sh` before the session
+- Optional: submit jobs from the **Evaluations** UI or `scripts/submit_evalhub_eval_run.sh` before the session
 - Session 1 end state: `v2-judged` in experiment `wings3-agent-eval-prod`
 
 Endpoint (read from ConfigMap — do not hardcode):

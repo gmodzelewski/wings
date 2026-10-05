@@ -6,7 +6,7 @@ Apply order for a fresh cluster (normally via `./install.sh`):
 2. `secret-wings3-judge-llm.yaml` (from `secret-wings3-judge-llm.example.yaml`; patched by install)
 3. `workbench-wings3-demo.yaml`
 4. `inferenceservice-llama-32-3b-instruct.yaml` (after `WINGS3_LLM_STORAGE_URI` is set)
-5. EvalHub: `configmap-wings3-llm-endpoint.yaml`, `evalhub-rbac-wings3.yaml`, `evalhub-instance.yaml`
+5. EvalHub: `configmap-wings3-llm-endpoint.yaml`, `evalhub-rbac-wings3.yaml`, `mlflow-workspace-proxy.yaml` (injects `X-MLflow-Workspace` — the EvalHub CR's `MLFLOW_TRACKING_URI` points at its Service), `evalhub-instance.yaml`
 6. MaaS prerequisites: `connectivity-link-operator.yaml` (subscribes `rhcl-operator`), then `kuadrant-dev.yaml` (Kuadrant CR / Authorino), `maas-default-gateway.yaml` + `maas-default-gateway-config.yaml` (ClusterIP), `maas-default-gateway-route.yaml` (public Route for `maas-gateway.<apps-domain>`)
 7. MaaS (demo lab Postgres + external judge model):
    - `maas-postgres-dev.yaml`
@@ -67,7 +67,7 @@ Secret `wings3-judge-llm` sets both the **agent** (`MAAS_MODEL`, `MAAS_BASE_URL`
 | `maas-external-model-gpt-oss-20b.yaml` | `ExternalModel` → same host / shared credential (`gpt-oss-20b`) |
 | `maas-external-model-llama-scout-17b.yaml` | `ExternalModel` → same host / shared credential (`llama-scout-17b`) |
 | `maas-external-model-qwen36-35b-a3b.yaml` | `ExternalModel` → same host / shared credential (`qwen36-35b-a3b`) |
-| `maas-modelref-*.yaml` | Publish each external model to MaaS |
+| `maas-modelref-*.yaml` | Publish each external model to MaaS — `install.sh` applies one per id in `WINGS3_MAAS_CATALOG_MODELS` (filenames constructed dynamically, so grep won't find them referenced) |
 | `maas-auth-subscription-redhat-maas.yaml` | Subscription + auth policy for all four modelRefs |
 
 ### Environment variables

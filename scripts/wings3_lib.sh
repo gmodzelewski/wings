@@ -555,10 +555,6 @@ ensure_genai_dashboard_prereqs() {
   restart_maas_dashboard_ui_if_unhealthy || true
 }
 
-ensure_maas_dashboard_prereqs() {
-  ensure_genai_dashboard_prereqs
-}
-
 enable_genai_studio() {
   if [[ "${WINGS3_SKIP_OGX:-0}" == 1 && "${WINGS3_SKIP_MCP:-0}" == 1 ]]; then
     log "skip Gen AI Studio stack (WINGS3_SKIP_OGX=1 and WINGS3_SKIP_MCP=1)"
@@ -1270,15 +1266,6 @@ discover_maas_judge_base_url() {
   printf ''
 }
 
-# maas-api requires Authorino-injected identity headers when called directly
-# (port-forward). X-MaaS-Group must be a JSON array string, e.g. ["system:authenticated"].
-maas_identity_headers() {
-  local user=""
-  user=$(oc whoami 2>/dev/null || true)
-  [[ -z "$user" ]] && user="admin"
-  printf 'X-MaaS-Username: %s\nX-MaaS-Group: ["system:authenticated"]\n' "$user"
-}
-
 mint_maas_api_key_via_portforward() {
   local token="" body="" key="" pf_pid="" user=""
   token=$(oc whoami -t 2>/dev/null || true)
@@ -1436,7 +1423,7 @@ enable_maas() {
   apply_maas_manifests || return 0
   reconcile_maas_subscription || true
   wait_for_maas_modelref_ready 600 || true
-  ensure_maas_dashboard_prereqs || true
+  ensure_genai_dashboard_prereqs || true
   local host="" base_url="" maas_key=""
   host=$(discover_maas_gateway_host)
   base_url=$(discover_maas_judge_base_url)
@@ -1619,6 +1606,12 @@ apply_evalhub_manifests() {
   ensure_evalhub_model_auth_secret || true
   if [[ -f "${MANIFESTS}/evalhub-rbac-wings3.yaml" ]]; then
     run oc apply -f "${MANIFESTS}/evalhub-rbac-wings3.yaml"
+  fi
+  # EvalHub MLFLOW_TRACKING_URI points at this workspace-header proxy — it must
+  # exist before eval jobs try to log to MLflow.
+  if [[ -f "${MANIFESTS}/mlflow-workspace-proxy.yaml" ]]; then
+    run oc apply -f "${MANIFESTS}/mlflow-workspace-proxy.yaml"
+    wait_for_pod_grep "$PROJECT" "wings3-mlflow-ws-proxy" 180 0 || true
   fi
   if [[ -f "${MANIFESTS}/evalhub-instance.yaml" ]]; then
     run oc apply -f "${MANIFESTS}/evalhub-instance.yaml"
@@ -1829,7 +1822,11 @@ delete_workbench_resources() {
 }
 
 delete_evalhub_manifests() {
+  run oc delete evalhub evalhub -n "$PROJECT" --ignore-not-found=true
   run oc delete configmap wings3-llm-endpoint -n "$PROJECT" --ignore-not-found=true
+  if [[ -f "${MANIFESTS}/mlflow-workspace-proxy.yaml" ]]; then
+    run oc delete -f "${MANIFESTS}/mlflow-workspace-proxy.yaml" --ignore-not-found=true
+  fi
   if [[ -f "${MANIFESTS}/evalhub-rbac-wings3.yaml" ]]; then
     run oc delete -f "${MANIFESTS}/evalhub-rbac-wings3.yaml" --ignore-not-found=true
   fi

@@ -92,7 +92,7 @@ def test_run_of_show_times_in_agenda_notes():
 def test_walkthrough_index_matches_run_of_show():
     index = (WINGS3_ROOT / "walkthrough" / "index.md").read_text()
     assert "| Intro + terms + product tour | 6 |" in index
-    assert "| 1 — Install | 10 |" in index
+    assert "| 1 — Install | 8 |" in index
     assert "| 2 — Autolog tracing | 22 |" in index
     assert "| 3 — Evaluation | 15 |" in index
     assert "| Production + Q&A | 9 |" in index
@@ -116,13 +116,13 @@ def test_demo_trace_notes_error_then_details():
     assert "calculator" in notes
 
 
-def test_walkthrough_docs_point_at_rhoai_34():
+def test_walkthrough_docs_point_at_rhoai_docs():
+    """Walkthroughs link to RHOAI docs for the supported versions (3.4 and 3.5)."""
     index = (WINGS3_ROOT / "walkthrough" / "index.md").read_text()
     install = (WINGS3_ROOT / "walkthrough" / "01-install-platform.md").read_text()
     assert "self-managed/3.4/" in index
     assert "self-managed/3.4/" in install
-    assert "self-managed/3.5/" not in index
-    assert "self-managed/3.5/" not in install
+    assert "self-managed/3.5/" in install
 
 
 def test_module2_single_workbench_path_and_trace_beat():
@@ -373,7 +373,10 @@ def test_judge_uses_hosted_vllm_not_native_openai():
     assert "JUDGE_MODEL" in blob
     assert "gpt-oss-120b" in blob
     assert "HOSTED_VLLM_API_BASE\"] = os.environ[\"MAAS_BASE_URL\"]" not in blob
-    assert "/etc/wings3-judge-llm" in blob
+    # Secret mount path lives in wings3_env.py; the notebook loads it via traced_agent.
+    env_mod = (WINGS3_ROOT / "demo" / "agent-tracing" / "wings3_env.py").read_text()
+    assert "/etc/wings3-judge-llm" in env_mod
+    assert "ensure_maas_env" in blob
     assert 'openai:/{os.environ' not in blob
     req = (WINGS3_ROOT / "demo" / "agent-tracing" / "requirements.txt").read_text()
     assert "litellm" in req

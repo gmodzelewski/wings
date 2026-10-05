@@ -3,7 +3,7 @@
 # Never commit the token. Prefer: export WINGS3_MAAS_UPSTREAM_API_KEY='sk-oai-…'
 set -euo pipefail
 
-PROJECT="${WINGS3_PROJECT:-nemo-quickstart}"
+PROJECT="${WINGS3_PROJECT:-my-first-model}"
 SECRET="${WINGS3_MAAS_UPSTREAM_SECRET:-wings3-maas-upstream-api-key}"
 PROVIDER="${WINGS3_EXTERNAL_PROVIDER:-qwen36-35b-a3b}"
 MODEL="${WINGS3_EXTERNAL_MODEL:-qwen36-35b-a3b}"

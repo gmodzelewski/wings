@@ -39,7 +39,10 @@ def test_scripts_are_valid_bash():
         INSTALL,
         UNINSTALL,
         CHECK,
-        WINGS3_ROOT / "scripts" / "enable_guardrails_ui.sh",
+        WINGS3_ROOT / "scripts" / "submit_evalhub_eval_run.sh",
+        WINGS3_ROOT / "scripts" / "prestage_garak_before_after.sh",
+        WINGS3_ROOT / "scripts" / "rotate_maas_upstream_key.sh",
+        WINGS3_ROOT / "scripts" / "verify_hf_gated_access.sh",
     )
     for script in scripts:
         assert script.is_file(), f"missing {script}"
@@ -162,34 +165,20 @@ def test_servingruntime_version_current_logic():
     assert not servingruntime_version_current("", "v0.24.0")
 
 
-def test_discover_dsc_components_py_imports():
-    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
-    from discover_dsc_components import discover_evalhub_component, discover_garak_component
+def test_mlflow_workspace_proxy_wired_into_install_and_check():
+    manifest = (WINGS3_ROOT / "manifests" / "mlflow-workspace-proxy.yaml").read_text()
+    lib = (WINGS3_ROOT / "scripts" / "wings3_lib.sh").read_text()
+    check_py = (WINGS3_ROOT / "scripts" / "check_demo.py").read_text()
+    evalhub = (WINGS3_ROOT / "manifests" / "evalhub-instance.yaml").read_text()
 
-    components = {
-        "trustyai": {"managementState": "Managed"},
-        "dashboard": {"managementState": "Managed"},
-    }
-    assert discover_evalhub_component(components) == "trustyai"
-    assert discover_garak_component(components) == ""
-
-
-def test_lmevaljob_manifest_targets_openai_endpoint():
-    text = (WINGS3_ROOT / "manifests" / "evalhub-demo-lmevaljob.yaml").read_text()
-    assert "trustyai.opendatahub.io/v1alpha1" in text
-    assert "kind: LMEvalJob" in text
-    assert "openai-chat-completions" in text
-    assert "llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local" in text
-    assert "gsm8k" in text
-
-
-def test_submit_evalhub_dry_run_mentions_lmevaljob():
-    script = WINGS3_ROOT / "scripts" / "submit_evalhub_demo_jobs.sh"
-    result = _run(script, "--dry-run")
-    assert result.returncode == 0, result.stderr
-    out = result.stdout.lower()
-    assert "evalhub-demo-lmevaljob.yaml" in out
-    assert "lmevaljob" in out
+    assert "kind: Service" in manifest
+    assert "name: wings3-mlflow-ws-proxy" in manifest
+    assert "X-MLflow-Workspace" in manifest
+    # evalhub-instance.yaml routes MLFLOW_TRACKING_URI through this Service, so
+    # install must create it and uninstall --all must remove it.
+    assert "wings3-mlflow-ws-proxy" in evalhub
+    assert "mlflow-workspace-proxy.yaml" in lib
+    assert "mlflow workspace proxy" in check_py
 
 
 def test_submit_evalhub_eval_run_supports_garak_and_v1_endpoint():
@@ -397,7 +386,7 @@ def test_maas_external_model_manifests():
     assert "enable_mcplifecycle" in lib
     assert "ensure_servicemesh" in lib
     assert "ensure_genai_dashboard_prereqs" in lib
-    assert "ensure_maas_dashboard_prereqs" in lib
+    assert "ensure_maas_dashboard_prereqs" not in lib
     assert '"guardrails":true' in lib
     assert "guardrails" in lib
     assert '"agentsCatalog":true' in lib
@@ -458,4 +447,5 @@ def test_presenter_docs_point_at_cluster_scripts():
     assert "bootstrap.sh" not in setup
     assert "teardown.sh" not in setup
     assert "discover_evalhub.sh" not in setup
-    assert "05-evalhub-garak.md" in readme
+    assert "walkthrough/00-presenter-setup.md" in readme
+    assert "walkthrough/customer-ui-click-script.md" in readme

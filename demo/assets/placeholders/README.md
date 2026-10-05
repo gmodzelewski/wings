@@ -9,7 +9,6 @@ Captured on the demo cluster for the customer event / guardrails coda.
 | `demo3-garak-pipeline.png` | Unguarded Garak detail — **100%** ASR / **Fail** (before) |
 | `demo4-garak-html-report.png` | Guarded Garak detail — **0%** ASR / **Pass** (after) |
 | `demo4-garak-html-report.html` | Companion before/after probe summary table |
-| `demo5-promotion-gate.png` | Optional — full promotion gate diagram |
 
 **Fallback rule:** if live jobs fail or run long, narrate from these screenshots. Do not debug provider install on stage.
 

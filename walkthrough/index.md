@@ -21,7 +21,7 @@ Cluster URLs and names: [partials/_attributes.md](partials/_attributes.md).
 | Block | Minutes | Guide |
 |-------|---------|-------|
 | Intro + terms + product tour | 6 | Slides |
-| 1 — Install | 10 | [01-install-platform.md](01-install-platform.md) |
+| 1 — Install | 8 | [01-install-platform.md](01-install-platform.md) |
 | 2 — Autolog tracing | 22 | [02-agent-tracing-autolog.md](02-agent-tracing-autolog.md) |
 | 3 — Evaluation | 15 | [03-workbench-evaluation.md](03-workbench-evaluation.md) |
 | Production + Q&A | 9 | Slides |
@@ -33,7 +33,7 @@ Cluster URLs and names: [partials/_attributes.md](partials/_attributes.md).
 | Module | Time | Where |
 |--------|------|-------|
 | 0 — Presenter setup | before the hour | [00-presenter-setup.md](00-presenter-setup.md) |
-| 1 — Install | 10 min live | Laptop `oc get` + `/mlflow` + EvalHub/Garak console check |
+| 1 — Install | 8 min live | Laptop `oc get` + `/mlflow` + EvalHub/Garak console check |
 | 2 — Autolog tracing | 22 min | JupyterLab notebook `01_agent_tracing_autolog.ipynb` |
 | 3 — Evaluation | 15 min | Same workbench notebook |
 | 4 — Datasets + judges | 20–25 min follow-on | Same workbench notebook `03_prod_eval_judges.ipynb` — [04-prod-eval-judges.md](04-prod-eval-judges.md). Not in the WINGS teaching hour. In the customer UI hour this is the close (pre-logged). |
