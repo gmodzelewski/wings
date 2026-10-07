@@ -235,6 +235,43 @@ def test_garak_demo_json_uses_evalhub_api_format():
     assert "target_endpoint_kind" in data["notes"]
 
 
+def test_install_submits_demo_garak_owasp_run():
+    """install.sh must seed Develop & train -> Evaluations with a real run
+    instead of leaving it empty (platform-only EvalHub CR + operator do not
+    create any job). uninstall --all must symmetrically remove it; since this
+    RHOAI build has no backing CRD for EvalHub API jobs, cleanup goes through
+    the EvalHub REST API by job name, same as submission."""
+    install = INSTALL.read_text()
+    lib = (WINGS_ROOT / "scripts" / "wings_lib.sh").read_text()
+    check_py = (WINGS_ROOT / "scripts" / "check_demo.py").read_text()
+
+    assert "submit_demo_garak_owasp_run" in install
+    # Must run after EvalHub is actually up (apply_evalhub_manifests) and
+    # before the (optionally long) local LLM install step.
+    assert install.index("apply_evalhub_manifests") < install.index("submit_demo_garak_owasp_run")
+    assert install.index("submit_demo_garak_owasp_run") < install.index("install_llm")
+    assert "WINGS_SKIP_GARAK_DEMO" in install
+
+    assert "submit_demo_garak_owasp_run()" in lib
+    assert "owasp_llm_top10" in lib
+    assert "--no-wait" in lib
+    assert "WINGS_SKIP_GARAK_DEMO" in lib
+    assert "evalhub_job_id_by_name" in lib
+    assert "evalhub_api_jobs_json" in lib
+    # Idempotent: re-running install.sh must not pile up duplicate jobs.
+    assert "already submitted -- skip" in lib
+    # Uninstall symmetry: no CRD backs these jobs on this RHOAI build, so
+    # purge_evalhub_demo_jobs must delete via the same REST API by name.
+    assert "delete_evalhub_demo_job_by_name" in lib
+    assert "purge_evalhub_demo_jobs" in lib
+    purge_fn = lib[lib.index("purge_evalhub_demo_jobs() {"):]
+    purge_fn = purge_fn[: purge_fn.index("\n}\n") + 3]
+    assert "delete_evalhub_demo_job_by_name" in purge_fn
+
+    assert "check_demo_garak_run" in check_py
+    assert "wings-demo-garak-owasp" in check_py
+
+
 def test_evalhub_garak_walkthrough_documents_v1_endpoint():
     text = (WINGS_ROOT / "walkthrough" / "05-evalhub-garak.md").read_text()
     assert "404 Not Found" in text

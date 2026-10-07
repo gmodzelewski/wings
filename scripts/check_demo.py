@@ -638,6 +638,51 @@ def check_evaluations_nav() -> CheckResult:
     return CheckResult("evaluations nav", False, detail)
 
 
+def check_demo_garak_run(project: str) -> CheckResult:
+    # EvalHub jobs submitted via its REST API have no backing CRD on this
+    # RHOAI build (`oc get evaluation` is not registered) -- the only way to
+    # confirm Develop & train -> Evaluations has an entry is to ask EvalHub's
+    # own API for a job named like submit_demo_garak_owasp_run() created.
+    job_name = os.environ.get("WINGS_GARAK_DEMO_NAME", "wings-demo-garak-owasp")
+    deploy = _oc(["get", "deploy", "evalhub", "-n", project])
+    if deploy.returncode != 0:
+        return CheckResult("demo garak run", True, "deploy/evalhub missing — skipped")
+    user = _oc(["whoami"]).stdout.strip()
+    token = _oc(["whoami", "--show-token"]).stdout.strip()
+    if not user or not token:
+        return CheckResult("demo garak run", False, "oc whoami/--show-token failed")
+    result = _oc(
+        [
+            "exec",
+            "-n",
+            project,
+            "deploy/evalhub",
+            "-c",
+            "evalhub",
+            "--",
+            "curl",
+            "-sk",
+            "-H",
+            f"Authorization: Bearer {token}",
+            "-H",
+            f"X-Tenant: {project}",
+            "-H",
+            f"X-User: {user}",
+            "http://127.0.0.1:8444/api/v1/evaluations/jobs?limit=200",
+        ]
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return CheckResult("demo garak run", False, "EvalHub jobs API unreachable")
+    if f'"name":"{job_name}"' in result.stdout.replace(" ", ""):
+        return CheckResult("demo garak run", True, job_name)
+    return CheckResult(
+        "demo garak run",
+        False,
+        f"no EvalHub job named {job_name} — re-run install.sh or "
+        f"./scripts/submit_evalhub_eval_run.sh --benchmark owasp_llm_top10 --name {job_name} --no-wait",
+    )
+
+
 def check_agents_catalog() -> CheckResult:
     mlflow_ns = os.environ.get("WINGS_MLFLOW_NAMESPACE", "redhat-ods-applications")
     flag = _oc(
@@ -1129,6 +1174,7 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
         check_evalhub_endpoint_url(project),
         check_evalhub_model_auth(project),
         check_evaluations_nav(),
+        check_demo_garak_run(project),
         check_maas_crds(),
         check_ogx_managed(),
         check_ogx_server(project),

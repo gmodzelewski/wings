@@ -2058,6 +2058,71 @@ apply_evalhub_manifests() {
   fi
 }
 
+# ---------------------------------------------------------------------------
+# EvalHub job submissions (REST API, no backing CRD on this RHOAI build --
+# `oc get evaluation` / `evaluations.redhat.com` is not registered, so these
+# jobs live only in EvalHub's own DB and must be listed/looked-up/deleted via
+# its API, not via `oc`). Used to give Develop & train -> Evaluations a real
+# entry out of the box instead of leaving it empty until someone submits a
+# run by hand.
+# ---------------------------------------------------------------------------
+
+evalhub_api_jobs_json() {
+  local user token
+  user=$(oc whoami 2>/dev/null) || return 1
+  token=$(oc whoami --show-token 2>/dev/null) || return 1
+  oc exec -n "$PROJECT" deploy/evalhub -c evalhub -- \
+    curl -sk \
+    -H "Authorization: Bearer ${token}" \
+    -H "X-Tenant: ${PROJECT}" \
+    -H "X-User: ${user}" \
+    "http://127.0.0.1:8444/api/v1/evaluations/jobs?limit=200" 2>/dev/null
+}
+
+evalhub_job_id_by_name() {
+  local name="$1" json=""
+  json=$(evalhub_api_jobs_json) || return 1
+  [[ -n "$json" ]] || return 1
+  printf '%s' "$json" | python3 -c '
+import json, sys
+name = sys.argv[1]
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+for item in data.get("items", []):
+    if item.get("name") == name:
+        jid = (item.get("resource") or {}).get("id")
+        if jid:
+            print(jid)
+            sys.exit(0)
+sys.exit(1)
+' "$name"
+}
+
+submit_demo_garak_owasp_run() {
+  # OWASP LLM Top 10 is EvalHub's Garak benchmark id "owasp_llm_top10".
+  # Submitted with --no-wait so install.sh does not block on a long scan;
+  # the job shows up as "Running" immediately and completes in the background.
+  local job_name="${WINGS_GARAK_DEMO_NAME:-wings-demo-garak-owasp}"
+  if [[ "${WINGS_SKIP_GARAK_DEMO:-0}" == 1 ]]; then
+    log "skip demo Garak OWASP run (WINGS_SKIP_GARAK_DEMO=1)"
+    return 0
+  fi
+  if ! oc get deploy evalhub -n "$PROJECT" >/dev/null 2>&1; then
+    echo "warning: skip demo Garak OWASP run (deploy/evalhub missing in ${PROJECT})" >&2
+    return 0
+  fi
+  if evalhub_job_id_by_name "$job_name" >/dev/null 2>&1; then
+    log "demo Garak OWASP run ${job_name} already submitted -- skip"
+    return 0
+  fi
+  log "submit demo Garak OWASP benchmark run (${job_name}) so Develop & train -> Evaluations has an entry"
+  "${WINGS_ROOT}/scripts/submit_evalhub_eval_run.sh" \
+    --benchmark owasp_llm_top10 --name "$job_name" --no-wait \
+    || echo "warning: failed to submit demo Garak OWASP run" >&2
+}
+
 wait_for_workbench() {
   local elapsed=0 timeout=600 name=""
   while ((elapsed < timeout)); do
@@ -2277,6 +2342,25 @@ purge_mlflow_cr() {
     || run oc delete mlflow "$cr" -n "$MLFLOW_NS" --ignore-not-found=true
 }
 
+delete_evalhub_demo_job_by_name() {
+  local name="$1" jid=""
+  if ! oc get deploy evalhub -n "$PROJECT" >/dev/null 2>&1; then
+    return 0
+  fi
+  jid=$(evalhub_job_id_by_name "$name" 2>/dev/null) || return 0
+  [[ -n "$jid" ]] || return 0
+  local user token
+  user=$(oc whoami 2>/dev/null) || return 0
+  token=$(oc whoami --show-token 2>/dev/null) || return 0
+  log "delete EvalHub job ${name} (${jid}) via API"
+  oc exec -n "$PROJECT" deploy/evalhub -c evalhub -- \
+    curl -sk -o /dev/null -X DELETE \
+    -H "Authorization: Bearer ${token}" \
+    -H "X-Tenant: ${PROJECT}" \
+    -H "X-User: ${user}" \
+    "http://127.0.0.1:8444/api/v1/evaluations/jobs/${jid}" 2>/dev/null || true
+}
+
 purge_evalhub_demo_jobs() {
   if crd_registered 'evaluations\.redhat\.com'; then
     run oc delete evaluation wings-demo-lm-eval -n "$PROJECT" --ignore-not-found=true
@@ -2285,6 +2369,9 @@ purge_evalhub_demo_jobs() {
   if crd_registered 'lmevaljobs\.trustyai\.opendatahub\.io'; then
     run oc delete lmevaljob wings-demo-lm-eval -n "$PROJECT" --ignore-not-found=true
   fi
+  # No backing CRD on this RHOAI build -- EvalHub jobs submitted via its REST
+  # API (including submit_demo_garak_owasp_run) must be deleted via the API too.
+  delete_evalhub_demo_job_by_name "${WINGS_GARAK_DEMO_NAME:-wings-demo-garak-owasp}"
 }
 
 purge_evalhub_resources() {

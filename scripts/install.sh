@@ -20,7 +20,8 @@ Environment: WINGS_PROJECT, WINGS_LLM_STORAGE_URI, WINGS_DSC_NAME,
              WINGS_MAAS_CATALOG_MODELS (default: gpt-oss-120b gpt-oss-20b llama-scout-17b qwen36-35b-a3b),
              WINGS_SKIP_OGX, WINGS_SKIP_MCP, WINGS_SKIP_SERVICEMESH,
              WINGS_SKIP_OBSERVABILITY (skip Usage/token-consumption dashboard stack),
-             WINGS_MAAS_CAPTURE_USER=0 (disable per-user MaaS metric labelling; on by default -- the Usage dashboard totals need it)
+             WINGS_MAAS_CAPTURE_USER=0 (disable per-user MaaS metric labelling; on by default -- the Usage dashboard totals need it),
+             WINGS_SKIP_GARAK_DEMO=1 (skip the auto-submitted OWASP LLM Top 10 Garak run that seeds Develop & train -> Evaluations)
 EOF
 }
 
@@ -44,6 +45,7 @@ apply_manifests
 enable_maas
 enable_genai_studio
 apply_evalhub_manifests
+submit_demo_garak_owasp_run
 install_llm
 clone_repo
 pip_install
