@@ -4,7 +4,7 @@ metadata:
   name: qwen36-35b-a3b
   namespace: my-first-model
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
     opendatahub.io/dashboard: "true"
     opendatahub.io/genai-asset: "true"
 spec:
@@ -12,4 +12,4 @@ spec:
   endpoint: maas-rhdp.apps.maas.redhatworkshops.io
   targetModel: qwen36-35b-a3b
   credentialRef:
-    name: wings3-maas-upstream-api-key
+    name: wings-maas-upstream-api-key

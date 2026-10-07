@@ -15,9 +15,9 @@ Sandbox URLs belong **only** here. Walkthrough modules paste `mlflow_ui` from th
 | `llm_namespace` | `my-first-model` |
 | `llm_model` | `gpt-oss-120b` |
 | `llm_base_url` | `https://openshift-ai-inference-openshift-ingress.apps.ocp5.stormshift.coe.muc.redhat.com/llm/gpt-oss-120b/v1` |
-| `mlflow_experiment_tracing` | `wings3-agent-tracing` |
-| `mlflow_experiment_eval` | `wings3-agent-eval` |
-| `mlflow_experiment_eval_prod` | `wings3-agent-eval-prod` |
+| `mlflow_experiment_tracing` | `wings-agent-tracing` |
+| `mlflow_experiment_eval` | `wings-agent-eval` |
+| `mlflow_experiment_eval_prod` | `wings-agent-eval-prod` |
 
 ## Today's cluster (copy-paste)
 

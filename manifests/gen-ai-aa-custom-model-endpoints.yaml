@@ -7,7 +7,7 @@ metadata:
   name: gen-ai-aa-custom-model-endpoints
   namespace: my-first-model
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 data:
   endpoints.json: |
     [

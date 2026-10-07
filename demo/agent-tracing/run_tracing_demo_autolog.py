@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WINGS3: LangGraph agent with mlflow.langchain.autolog() — CLI / rehearsal only.
+"""WINGS: LangGraph agent with mlflow.langchain.autolog() — CLI / rehearsal only.
 
 Stage path is demo/notebooks/01_agent_tracing_autolog.ipynb (inline SHOW comments).
 """
@@ -46,7 +46,7 @@ def main() -> None:
     if not uri:
         print("ERROR: MLFLOW_TRACKING_URI is not set")
         sys.exit(1)
-    experiment = os.environ.get("MLFLOW_EXPERIMENT_NAME", "wings3-agent-tracing")
+    experiment = os.environ.get("MLFLOW_EXPERIMENT_NAME", "wings-agent-tracing")
     mlflow.set_tracking_uri(uri)
     mlflow.set_experiment(experiment)
     mlflow.langchain.autolog()
@@ -58,7 +58,7 @@ def main() -> None:
     print(f"Experiment: {experiment}")
     print(f"Model: {config.model}")
 
-    queries = QUERIES[:1] if os.environ.get("WINGS3_ONE_QUERY") else QUERIES
+    queries = QUERIES[:1] if os.environ.get("WINGS_ONE_QUERY") else QUERIES
     for i, query in enumerate(queries, 1):
         print(f"\n--- Query {i}: {query}")
         try:

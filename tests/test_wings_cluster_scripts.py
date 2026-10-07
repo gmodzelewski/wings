@@ -1,4 +1,4 @@
-"""Tests for WINGS3 cluster install, uninstall, and check scripts."""
+"""Tests for WINGS cluster install, uninstall, and check scripts."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-WINGS3_ROOT = Path(__file__).resolve().parent.parent
-INSTALL = WINGS3_ROOT / "scripts" / "install.sh"
-UNINSTALL = WINGS3_ROOT / "scripts" / "uninstall.sh"
-CHECK = WINGS3_ROOT / "scripts" / "check.sh"
-CHECK_PY = WINGS3_ROOT / "scripts" / "check_demo.py"
+WINGS_ROOT = Path(__file__).resolve().parent.parent
+INSTALL = WINGS_ROOT / "scripts" / "install.sh"
+UNINSTALL = WINGS_ROOT / "scripts" / "uninstall.sh"
+CHECK = WINGS_ROOT / "scripts" / "check.sh"
+CHECK_PY = WINGS_ROOT / "scripts" / "check_demo.py"
 
 
 def _run(script: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -23,7 +23,7 @@ def _run(script: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_workbench_clones_public_wings_repo():
-    text = (WINGS3_ROOT / "manifests" / "workbench-wings3-demo.yaml").read_text()
+    text = (WINGS_ROOT / "manifests" / "workbench-wings-demo.yaml").read_text()
     assert "https://github.com/gmodzelewski/wings.git" in text
     assert "--ServerApp.root_dir=/opt/app-root/src/wings" not in text
     assert "workingDir: /opt/app-root/src/wings" in text
@@ -31,7 +31,7 @@ def test_workbench_clones_public_wings_repo():
     assert INSTALL.is_file(), "missing scripts/install.sh"
     assert UNINSTALL.is_file(), "missing scripts/uninstall.sh"
     assert CHECK.is_file(), "missing scripts/check.sh"
-    assert (WINGS3_ROOT / "check.sh").is_file(), "missing check.sh"
+    assert (WINGS_ROOT / "check.sh").is_file(), "missing check.sh"
 
 
 def test_scripts_are_valid_bash():
@@ -39,10 +39,10 @@ def test_scripts_are_valid_bash():
         INSTALL,
         UNINSTALL,
         CHECK,
-        WINGS3_ROOT / "scripts" / "submit_evalhub_eval_run.sh",
-        WINGS3_ROOT / "scripts" / "prestage_garak_before_after.sh",
-        WINGS3_ROOT / "scripts" / "rotate_maas_upstream_key.sh",
-        WINGS3_ROOT / "scripts" / "verify_hf_gated_access.sh",
+        WINGS_ROOT / "scripts" / "submit_evalhub_eval_run.sh",
+        WINGS_ROOT / "scripts" / "prestage_garak_before_after.sh",
+        WINGS_ROOT / "scripts" / "rotate_maas_upstream_key.sh",
+        WINGS_ROOT / "scripts" / "verify_hf_gated_access.sh",
     )
     for script in scripts:
         assert script.is_file(), f"missing {script}"
@@ -60,7 +60,7 @@ def test_install_help_documents_skip_llm_only():
     assert result.returncode == 0, result.stderr
     text = result.stdout.lower()
     assert "--skip-llm" in text
-    assert "wings3_llm_storage_uri" in text
+    assert "wings_llm_storage_uri" in text
     assert "--warmup" not in text
     assert "--dry-run" not in text
     assert "--force-llm" not in text
@@ -87,7 +87,7 @@ def test_check_help_documents_skip_llm():
 
 
 def test_check_demo_py_imports_and_evalhub_logic():
-    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    sys.path.insert(0, str(WINGS_ROOT / "scripts"))
     from check_demo import (
         check_evalhub_instance,
         check_evalhub_pod,
@@ -102,9 +102,9 @@ def test_check_demo_py_imports_and_evalhub_logic():
 
 
 def test_evalhub_instance_manifest_and_install_wiring():
-    manifest = (WINGS3_ROOT / "manifests" / "evalhub-instance.yaml").read_text()
-    lib = (WINGS3_ROOT / "scripts" / "wings3_lib.sh").read_text()
-    check_py = (WINGS3_ROOT / "scripts" / "check_demo.py").read_text()
+    manifest = (WINGS_ROOT / "manifests" / "evalhub-instance.yaml").read_text()
+    lib = (WINGS_ROOT / "scripts" / "wings_lib.sh").read_text()
+    check_py = (WINGS_ROOT / "scripts" / "check_demo.py").read_text()
 
     assert "kind: EvalHub" in manifest
     assert "database:" in manifest
@@ -123,13 +123,13 @@ def test_evalhub_instance_manifest_and_install_wiring():
     assert "disableLMEval" in lib
     assert "ensure_evalhub_model_auth_secret" in lib
     assert "ensure_maas_gateway_api_key_secret" in lib
-    assert "wings3-maas-gateway-api-key" in lib
+    assert "wings-maas-gateway-api-key" in lib
     assert "resolve_evalhub_openai_base_url" in lib
     assert "maas-gateway." in lib
 
 
 def test_evalhub_tenant_label_helper():
-    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    sys.path.insert(0, str(WINGS_ROOT / "scripts"))
     from check_demo import namespace_has_evalhub_tenant_label
 
     assert namespace_has_evalhub_tenant_label(
@@ -139,24 +139,24 @@ def test_evalhub_tenant_label_helper():
 
 
 def test_judge_secret_and_mount_helpers():
-    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    sys.path.insert(0, str(WINGS_ROOT / "scripts"))
     from check_demo import judge_api_key_populated, workbench_has_judge_mount
 
     assert judge_api_key_populated("dGVzdA==")
     assert not judge_api_key_populated("")
     assert not judge_api_key_populated("   ")
     assert workbench_has_judge_mount(
-        ["/opt/app-root/src", "/etc/wings3-judge-llm"],
-        ["wings3-judge-llm"],
+        ["/opt/app-root/src", "/etc/wings-judge-llm"],
+        ["wings-judge-llm"],
     )
     assert not workbench_has_judge_mount(
         ["/opt/app-root/src"],
-        ["wings3-judge-llm"],
+        ["wings-judge-llm"],
     )
 
 
 def test_servingruntime_version_current_logic():
-    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    sys.path.insert(0, str(WINGS_ROOT / "scripts"))
     from check_demo import servingruntime_version_current
 
     assert servingruntime_version_current("v0.24.0", "v0.24.0")
@@ -166,34 +166,34 @@ def test_servingruntime_version_current_logic():
 
 
 def test_mlflow_workspace_proxy_wired_into_install_and_check():
-    manifest = (WINGS3_ROOT / "manifests" / "mlflow-workspace-proxy.yaml").read_text()
-    lib = (WINGS3_ROOT / "scripts" / "wings3_lib.sh").read_text()
-    check_py = (WINGS3_ROOT / "scripts" / "check_demo.py").read_text()
-    evalhub = (WINGS3_ROOT / "manifests" / "evalhub-instance.yaml").read_text()
+    manifest = (WINGS_ROOT / "manifests" / "mlflow-workspace-proxy.yaml").read_text()
+    lib = (WINGS_ROOT / "scripts" / "wings_lib.sh").read_text()
+    check_py = (WINGS_ROOT / "scripts" / "check_demo.py").read_text()
+    evalhub = (WINGS_ROOT / "manifests" / "evalhub-instance.yaml").read_text()
 
     assert "kind: Service" in manifest
-    assert "name: wings3-mlflow-ws-proxy" in manifest
+    assert "name: wings-mlflow-ws-proxy" in manifest
     assert "X-MLflow-Workspace" in manifest
     # evalhub-instance.yaml routes MLFLOW_TRACKING_URI through this Service, so
     # install must create it and uninstall --all must remove it.
-    assert "wings3-mlflow-ws-proxy" in evalhub
+    assert "wings-mlflow-ws-proxy" in evalhub
     assert "mlflow-workspace-proxy.yaml" in lib
     assert "mlflow workspace proxy" in check_py
 
 
 def test_submit_evalhub_eval_run_supports_garak_and_v1_endpoint():
-    script = WINGS3_ROOT / "scripts" / "submit_evalhub_eval_run.sh"
+    script = WINGS_ROOT / "scripts" / "submit_evalhub_eval_run.sh"
     text = script.read_text()
     assert "GARAK_BENCHMARKS=" in text
     assert "quick" in text
     assert 'provider_id": "garak"' in text
     assert "normalize_openai_endpoint" in text
     assert "*/v1" in text
-    assert "wings3-maas-upstream-api-key" in text
+    assert "wings-maas-upstream-api-key" in text
     assert "secret_ref" in text
     assert "MODEL_AUTH_SECRET" in text
     assert '"experiment"' in text
-    assert "wings3-evalhub-garak" in text
+    assert "wings-evalhub-garak" in text
     assert "--experiment" in text
     assert "lower_is_better" in text
     assert "attack_success_rate" in text
@@ -219,11 +219,11 @@ def test_submit_evalhub_eval_run_supports_garak_and_v1_endpoint():
 def test_garak_demo_json_uses_evalhub_api_format():
     import json
 
-    data = json.loads((WINGS3_ROOT / "demo" / "evalhub" / "jobs" / "garak-demo.json").read_text())
+    data = json.loads((WINGS_ROOT / "demo" / "evalhub" / "jobs" / "garak-demo.json").read_text())
     assert data["benchmarks"][0]["provider_id"] == "garak"
     assert data["benchmarks"][0]["id"] == "quick"
     assert data["model"]["url"].endswith("/v1")
-    assert data["experiment"]["name"] == "wings3-evalhub-garak"
+    assert data["experiment"]["name"] == "wings-evalhub-garak"
     assert data["benchmarks"][0]["primary_score"]["lower_is_better"] is True
     assert data["benchmarks"][0]["primary_score"]["metric"] == "attack_success_rate"
     assert data["pass_criteria"]["threshold"] == 0.3
@@ -236,7 +236,7 @@ def test_garak_demo_json_uses_evalhub_api_format():
 
 
 def test_evalhub_garak_walkthrough_documents_v1_endpoint():
-    text = (WINGS3_ROOT / "walkthrough" / "05-evalhub-garak.md").read_text()
+    text = (WINGS_ROOT / "walkthrough" / "05-evalhub-garak.md").read_text()
     assert "404 Not Found" in text
     assert "/v1" in text
     assert "submit_evalhub_eval_run.sh --benchmark quick" in text
@@ -244,7 +244,7 @@ def test_evalhub_garak_walkthrough_documents_v1_endpoint():
     assert "**Completed**" in text and "attack success rate" in text.lower()
     assert "run ID: None" in text
     assert "GenAI → Traces" in text
-    assert "wings3-evalhub-garak" in text
+    assert "wings-evalhub-garak" in text
     assert "lower_is_better" in text
     assert "target:unguarded" in text
     assert "model_url" in text
@@ -252,13 +252,13 @@ def test_evalhub_garak_walkthrough_documents_v1_endpoint():
 
 
 def test_configmap_manifest_has_endpoint_hostname():
-    text = (WINGS3_ROOT / "manifests" / "configmap-wings3-llm-endpoint.yaml").read_text()
+    text = (WINGS_ROOT / "manifests" / "configmap-wings-llm-endpoint.yaml").read_text()
     assert "llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local" in text
     assert "openai_base_url" in text
 
 
 def test_instantiate_servingruntime_sets_name_and_namespace():
-    sys.path.insert(0, str(WINGS3_ROOT / "scripts"))
+    sys.path.insert(0, str(WINGS_ROOT / "scripts"))
     from instantiate_servingruntime import servingruntime_from_template
 
     template = {
@@ -278,7 +278,7 @@ def test_instantiate_servingruntime_sets_name_and_namespace():
 
 
 def test_inferenceservice_manifest_has_catalog_storage():
-    text = (WINGS3_ROOT / "manifests" / "inferenceservice-llama-32-3b-instruct.yaml").read_text()
+    text = (WINGS_ROOT / "manifests" / "inferenceservice-llama-32-3b-instruct.yaml").read_text()
     assert "oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-3b-instruct" in text
     assert "nvidia.com/gpu" in text
     assert "runtime: llama-32-3b-instruct" in text
@@ -286,9 +286,9 @@ def test_inferenceservice_manifest_has_catalog_storage():
 
 
 def test_judge_secret_is_empty_key_and_workbench_mounts_it():
-    secret = (WINGS3_ROOT / "manifests" / "secret-wings3-judge-llm.example.yaml").read_text()
-    workbench = (WINGS3_ROOT / "manifests" / "workbench-wings3-demo.yaml").read_text()
-    assert "name: wings3-judge-llm" in secret
+    secret = (WINGS_ROOT / "manifests" / "secret-wings-judge-llm.example.yaml").read_text()
+    workbench = (WINGS_ROOT / "manifests" / "workbench-wings-demo.yaml").read_text()
+    assert "name: wings-judge-llm" in secret
     assert "JUDGE_BASE_URL:" in secret
     assert "/gpt-oss-120b/v1" in secret
     assert "maas.redhatworkshops.io" not in secret
@@ -300,19 +300,19 @@ def test_judge_secret_is_empty_key_and_workbench_mounts_it():
     assert "MAAS_API_KEY:" in secret
     assert 'JUDGE_API_KEY: ""' in secret
     assert "sk-" not in secret
-    assert "mountPath: /etc/wings3-judge-llm" in workbench
-    assert "secretName: wings3-judge-llm" in workbench
-    assert "mountPath: /etc/wings3-maas-upstream-api-key" in workbench
-    assert "secretName: wings3-maas-upstream-api-key" in workbench
+    assert "mountPath: /etc/wings-judge-llm" in workbench
+    assert "secretName: wings-judge-llm" in workbench
+    assert "mountPath: /etc/wings-maas-upstream-api-key" in workbench
+    assert "secretName: wings-maas-upstream-api-key" in workbench
     assert "secretKeyRef:" not in workbench
     assert "envFrom:" not in workbench
 
 
 def test_maas_external_model_manifests():
-    external = (WINGS3_ROOT / "manifests" / "maas-external-model-gpt-oss-120b.yaml").read_text()
-    modelref = (WINGS3_ROOT / "manifests" / "maas-modelref-gpt-oss-120b.yaml").read_text()
-    auth_sub = (WINGS3_ROOT / "manifests" / "maas-auth-subscription-redhat-maas.yaml").read_text()
-    lib = (WINGS3_ROOT / "scripts" / "wings3_lib.sh").read_text()
+    external = (WINGS_ROOT / "manifests" / "maas-external-model-gpt-oss-120b.yaml").read_text()
+    modelref = (WINGS_ROOT / "manifests" / "maas-modelref-gpt-oss-120b.yaml").read_text()
+    auth_sub = (WINGS_ROOT / "manifests" / "maas-auth-subscription-redhat-maas.yaml").read_text()
+    lib = (WINGS_ROOT / "scripts" / "wings_lib.sh").read_text()
     install = INSTALL.read_text()
     uninstall = UNINSTALL.read_text()
     check_py = CHECK_PY.read_text()
@@ -320,13 +320,13 @@ def test_maas_external_model_manifests():
     assert "maas-rhdp.apps.maas.redhatworkshops.io" in external
     assert "targetModel: gpt-oss-120b" in external
     assert "credentialRef:" in external
-    assert "wings3-maas-upstream-api-key" in external
+    assert "wings-maas-upstream-api-key" in external
     assert "opendatahub.io/genai-asset" in external
     assert "opendatahub.io/dashboard" in external
     assert "label_maas_external_model_assets" in lib
     assert "externalproviders.inference.opendatahub.io" in lib
     assert "gen-ai-aa-custom-model-endpoints" in lib
-    cm_aa = (WINGS3_ROOT / "manifests" / "gen-ai-aa-custom-model-endpoints.yaml").read_text()
+    cm_aa = (WINGS_ROOT / "manifests" / "gen-ai-aa-custom-model-endpoints.yaml").read_text()
     assert "endpoints.json" in cm_aa
     assert "gpt-oss-120b" in cm_aa
     assert "llama-scout-17b" in cm_aa
@@ -339,22 +339,22 @@ def test_maas_external_model_manifests():
     assert "llama-scout-17b" in auth_sub
     assert "qwen36-35b-a3b" in auth_sub
     for model in ("gpt-oss-120b", "gpt-oss-20b", "llama-scout-17b", "qwen36-35b-a3b"):
-        em = (WINGS3_ROOT / "manifests" / f"maas-external-model-{model}.yaml").read_text()
-        mr = (WINGS3_ROOT / "manifests" / f"maas-modelref-{model}.yaml").read_text()
+        em = (WINGS_ROOT / "manifests" / f"maas-external-model-{model}.yaml").read_text()
+        mr = (WINGS_ROOT / "manifests" / f"maas-modelref-{model}.yaml").read_text()
         assert f"name: {model}" in em
         assert f"targetModel: {model}" in em
         assert "credentialRef:" in em
-        assert "name: wings3-maas-upstream-api-key" in em
+        assert "name: wings-maas-upstream-api-key" in em
         assert f"name: {model}" in mr
     assert "MAAS_CATALOG_MODELS" in lib
     assert "maas-external-model-${model}.yaml" in lib or 'maas-external-model-${model}.yaml' in lib
     assert "inference.llm-d.ai/ipp-managed" in lib
     upstream_example = (
-        WINGS3_ROOT / "manifests" / "secret-wings3-maas-upstream-api-key.example.yaml"
+        WINGS_ROOT / "manifests" / "secret-wings-maas-upstream-api-key.example.yaml"
     ).read_text()
     assert "inference.llm-d.ai/ipp-managed" in upstream_example
     assert "inference.networking.k8s.io/bbr-managed" in upstream_example
-    assert "WINGS3_MAAS_CATALOG_MODELS" in check_py
+    assert "WINGS_MAAS_CATALOG_MODELS" in check_py
     assert "gpt-oss-20b" in check_py
     assert "llama-scout-17b" in check_py
     assert "qwen36-35b-a3b" in check_py
@@ -363,9 +363,9 @@ def test_maas_external_model_manifests():
     assert "purge_maas_resources" in uninstall
     assert "check_maas_external_model" in check_py
     assert "check_maas_modelref" in check_py
-    kuadrant = (WINGS3_ROOT / "manifests" / "kuadrant-dev.yaml").read_text()
-    gateway = (WINGS3_ROOT / "manifests" / "maas-default-gateway.yaml").read_text()
-    gw_cfg = (WINGS3_ROOT / "manifests" / "maas-default-gateway-config.yaml").read_text()
+    kuadrant = (WINGS_ROOT / "manifests" / "kuadrant-dev.yaml").read_text()
+    gateway = (WINGS_ROOT / "manifests" / "maas-default-gateway.yaml").read_text()
+    gw_cfg = (WINGS_ROOT / "manifests" / "maas-default-gateway-config.yaml").read_text()
     assert "kind: Kuadrant" in kuadrant
     assert "redhat-ai-gateway-infra" in gateway
     assert "maas-default-gateway-config" in gateway
@@ -375,7 +375,7 @@ def test_maas_external_model_manifests():
     assert "maas-default-gateway-route.yaml" in lib
     assert "ensure_maas_gateway_route" in lib
     assert "LoadBalancer address pending" in lib
-    gw_route = (WINGS3_ROOT / "manifests" / "maas-default-gateway-route.yaml").read_text()
+    gw_route = (WINGS_ROOT / "manifests" / "maas-default-gateway-route.yaml").read_text()
     assert "kind: Route" in gw_route
     assert "maas-default-gateway" in gw_route
     assert "reencrypt" in gw_route
@@ -394,13 +394,13 @@ def test_maas_external_model_manifests():
     assert '"agentConfigManagement":true' in lib
     assert '"aiAssetCustomEndpoints":true' in lib
     assert "purge_ogx_resources" in lib
-    ogx_server = (WINGS3_ROOT / "manifests" / "ogx-server-wings3.yaml").read_text()
-    ogx_pg = (WINGS3_ROOT / "manifests" / "ogx-postgres-dev.yaml").read_text()
-    sm3 = (WINGS3_ROOT / "manifests" / "servicemesh3-operator.yaml").read_text()
-    sm3_istio = (WINGS3_ROOT / "manifests" / "servicemesh3-istio.yaml").read_text()
+    ogx_server = (WINGS_ROOT / "manifests" / "ogx-server-wings.yaml").read_text()
+    ogx_pg = (WINGS_ROOT / "manifests" / "ogx-postgres-dev.yaml").read_text()
+    sm3 = (WINGS_ROOT / "manifests" / "servicemesh3-operator.yaml").read_text()
+    sm3_istio = (WINGS_ROOT / "manifests" / "servicemesh3-istio.yaml").read_text()
     assert "kind: OGXServer" in ogx_server
-    assert "wings3-ogx" in ogx_server
-    assert "wings3-ogx-postgres" in ogx_pg
+    assert "wings-ogx" in ogx_server
+    assert "wings-ogx-postgres" in ogx_pg
     assert "servicemeshoperator3" in sm3
     assert "kind: OperatorGroup" not in sm3
     assert "kind: Istio" in sm3_istio
@@ -408,7 +408,7 @@ def test_maas_external_model_manifests():
     assert "ensure_connectivity_link_operator" in lib
     assert "wait_for_connectivity_link" in lib
     assert "connectivity-link-operator.yaml" in lib
-    rhcl = (WINGS3_ROOT / "manifests" / "connectivity-link-operator.yaml").read_text()
+    rhcl = (WINGS_ROOT / "manifests" / "connectivity-link-operator.yaml").read_text()
     assert "name: rhcl-operator" in rhcl
     assert "source: redhat-operators" in rhcl
     assert "kind: OperatorGroup" not in rhcl
@@ -434,8 +434,8 @@ def test_maas_external_model_manifests():
 
 
 def test_presenter_docs_point_at_cluster_scripts():
-    setup = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
-    readme = (WINGS3_ROOT / "README.md").read_text()
+    setup = (WINGS_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
+    readme = (WINGS_ROOT / "README.md").read_text()
     assert "./install.sh" in setup
     assert "./uninstall.sh" in setup
     assert "./check.sh" in setup

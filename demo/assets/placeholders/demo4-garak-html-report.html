@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Garak report — wings3 before/after</title>
+  <title>Garak report — wings before/after</title>
   <style>
     body { font-family: "Red Hat Text", Helvetica, Arial, sans-serif; margin: 2rem; color: #151515; background: #f0f0f0; }
     h1 { font-size: 1.5rem; }
@@ -20,7 +20,7 @@
   <p class="meta">Captured from EvalHub Garak <code>quick</code> (dan.Dan_11_0). Lower attack success rate is better.</p>
 
   <div class="card">
-    <h2>Before — <code>wings3-demo-garak-unguarded</code></h2>
+    <h2>Before — <code>wings-demo-garak-unguarded</code></h2>
     <p>Endpoint: unguarded OpenAI stub · Model under test: llama-32-3b-instruct / qwen label</p>
     <table>
       <tr><th>Probe</th><th>Detector</th><th>Result</th><th>ASR</th></tr>
@@ -31,7 +31,7 @@
   </div>
 
   <div class="card">
-    <h2>After — <code>wings3-demo-garak-guarded</code></h2>
+    <h2>After — <code>wings-demo-garak-guarded</code></h2>
     <p>Endpoint: guarded OpenAI path (lab refuse stub / NeMo Route for live curl) · Model: qwen36-35b-a3b</p>
     <table>
       <tr><th>Probe</th><th>Detector</th><th>Result</th><th>ASR</th></tr>

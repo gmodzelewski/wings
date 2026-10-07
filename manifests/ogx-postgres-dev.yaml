@@ -3,29 +3,29 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: wings3-ogx-postgres
+  name: wings-ogx-postgres
   namespace: my-first-model
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
     ogx.io/watch: "true"
 type: Opaque
 stringData:
   POSTGRES_USER: ogx
-  POSTGRES_PASSWORD: wings3-ogx-dev  # notsecret
+  POSTGRES_PASSWORD: wings-ogx-dev  # notsecret
   POSTGRES_DB: ogx
-  connection-string: postgresql://ogx:wings3-ogx-dev@wings3-ogx-postgres.my-first-model.svc:5432/ogx  # notsecret
+  connection-string: postgresql://ogx:wings-ogx-dev@wings-ogx-postgres.my-first-model.svc:5432/ogx  # notsecret
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: wings3-ogx-postgres
+  name: wings-ogx-postgres
   namespace: my-first-model
   labels:
-    app.kubernetes.io/part-of: wings3-demo
-    app: wings3-ogx-postgres
+    app.kubernetes.io/part-of: wings-demo
+    app: wings-ogx-postgres
 spec:
   selector:
-    app: wings3-ogx-postgres
+    app: wings-ogx-postgres
   ports:
     - name: postgres
       port: 5432
@@ -34,21 +34,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: wings3-ogx-postgres
+  name: wings-ogx-postgres
   namespace: my-first-model
   labels:
-    app.kubernetes.io/part-of: wings3-demo
-    app: wings3-ogx-postgres
+    app.kubernetes.io/part-of: wings-demo
+    app: wings-ogx-postgres
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: wings3-ogx-postgres
+      app: wings-ogx-postgres
   template:
     metadata:
       labels:
-        app.kubernetes.io/part-of: wings3-demo
-        app: wings3-ogx-postgres
+        app.kubernetes.io/part-of: wings-demo
+        app: wings-ogx-postgres
     spec:
       containers:
         - name: postgres
@@ -60,7 +60,7 @@ spec:
               value: /tmp/pgdata
           envFrom:
             - secretRef:
-                name: wings3-ogx-postgres
+                name: wings-ogx-postgres
           readinessProbe:
             exec:
               command:

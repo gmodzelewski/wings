@@ -2,7 +2,7 @@
 
 **Time:** 14 minutes (6 min EvalHub + 8 min Garak) | **Role:** Platform engineer / MLOps  
 **Where:** RHOAI console (**Develop & train → Evaluations**) + optional notebook `04_evalhub_garak.ipynb`  
-**Target:** Same agent endpoint as Acts 2–4 (`MAAS_BASE_URL` from Secret `wings3-judge-llm`; ConfigMap `wings3-llm-endpoint` is synced at install)
+**Target:** Same agent endpoint as Acts 2–4 (`MAAS_BASE_URL` from Secret `wings-judge-llm`; ConfigMap `wings-llm-endpoint` is synced at install)
 
 ## Know
 
@@ -32,15 +32,15 @@ There is no “project settings → TrustyAI → Guardrails” admin page that f
 
 ## Prerequisites
 
-- `./scripts/install.sh` completed (InferenceService Ready, ConfigMap `wings3-llm-endpoint` applied)
+- `./scripts/install.sh` completed (InferenceService Ready, ConfigMap `wings-llm-endpoint` applied)
 - EvalHub operator `Managed` and **EvalHub CR** `evalhub` in `my-first-model` (`./check.sh` → `evalhub instance`)
 - Optional: submit jobs from the **Evaluations** UI or `scripts/submit_evalhub_eval_run.sh` before the session
-- Session 1 end state: `v2-judged` in experiment `wings3-agent-eval-prod`
+- Session 1 end state: `v2-judged` in experiment `wings-agent-eval-prod`
 
 Endpoint (read from ConfigMap — do not hardcode):
 
 ```bash
-oc get configmap wings3-llm-endpoint -n my-first-model \
+oc get configmap wings-llm-endpoint -n my-first-model \
   -o jsonpath='model={.data.model_name}{"\n"}url={.data.openai_base_url}{"\n"}'
 ```
 
@@ -80,7 +80,7 @@ oc create secret generic hf-token -n my-first-model \
 4. Submit from your laptop (results appear in the Evaluations UI):
 
 ```bash
-./scripts/submit_evalhub_eval_run.sh --benchmark arc_easy --name wings3-demo-arc-easy
+./scripts/submit_evalhub_eval_run.sh --benchmark arc_easy --name wings-demo-arc-easy
 ```
 
 The script sets `model.auth.secret_ref: hf-token`, `tokenizer: meta-llama/Llama-3.2-3B-Instruct`, model name `llama-32-3b-instruct`, and the in-cluster endpoint.
@@ -88,7 +88,7 @@ The script sets `model.auth.secret_ref: hf-token`, `tokenizer: meta-llama/Llama-
 **Demo fallback** (no Llama license on stage): use an ungated tokenizer — still scores against the vLLM endpoint:
 
 ```bash
-./scripts/submit_evalhub_eval_run.sh --benchmark arc_easy --tokenizer gpt2 --name wings3-demo-arc-easy
+./scripts/submit_evalhub_eval_run.sh --benchmark arc_easy --tokenizer gpt2 --name wings-demo-arc-easy
 ```
 
 #### Option B — Console form (no gated tokenizer)
@@ -124,7 +124,7 @@ Submit → **Running** → **Completed**. Open the run row for metrics and pass/
 #### Option A — API script (recommended; normalizes endpoint `/v1`)
 
 ```bash
-./scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings3-demo-garak-quick
+./scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings-demo-garak-quick
 ```
 
 The script auto-selects provider `garak` for benchmarks like `quick`, `intents`, and `owasp_llm_top10`. Results appear in **Develop & train → Evaluations**.
@@ -135,7 +135,7 @@ The script auto-selects provider `garak` for benchmarks like `quick`, `intents`,
 
 1. **Select evaluation type:** **Benchmark**
 2. **Benchmark:** a Garak probe — for live demo use **`quick`** (~2 min smoke test). For a richer story use **`intents`** or **`owasp_llm_top10`** (longer; pre-stage before the session)
-3. **Endpoint URL** — must end with **`/v1`** (copy verbatim from ConfigMap `wings3-llm-endpoint`)
+3. **Endpoint URL** — must end with **`/v1`** (copy verbatim from ConfigMap `wings-llm-endpoint`)
 4. **Model name** — copy from the same ConfigMap (`model_name`; often `gpt-oss-120b` on MaaS clusters)
 5. **API key** — paste a minted MaaS `sk-*` key (not `DUMMY`) when the endpoint is a MaaS gateway
 6. **Evaluate**
@@ -185,12 +185,12 @@ Open MLflow → `v2-judged` where the judge passed — *"correct but not necessa
 
 Optional short beat after Demo B when you want the full “measure → change → re-measure” story.
 
-1. **Before:** Open pre-staged **`wings3-demo-garak-unguarded`** in **Evaluations** (or Demo B’s failing `quick` run). List Score is often **-** (job-level Fail); open detail for ASR **100%** / **Fail** and the HTML report.
+1. **Before:** Open pre-staged **`wings-demo-garak-unguarded`** in **Evaluations** (or Demo B’s failing `quick` run). List Score is often **-** (job-level Fail); open detail for ASR **100%** / **Fail** and the HTML report.
 2. **Intervene (UI-friendly):** Cut to **Gen AI studio → Playground → Guardrails** — flip input/output rails. **Say honestly:** this is TP Playground config for the safety story, not an EvalHub form control.
-3. **Wire for re-eval (must be real):** Second Garak job must target a **guarded** OpenAI-compatible URL. Prefer NeMo Route `…/v1` when EvalHub pods can reach it (TLS + auth). On this lab cluster, `./scripts/prestage_garak_before_after.sh` uses in-cluster **`wings3-guarded-llm`** (refuse-mode stub mirroring guarded behavior) because EvalHub job pods hit service-CA / kube-rbac issues against `nemoguardrails` HTTPS. Live Playground / curl demos still use the NeMo Route.
-4. **After:** Open **`wings3-demo-garak-guarded`** — list Score **100%** (normalised: ASR 0), detail **Pass** / ASR **0.0**.
+3. **Wire for re-eval (must be real):** Second Garak job must target a **guarded** OpenAI-compatible URL. Prefer NeMo Route `…/v1` when EvalHub pods can reach it (TLS + auth). On this lab cluster, `./scripts/prestage_garak_before_after.sh` uses in-cluster **`wings-guarded-llm`** (refuse-mode stub mirroring guarded behavior) because EvalHub job pods hit service-CA / kube-rbac issues against `nemoguardrails` HTTPS. Live Playground / curl demos still use the NeMo Route.
+4. **After:** Open **`wings-demo-garak-guarded`** — list Score **100%** (normalised: ASR 0), detail **Pass** / ASR **0.0**.
 
-**Where to see which endpoint was tested:** Evaluations list/detail — job **tags** (`target:unguarded` / `target:guarded`) and **description**; detail **model.url**. MLflow → experiment `wings3-evalhub-garak` → run → **Parameters** `model_url` and `target_endpoint_kind` (logged by `submit_evalhub_eval_run.sh` after the job completes; default `--wait`). There is no product “guardrails used” badge.
+**Where to see which endpoint was tested:** Evaluations list/detail — job **tags** (`target:unguarded` / `target:guarded`) and **description**; detail **model.url**. MLflow → experiment `wings-evalhub-garak` → run → **Parameters** `model_url` and `target_endpoint_kind` (logged by `submit_evalhub_eval_run.sh` after the job completes; default `--wait`). There is no product “guardrails used” badge.
 
 Pre-stage both jobs (clock-safe):
 
@@ -198,7 +198,7 @@ Pre-stage both jobs (clock-safe):
 ./scripts/prestage_garak_before_after.sh
 ```
 
-Lab fallback when the workshop upstream key is 401: apply `manifests/demo-openai-stub.yaml` (unguarded stub + shared server.py) plus `wings3-guarded-llm` refuse Deployment, and the updated `manifests/nemo-guardrails.yaml` (NeMo → stub + regex rails for live Route demos). Replace the upstream key for real Qwen with `./scripts/rotate_maas_upstream_key.sh` when you have a fresh `sk-oai-…` token.
+Lab fallback when the workshop upstream key is 401: apply `manifests/demo-openai-stub.yaml` (unguarded stub + shared server.py) plus `wings-guarded-llm` refuse Deployment, and the updated `manifests/nemo-guardrails.yaml` (NeMo → stub + regex rails for live Route demos). Replace the upstream key for real Qwen with `./scripts/rotate_maas_upstream_key.sh` when you have a fresh `sk-oai-…` token.
 
 ## Notebook aid
 
@@ -208,8 +208,8 @@ Lab fallback when the workshop upstream key is 401: apply `manifests/demo-openai
 
 | Symptom | Fix |
 |---------|-----|
-| `LiteLLM Virtual Key expected. Received=DUMMY` / `401 auth_error` | MaaS gateway needs an `sk-*` API key. UI: replace default `DUMMY` in the **API key** field with a minted key (`oc get secret wings3-judge-llm -n my-first-model -o jsonpath='{.data.JUDGE_API_KEY}' \| base64 -d`). Or use `./scripts/submit_evalhub_eval_run.sh` (wires `model.auth.secret_ref` → `wings3-maas-upstream-api-key`). |
-| Garak **Scan timed out after 600 seconds** / TLS `x509: certificate signed by unknown authority` in job logs | EvalHub job pods cannot reach the **external** `openshift-ai-inference-*` Route reliably. Re-run `./install.sh --skip-llm` (or `source scripts/wings3_lib.sh && sync_llm_endpoint_configmap`) so `wings3-llm-endpoint` uses the **workshop-direct** URL that probes successfully from the cluster. Then re-submit via `./scripts/submit_evalhub_eval_run.sh --benchmark quick`. |
+| `LiteLLM Virtual Key expected. Received=DUMMY` / `401 auth_error` | MaaS gateway needs an `sk-*` API key. UI: replace default `DUMMY` in the **API key** field with a minted key (`oc get secret wings-judge-llm -n my-first-model -o jsonpath='{.data.JUDGE_API_KEY}' \| base64 -d`). Or use `./scripts/submit_evalhub_eval_run.sh` (wires `model.auth.secret_ref` → `wings-maas-upstream-api-key`). |
+| Garak **Scan timed out after 600 seconds** / TLS `x509: certificate signed by unknown authority` in job logs | EvalHub job pods cannot reach the **external** `openshift-ai-inference-*` Route reliably. Re-run `./install.sh --skip-llm` (or `source scripts/wings_lib.sh && sync_llm_endpoint_configmap`) so `wings-llm-endpoint` uses the **workshop-direct** URL that probes successfully from the cluster. Then re-submit via `./scripts/submit_evalhub_eval_run.sh --benchmark quick`. |
 | No **Evaluations** under **Develop & train** | RHOAI 3.5 default: `OdhDashboardConfig.spec.dashboardConfig.disableLMEval` is `true`. Set to `false`: `oc patch odhdashboardconfig odh-dashboard-config -n redhat-ods-applications --type=merge -p '{"spec":{"dashboardConfig":{"disableLMEval":false}}}'` then hard-refresh the dashboard; or re-run `./install.sh` |
 | No **EvalHub** in project view | Normal on 3.5 — use **Develop & train → Evaluations** |
 | List shows **No evaluation runs** | Normal until you submit a run from **Start evaluation run** |
@@ -218,8 +218,8 @@ Lab fallback when the workshop upstream key is 401: apply `manifests/demo-openai
 | `EvalHub CR not found` in eval-hub-ui logs | Same — deploy `evalhub/evalhub` in `my-first-model` |
 | LMEvalJob exists but UI empty | `LMEvalJob` is a separate TrustyAI CR; dashboard list is populated by evaluation runs started from **Evaluations** |
 | `Workspace context is required` on **Evaluate** | EvalHub `MLFLOW_TRACKING_URI` must include the `/mlflow` path (see `manifests/evalhub-instance.yaml`). Re-apply and restart: `oc apply -f manifests/evalhub-instance.yaml && oc rollout restart deploy/evalhub -n my-first-model` |
-| Empty **GenAI → Traces** for Garak / experiment `wings3-evalhub-garak` has no Traces | Expected. Garak does **not** use `mlflow.langchain.autolog()`. Look under **Runs** (metrics/HTML artifacts), or **Develop & train → Evaluations**. Traces are Act 2 only (`01_agent_tracing_autolog.ipynb`). |
-| MLflow experiment exists but **no Runs**; adapter logs `run ID: None` | Job was submitted **without** `experiment.name`. Re-submit via `./scripts/submit_evalhub_eval_run.sh` (defaults to `wings3-evalhub-garak` / `wings3-evalhub-lmeval`) or include `"experiment": {"name": "wings3-evalhub-garak"}` in the REST body. Console forms that omit experiment tracking will skip MLflow. |
+| Empty **GenAI → Traces** for Garak / experiment `wings-evalhub-garak` has no Traces | Expected. Garak does **not** use `mlflow.langchain.autolog()`. Look under **Runs** (metrics/HTML artifacts), or **Develop & train → Evaluations**. Traces are Act 2 only (`01_agent_tracing_autolog.ipynb`). |
+| MLflow experiment exists but **no Runs**; adapter logs `run ID: None` | Job was submitted **without** `experiment.name`. Re-submit via `./scripts/submit_evalhub_eval_run.sh` (defaults to `wings-evalhub-garak` / `wings-evalhub-lmeval`) or include `"experiment": {"name": "wings-evalhub-garak"}` in the REST body. Console forms that omit experiment tracking will skip MLflow. |
 | `not a valid model identifier listed on huggingface.co` | Keep **model name** `llama-32-3b-instruct`; set **Benchmark parameters** `tokenizer` to `meta-llama/Llama-3.2-3B-Instruct` (see Demo A step 9) |
 | Gated HuggingFace / `authentication required` / `not in the authorized list` | Check adapter log: `HF_TOKEN set from model auth secret` means the secret **is** wired. If download still fails, the HF account behind the token has **not accepted** the [Llama license](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct) — run `./scripts/verify_hf_gated_access.sh`. UI cannot set `secret_ref` on 3.5; use `./scripts/submit_evalhub_eval_run.sh`. |
 | Secret exists but job still fails HF auth | Creating the Secret is not enough; the job must include `model.auth.secret_ref: hf-token` (script or API). UI-only submits do not mount it. |

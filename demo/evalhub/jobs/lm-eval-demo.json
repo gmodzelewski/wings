@@ -1,6 +1,6 @@
 {
-  "name": "wings3-demo-lm-eval",
-  "displayName": "WINGS3 demo — lm-eval-harness",
+  "name": "wings-demo-lm-eval",
+  "displayName": "WINGS demo — lm-eval-harness",
   "namespace": "my-first-model",
   "provider": "lm-eval-harness",
   "target": {

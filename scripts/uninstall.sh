@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# WINGS3 demo uninstall.
+# WINGS demo uninstall.
 set -euo pipefail
 
-WINGS3_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-# shellcheck source=scripts/wings3_lib.sh
-source "${WINGS3_ROOT}/scripts/wings3_lib.sh"
+WINGS_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# shellcheck source=scripts/wings_lib.sh
+source "${WINGS_ROOT}/scripts/wings_lib.sh"
 
 PURGE_ALL=0
 

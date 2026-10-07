@@ -40,7 +40,7 @@ The notebook inlines the eval code. Do **not** open `evaluate_agent.py` on stage
 
 Use the **standalone** `/mlflow` UI (same as Act 2), not the embedded Experiments view.
 
-**Evaluation** tab → experiment `wings3-agent-eval` → `v1-baseline` vs `v2-improved-prompt`.
+**Evaluation** tab → experiment `wings-agent-eval` → `v1-baseline` vs `v2-improved-prompt`.
 
 Pick a **False** `contains_expected` row and read the output, then contrast a **True** row that includes the number.
 
@@ -51,9 +51,9 @@ Pick a **False** `contains_expected` row and read the output, then contrast a **
 ```bash
 cd …/demo/agent-tracing
 export MLFLOW_WORKSPACE=my-first-model
-export MLFLOW_EXPERIMENT_NAME=wings3-agent-eval
-export WINGS3_PROMPT_VERSION=v1 && python3 evaluate_agent.py
-export WINGS3_PROMPT_VERSION=v2 && python3 evaluate_agent.py
+export MLFLOW_EXPERIMENT_NAME=wings-agent-eval
+export WINGS_PROMPT_VERSION=v1 && python3 evaluate_agent.py
+export WINGS_PROMPT_VERSION=v2 && python3 evaluate_agent.py
 ```
 
 ## Troubleshooting
@@ -78,7 +78,7 @@ export WINGS3_PROMPT_VERSION=v2 && python3 evaluate_agent.py
 
 ## Fallback screenshots
 
-`18-eval-metrics.png` and `19-eval-per-example.png` are from this cluster (`wings3-agent-eval`, v1 25% → v2 50% `contains_expected`, recaptured 18 Aug 2026). Prefer the live UI.
+`18-eval-metrics.png` and `19-eval-per-example.png` are from this cluster (`wings-agent-eval`, v1 25% → v2 50% `contains_expected`, recaptured 18 Aug 2026). Prefer the live UI.
 
 ## Learning outcomes
 

@@ -12,7 +12,7 @@ Cluster URLs and names: [partials/_attributes.md](partials/_attributes.md).
 
 | Where | What |
 |-------|------|
-| OpenShift AI dashboard | Projects, workbench `wings3-demo` (YAML only — do not Create workbench) |
+| OpenShift AI dashboard | Projects, workbench `wings-demo` (YAML only — do not Create workbench) |
 | MLflow UI | Standalone `/mlflow` — Traces, **Details & Timeline**, Evaluation (`mlflow_ui` in attributes) |
 | JupyterLab workbench | Acts 2 and 3 — notebooks with **SHOW:** comments. File browser is the [wings](https://github.com/gmodzelewski/wings) git clone. Module 4 is a follow-on lab in the same workbench. |
 
@@ -41,9 +41,9 @@ Cluster URLs and names: [partials/_attributes.md](partials/_attributes.md).
 
 ## Presentation
 
-Delivered deck: `../AI Wings 3 - Deep Dive.pptx` (branded). Apply feedback copy and screenshot placeholders with `python3 scripts/revise_wings3_branded_deck.py`.
+Delivered deck: `../slides/AI Wings 3 - Deep Dive.pptx` (branded). Apply feedback copy and screenshot placeholders with `python3 slides/revise_branded_deck.py`.
 
-Plain rebuild (default Office layouts, speaker notes on every slide): `../MLflow-on-RHOAI-Deep-Dive.pptx` — teach → **PAUSE** to the cluster → RETURN wrap. Rebuild with `python3 scripts/build_wings3_deck.py`. Walkthrough modules stay the source of truth for live clicks.
+Plain rebuild (default Office layouts, speaker notes on every slide): `../slides/MLflow-on-RHOAI-Deep-Dive.pptx` — teach → **PAUSE** to the cluster → RETURN wrap. Rebuild with `python3 slides/build_deck.py`. Walkthrough modules stay the source of truth for live clicks.
 
 Fallback screenshots in `assets/screenshots/` are from this cluster (recaptured 18 Aug 2026). Prefer the live UI. Recapture if the gateway host in `_attributes.md` changes.
 

@@ -10,7 +10,7 @@ metadata:
   name: maas-default-gateway
   namespace: openshift-ingress
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
   annotations:
     router.openshift.io/service-ca-certificate: "true"
 spec:

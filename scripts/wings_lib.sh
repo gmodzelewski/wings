@@ -1,42 +1,42 @@
 #!/usr/bin/env bash
-# Shared helpers for WINGS3 install/uninstall/check scripts.
+# Shared helpers for WINGS install/uninstall/check scripts.
 set -euo pipefail
 
-WINGS3_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-WINGS3_ROOT=$(cd "${WINGS3_LIB_DIR}/.." && pwd)
-MANIFESTS="${WINGS3_ROOT}/manifests"
-PROJECT="${WINGS3_PROJECT:-my-first-model}"
-DSC="${WINGS3_DSC_NAME:-default-dsc}"
-MLFLOW_NS="${WINGS3_MLFLOW_NAMESPACE:-redhat-ods-applications}"
-LLM_MODEL="${WINGS3_LLM_MODEL:-llama-32-3b-instruct}"
-WORKBENCH="${WINGS3_WORKBENCH:-wings3-demo}"
+WINGS_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+WINGS_ROOT=$(cd "${WINGS_LIB_DIR}/.." && pwd)
+MANIFESTS="${WINGS_ROOT}/manifests"
+PROJECT="${WINGS_PROJECT:-my-first-model}"
+DSC="${WINGS_DSC_NAME:-default-dsc}"
+MLFLOW_NS="${WINGS_MLFLOW_NAMESPACE:-redhat-ods-applications}"
+LLM_MODEL="${WINGS_LLM_MODEL:-llama-32-3b-instruct}"
+WORKBENCH="${WINGS_WORKBENCH:-wings-demo}"
 # Stormshift (and some clusters) register notebooks.intel.com before kubeflow.org.
-NOTEBOOK_API="${WINGS3_NOTEBOOK_API:-notebook.kubeflow.org}"
+NOTEBOOK_API="${WINGS_NOTEBOOK_API:-notebook.kubeflow.org}"
 REPO_DEST="/opt/app-root/src/wings"
 DEMO_DEST="${REPO_DEST}/demo"
-GIT_URL="${WINGS3_GIT_URL:-https://github.com/gmodzelewski/wings.git}"
-SR_TEMPLATE="${WINGS3_SR_TEMPLATE:-vllm-cuda-runtime-template}"
+GIT_URL="${WINGS_GIT_URL:-https://github.com/gmodzelewski/wings.git}"
+SR_TEMPLATE="${WINGS_SR_TEMPLATE:-vllm-cuda-runtime-template}"
 IS_MANIFEST="${MANIFESTS}/inferenceservice-llama-32-3b-instruct.yaml"
-INSTANTIATE_SR="${WINGS3_ROOT}/scripts/instantiate_servingruntime.py"
+INSTANTIATE_SR="${WINGS_ROOT}/scripts/instantiate_servingruntime.py"
 
-EVALHUB_DSC_COMPONENT="${WINGS3_EVALHUB_DSC_COMPONENT:-}"
-GARAK_DSC_COMPONENT="${WINGS3_GARAK_DSC_COMPONENT:-}"
+EVALHUB_DSC_COMPONENT="${WINGS_EVALHUB_DSC_COMPONENT:-}"
+GARAK_DSC_COMPONENT="${WINGS_GARAK_DSC_COMPONENT:-}"
 
-MAAS_NS="${WINGS3_MAAS_NAMESPACE:-models-as-a-service}"
-MAAS_MODEL="${WINGS3_MAAS_MODEL:-gpt-oss-120b}"
-# Catalog models for Gen AI Studio (shared wings3-maas-upstream-api-key). Primary judge stays MAAS_MODEL.
-MAAS_CATALOG_MODELS="${WINGS3_MAAS_CATALOG_MODELS:-gpt-oss-120b gpt-oss-20b llama-scout-17b qwen36-35b-a3b}"
-MAAS_SUBSCRIPTION="${WINGS3_MAAS_SUBSCRIPTION:-redhat-maas}"
-MAAS_UPSTREAM_ENDPOINT="${WINGS3_MAAS_UPSTREAM_ENDPOINT:-maas-rhdp.apps.maas.redhatworkshops.io}"
-MAAS_PART_OF="${WINGS3_MAAS_PART_OF:-wings3-demo}"
-KUADRANT_NS="${WINGS3_KUADRANT_NAMESPACE:-kuadrant-system}"
-GATEWAY_NS="${WINGS3_GATEWAY_NAMESPACE:-openshift-ingress}"
-SM_NS="${WINGS3_SERVICEMESH_NAMESPACE:-istio-system}"
-SM_CNI_NS="${WINGS3_SERVICEMESH_CNI_NAMESPACE:-istio-cni}"
-OGX_SERVER_NAME="${WINGS3_OGX_SERVER_NAME:-wings3-ogx}"
+MAAS_NS="${WINGS_MAAS_NAMESPACE:-models-as-a-service}"
+MAAS_MODEL="${WINGS_MAAS_MODEL:-gpt-oss-120b}"
+# Catalog models for Gen AI Studio (shared wings-maas-upstream-api-key). Primary judge stays MAAS_MODEL.
+MAAS_CATALOG_MODELS="${WINGS_MAAS_CATALOG_MODELS:-gpt-oss-120b gpt-oss-20b llama-scout-17b qwen36-35b-a3b}"
+MAAS_SUBSCRIPTION="${WINGS_MAAS_SUBSCRIPTION:-redhat-maas}"
+MAAS_UPSTREAM_ENDPOINT="${WINGS_MAAS_UPSTREAM_ENDPOINT:-maas-rhdp.apps.maas.redhatworkshops.io}"
+MAAS_PART_OF="${WINGS_MAAS_PART_OF:-wings-demo}"
+KUADRANT_NS="${WINGS_KUADRANT_NAMESPACE:-kuadrant-system}"
+GATEWAY_NS="${WINGS_GATEWAY_NAMESPACE:-openshift-ingress}"
+SM_NS="${WINGS_SERVICEMESH_NAMESPACE:-istio-system}"
+SM_CNI_NS="${WINGS_SERVICEMESH_CNI_NAMESPACE:-istio-cni}"
+OGX_SERVER_NAME="${WINGS_OGX_SERVER_NAME:-wings-ogx}"
 
 log() {
-  if [[ "${WINGS3_VERBOSE:-0}" == 1 ]]; then
+  if [[ "${WINGS_VERBOSE:-0}" == 1 ]]; then
     echo "$*"
   fi
 }
@@ -442,9 +442,9 @@ deploy_ogx_server() {
   info "deploying OGXServer ${OGX_SERVER_NAME}"
   ensure_ogx_operator_registry_auth || true
   run oc apply -f "${MANIFESTS}/ogx-postgres-dev.yaml"
-  wait_for_pod_grep "$PROJECT" "wings3-ogx-postgres" 300 0 || true
-  run oc apply -f "${MANIFESTS}/ogx-base-config-wings3.yaml"
-  run oc apply -f "${MANIFESTS}/ogx-server-wings3.yaml"
+  wait_for_pod_grep "$PROJECT" "wings-ogx-postgres" 300 0 || true
+  run oc apply -f "${MANIFESTS}/ogx-base-config-wings.yaml"
+  run oc apply -f "${MANIFESTS}/ogx-server-wings.yaml"
   wait_for_ogx_server 900 || true
 }
 
@@ -556,18 +556,18 @@ ensure_genai_dashboard_prereqs() {
 }
 
 enable_genai_studio() {
-  if [[ "${WINGS3_SKIP_OGX:-0}" == 1 && "${WINGS3_SKIP_MCP:-0}" == 1 ]]; then
-    log "skip Gen AI Studio stack (WINGS3_SKIP_OGX=1 and WINGS3_SKIP_MCP=1)"
+  if [[ "${WINGS_SKIP_OGX:-0}" == 1 && "${WINGS_SKIP_MCP:-0}" == 1 ]]; then
+    log "skip Gen AI Studio stack (WINGS_SKIP_OGX=1 and WINGS_SKIP_MCP=1)"
     return 0
   fi
-  if [[ "${WINGS3_SKIP_OGX:-0}" != 1 ]]; then
-    if [[ "${WINGS3_SKIP_SERVICEMESH:-0}" != 1 ]]; then
+  if [[ "${WINGS_SKIP_OGX:-0}" != 1 ]]; then
+    if [[ "${WINGS_SKIP_SERVICEMESH:-0}" != 1 ]]; then
       ensure_servicemesh || echo "warning: Service Mesh install incomplete" >&2
     fi
     enable_ogx_dsc || echo "warning: OGX DSC enablement incomplete" >&2
     deploy_ogx_server || echo "warning: OGXServer deploy incomplete" >&2
   fi
-  if [[ "${WINGS3_SKIP_MCP:-0}" != 1 ]]; then
+  if [[ "${WINGS_SKIP_MCP:-0}" != 1 ]]; then
     enable_mcplifecycle || echo "warning: MCP lifecycle enablement incomplete" >&2
   fi
   ensure_genai_dashboard_prereqs || true
@@ -646,7 +646,7 @@ wait_for_maas_namespace() {
 }
 
 maas_db_config_url() {
-  printf 'postgresql://maas:wings3-maas-dev@wings3-maas-postgres.%s.svc:5432/maas?sslmode=disable' "$MLFLOW_NS"  # notsecret
+  printf 'postgresql://maas:wings-maas-dev@wings-maas-postgres.%s.svc:5432/maas?sslmode=disable' "$MLFLOW_NS"  # notsecret
 }
 
 ensure_maas_db_secrets() {
@@ -664,10 +664,10 @@ ensure_maas_db_secrets() {
 }
 
 ensure_maas_postgres() {
-  if ! oc get deployment wings3-maas-postgres -n "$MLFLOW_NS" >/dev/null 2>&1; then
+  if ! oc get deployment wings-maas-postgres -n "$MLFLOW_NS" >/dev/null 2>&1; then
     run oc apply -f "${MANIFESTS}/maas-postgres-dev.yaml"
   fi
-  wait_for_pod_grep "$MLFLOW_NS" "wings3-maas-postgres" 300 0 || true
+  wait_for_pod_grep "$MLFLOW_NS" "wings-maas-postgres" 300 0 || true
   ensure_maas_db_secrets
 }
 
@@ -977,7 +977,7 @@ ensure_connectivity_link_operator() {
 }
 
 ensure_kuadrant() {
-  if [[ "${WINGS3_SKIP_KUADRANT:-0}" == 1 ]]; then
+  if [[ "${WINGS_SKIP_KUADRANT:-0}" == 1 ]]; then
     return 0
   fi
   ensure_connectivity_link_operator
@@ -1082,43 +1082,43 @@ read_secret_key() {
 }
 
 bootstrap_maas_upstream_secret() {
-  local upstream_key="${WINGS3_MAAS_UPSTREAM_API_KEY:-}"
-  local secret_file="${MANIFESTS}/secret-wings3-maas-upstream-api-key.yaml"
-  local example="${MANIFESTS}/secret-wings3-maas-upstream-api-key.example.yaml"
+  local upstream_key="${WINGS_MAAS_UPSTREAM_API_KEY:-}"
+  local secret_file="${MANIFESTS}/secret-wings-maas-upstream-api-key.yaml"
+  local example="${MANIFESTS}/secret-wings-maas-upstream-api-key.example.yaml"
   if [[ -z "$upstream_key" ]]; then
-    upstream_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
+    upstream_key=$(read_secret_key wings-maas-upstream-api-key "$PROJECT" api-key)
   fi
   if [[ -z "$upstream_key" ]]; then
-    upstream_key=$(read_secret_key wings3-judge-llm "$PROJECT" JUDGE_API_KEY)
+    upstream_key=$(read_secret_key wings-judge-llm "$PROJECT" JUDGE_API_KEY)
     if [[ -n "$upstream_key" ]] && [[ "$upstream_key" == sk-oai-* ]]; then
       upstream_key=""
     fi
   fi
   if [[ -z "$upstream_key" ]]; then
-    echo "warning: WINGS3_MAAS_UPSTREAM_API_KEY unset and no upstream api-key found" >&2
-    echo "warning: copy ${example} to ${secret_file} or export WINGS3_MAAS_UPSTREAM_API_KEY" >&2
+    echo "warning: WINGS_MAAS_UPSTREAM_API_KEY unset and no upstream api-key found" >&2
+    echo "warning: copy ${example} to ${secret_file} or export WINGS_MAAS_UPSTREAM_API_KEY" >&2
     return 1
   fi
   if [[ -f "$secret_file" ]]; then
     run oc apply -f "$secret_file"
-  elif ! oc get secret wings3-maas-upstream-api-key -n "$PROJECT" >/dev/null 2>&1; then
-    run oc create secret generic wings3-maas-upstream-api-key \
+  elif ! oc get secret wings-maas-upstream-api-key -n "$PROJECT" >/dev/null 2>&1; then
+    run oc create secret generic wings-maas-upstream-api-key \
       -n "$PROJECT" \
       --from-literal=api-key="$upstream_key"
   else
-    oc set data secret/wings3-maas-upstream-api-key -n "$PROJECT" "api-key=${upstream_key}" >/dev/null
+    oc set data secret/wings-maas-upstream-api-key -n "$PROJECT" "api-key=${upstream_key}" >/dev/null
   fi
-  if ! oc get secret wings3-maas-upstream-api-key -n "$PROJECT" >/dev/null 2>&1; then
+  if ! oc get secret wings-maas-upstream-api-key -n "$PROJECT" >/dev/null 2>&1; then
     return 1
   fi
-  oc label secret wings3-maas-upstream-api-key -n "$PROJECT" \
+  oc label secret wings-maas-upstream-api-key -n "$PROJECT" \
     "app.kubernetes.io/part-of=${MAAS_PART_OF}" \
     inference.llm-d.ai/ipp-managed=true \
     inference.networking.k8s.io/bbr-managed=true \
     --overwrite >/dev/null 2>&1 || true
-  if [[ -n "${WINGS3_MAAS_UPSTREAM_API_KEY:-}" ]]; then
-    oc set data secret/wings3-maas-upstream-api-key -n "$PROJECT" \
-      "api-key=${WINGS3_MAAS_UPSTREAM_API_KEY}" >/dev/null
+  if [[ -n "${WINGS_MAAS_UPSTREAM_API_KEY:-}" ]]; then
+    oc set data secret/wings-maas-upstream-api-key -n "$PROJECT" \
+      "api-key=${WINGS_MAAS_UPSTREAM_API_KEY}" >/dev/null
   fi
 }
 
@@ -1294,7 +1294,7 @@ mint_maas_api_key_via_portforward() {
     -H "Content-Type: application/json" \
     -H "X-MaaS-Username: ${user}" \
     -H 'X-MaaS-Group: ["system:authenticated"]' \
-    -d "{\"name\":\"wings3-judge\",\"subscription\":\"${MAAS_SUBSCRIPTION}\",\"expiresIn\":\"90d\"}" \
+    -d "{\"name\":\"wings-judge\",\"subscription\":\"${MAAS_SUBSCRIPTION}\",\"expiresIn\":\"90d\"}" \
     2>/dev/null || true)
   kill "$pf_pid" >/dev/null 2>&1 || true
   wait "$pf_pid" 2>/dev/null || true
@@ -1322,7 +1322,7 @@ mint_maas_api_key() {
     body=$(curl -fsSk --max-time 20 -X POST "https://${gateway_host}/maas-api/v1/api-keys" \
       -H "Authorization: Bearer ${token}" \
       -H "Content-Type: application/json" \
-      -d "{\"name\":\"wings3-judge\",\"subscription\":\"${MAAS_SUBSCRIPTION}\",\"expiresIn\":\"90d\"}" \
+      -d "{\"name\":\"wings-judge\",\"subscription\":\"${MAAS_SUBSCRIPTION}\",\"expiresIn\":\"90d\"}" \
       2>/dev/null || true)
     key=$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("key",""))' 2>/dev/null || true)
     if [[ -n "$key" && "$key" == sk-oai-* ]]; then
@@ -1369,15 +1369,15 @@ patch_judge_secret_for_maas() {
     echo "error: patch_judge_secret_for_maas requires base_url" >&2
     return 1
   fi
-  if [[ -n "${WINGS3_JUDGE_API_KEY:-}" ]]; then
-    api_key="${WINGS3_JUDGE_API_KEY}"
-    maas_api_key="${WINGS3_JUDGE_API_KEY}"
+  if [[ -n "${WINGS_JUDGE_API_KEY:-}" ]]; then
+    api_key="${WINGS_JUDGE_API_KEY}"
+    maas_api_key="${WINGS_JUDGE_API_KEY}"
   fi
   # Minted gateway keys (sk-oai-*) only work on the local MaaS gateway — never fall
   # back to workshop upstream for those. Workshop fallback is for upstream tokens only.
   if [[ "$api_key" != sk-oai-* ]] && ! maas_inference_probe "$base_url" "$api_key"; then
     local upstream_key=""
-    upstream_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
+    upstream_key=$(read_secret_key wings-maas-upstream-api-key "$PROJECT" api-key)
     if [[ -n "$upstream_key" ]]; then
       echo "warning: in-cluster MaaS gateway inference failed; using workshop direct for MAAS_* and JUDGE_*" >&2
       maas_base_url=$(workshop_direct_base_url)
@@ -1389,7 +1389,7 @@ patch_judge_secret_for_maas() {
   if [[ "$api_key" == sk-oai-* ]] && ! maas_inference_probe "$base_url" "$api_key"; then
     echo "warning: minted sk-oai key saved but gateway probe failed (check Route maas-default-gateway)" >&2
   fi
-  oc create secret generic wings3-judge-llm \
+  oc create secret generic wings-judge-llm \
     -n "$PROJECT" \
     --from-literal=MAAS_MODEL="$MAAS_MODEL" \
     --from-literal=MAAS_BASE_URL="$maas_base_url" \
@@ -1398,13 +1398,13 @@ patch_judge_secret_for_maas() {
     --from-literal=JUDGE_MODEL="$MAAS_MODEL" \
     --from-literal=JUDGE_API_KEY="$api_key" \
     --dry-run=client -o yaml | oc apply -f -
-  oc label secret wings3-judge-llm -n "$PROJECT" app.kubernetes.io/part-of="$MAAS_PART_OF" \
+  oc label secret wings-judge-llm -n "$PROJECT" app.kubernetes.io/part-of="$MAAS_PART_OF" \
     --overwrite >/dev/null 2>&1 || true
 }
 
 enable_maas() {
-  if [[ "${WINGS3_SKIP_MAAS:-0}" == 1 ]]; then
-    log "skip MaaS (WINGS3_SKIP_MAAS=1)"
+  if [[ "${WINGS_SKIP_MAAS:-0}" == 1 ]]; then
+    log "skip MaaS (WINGS_SKIP_MAAS=1)"
     return 0
   fi
   info "enabling MaaS external model ${MAAS_MODEL} for judges"
@@ -1433,7 +1433,7 @@ enable_maas() {
   fi
   maas_key=$(mint_maas_api_key "$host" || true)
   if [[ -z "$maas_key" ]]; then
-    maas_key=$(read_secret_key wings3-judge-llm "$PROJECT" JUDGE_API_KEY)
+    maas_key=$(read_secret_key wings-judge-llm "$PROJECT" JUDGE_API_KEY)
     if [[ "$maas_key" != sk-oai-* ]]; then
       maas_key=""
     fi
@@ -1489,38 +1489,38 @@ strip_hardware_profile_if_missing() {
 }
 
 apply_judge_secret() {
-  local secret="${MANIFESTS}/secret-wings3-judge-llm.yaml"
-  local example="${MANIFESTS}/secret-wings3-judge-llm.example.yaml"
+  local secret="${MANIFESTS}/secret-wings-judge-llm.yaml"
+  local example="${MANIFESTS}/secret-wings-judge-llm.example.yaml"
   if [[ ! -f "$secret" ]]; then
     secret="$example"
   fi
-  if ! oc get secret wings3-judge-llm -n "$PROJECT" >/dev/null 2>&1; then
+  if ! oc get secret wings-judge-llm -n "$PROJECT" >/dev/null 2>&1; then
     oc apply -f "$secret"
   else
-    echo "warning: secret/wings3-judge-llm already exists — not re-applying ${secret}" >&2
+    echo "warning: secret/wings-judge-llm already exists — not re-applying ${secret}" >&2
     echo "warning: partial yaml would drop MAAS_* keys; use install.sh MaaS patch or oc set env" >&2
   fi
-  if [[ -n "${WINGS3_JUDGE_API_KEY:-}" ]]; then
-    oc set env "secret/wings3-judge-llm" -n "$PROJECT" "JUDGE_API_KEY=${WINGS3_JUDGE_API_KEY}"
+  if [[ -n "${WINGS_JUDGE_API_KEY:-}" ]]; then
+    oc set env "secret/wings-judge-llm" -n "$PROJECT" "JUDGE_API_KEY=${WINGS_JUDGE_API_KEY}"
   fi
   local key_b64=""
-  key_b64=$(oc get secret wings3-judge-llm -n "$PROJECT" -o jsonpath='{.data.JUDGE_API_KEY}' 2>/dev/null || true)
+  key_b64=$(oc get secret wings-judge-llm -n "$PROJECT" -o jsonpath='{.data.JUDGE_API_KEY}' 2>/dev/null || true)
   if [[ -z "$key_b64" ]]; then
-    echo "warning: JUDGE_API_KEY is empty on secret/wings3-judge-llm — Module 4 judges will fail." >&2
-    echo "warning: oc set env secret/wings3-judge-llm -n ${PROJECT} JUDGE_API_KEY='<token>'" >&2
-    echo "warning: or export WINGS3_JUDGE_API_KEY and re-run install.sh" >&2
+    echo "warning: JUDGE_API_KEY is empty on secret/wings-judge-llm — Module 4 judges will fail." >&2
+    echo "warning: oc set env secret/wings-judge-llm -n ${PROJECT} JUDGE_API_KEY='<token>'" >&2
+    echo "warning: or export WINGS_JUDGE_API_KEY and re-run install.sh" >&2
   fi
 }
 
 ensure_workbench_judge_mount() {
-  run oc apply -f "${MANIFESTS}/workbench-wings3-demo.yaml"
+  run oc apply -f "${MANIFESTS}/workbench-wings-demo.yaml"
 }
 
 resolve_evalhub_openai_base_url() {
   local judge_key="" upstream_key="" gateway_url="" maas_url="" workshop_url=""
-  judge_key=$(read_secret_key wings3-judge-llm "$PROJECT" JUDGE_API_KEY)
-  upstream_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
-  maas_url=$(read_secret_key wings3-judge-llm "$PROJECT" MAAS_BASE_URL)
+  judge_key=$(read_secret_key wings-judge-llm "$PROJECT" JUDGE_API_KEY)
+  upstream_key=$(read_secret_key wings-maas-upstream-api-key "$PROJECT" api-key)
+  maas_url=$(read_secret_key wings-judge-llm "$PROJECT" MAAS_BASE_URL)
   gateway_url=$(discover_maas_judge_base_url)
   workshop_url=$(workshop_direct_base_url)
   # Local gateway accepts minted sk-oai keys; workshop upstream token does not.
@@ -1550,68 +1550,68 @@ resolve_evalhub_openai_base_url() {
 
 sync_llm_endpoint_configmap() {
   local model="" url=""
-  run oc apply -f "${MANIFESTS}/configmap-wings3-llm-endpoint.yaml"
-  model=$(read_secret_key wings3-judge-llm "$PROJECT" MAAS_MODEL)
+  run oc apply -f "${MANIFESTS}/configmap-wings-llm-endpoint.yaml"
+  model=$(read_secret_key wings-judge-llm "$PROJECT" MAAS_MODEL)
   url=$(resolve_evalhub_openai_base_url)
   if [[ -z "$model" || -z "$url" ]]; then
-    log "skip wings3-llm-endpoint sync (MAAS_MODEL or EvalHub endpoint URL missing)"
+    log "skip wings-llm-endpoint sync (MAAS_MODEL or EvalHub endpoint URL missing)"
     return 0
   fi
-  oc patch configmap wings3-llm-endpoint -n "$PROJECT" --type merge -p \
+  oc patch configmap wings-llm-endpoint -n "$PROJECT" --type merge -p \
     "{\"data\":{\"model_name\":\"${model}\",\"openai_base_url\":\"${url}\",\"notes\":\"EvalHub endpoint auto-selected; workshop fallback when in-cluster gateway probe fails\"}}" \
     >/dev/null
-  info "wings3-llm-endpoint: model=${model} url=${url}"
+  info "wings-llm-endpoint: model=${model} url=${url}"
 }
 
 ensure_maas_gateway_api_key_secret() {
   # Minted sk-oai keys for the local gateway — separate from workshop upstream IPP secret.
   local judge_key=""
-  judge_key=$(read_secret_key wings3-judge-llm "$PROJECT" JUDGE_API_KEY)
+  judge_key=$(read_secret_key wings-judge-llm "$PROJECT" JUDGE_API_KEY)
   if [[ "$judge_key" != sk-oai-* ]]; then
-    judge_key=$(read_secret_key wings3-judge-llm "$PROJECT" MAAS_API_KEY)
+    judge_key=$(read_secret_key wings-judge-llm "$PROJECT" MAAS_API_KEY)
   fi
   if [[ "$judge_key" != sk-oai-* ]]; then
-    log "skip wings3-maas-gateway-api-key (no minted sk-oai JUDGE/MAAS key)"
+    log "skip wings-maas-gateway-api-key (no minted sk-oai JUDGE/MAAS key)"
     return 1
   fi
-  oc create secret generic wings3-maas-gateway-api-key \
+  oc create secret generic wings-maas-gateway-api-key \
     -n "$PROJECT" \
     --from-literal=api-key="$judge_key" \
     --dry-run=client -o yaml | oc apply -f - >/dev/null
-  oc label secret wings3-maas-gateway-api-key -n "$PROJECT" \
+  oc label secret wings-maas-gateway-api-key -n "$PROJECT" \
     "app.kubernetes.io/part-of=${MAAS_PART_OF}" --overwrite >/dev/null 2>&1 || true
-  info "MaaS gateway auth: wings3-maas-gateway-api-key (minted sk-oai)"
+  info "MaaS gateway auth: wings-maas-gateway-api-key (minted sk-oai)"
 }
 
 ensure_evalhub_model_auth_secret() {
   local api_key=""
   # Never overwrite workshop upstream with minted sk-oai — ExternalModels need upstream.
-  api_key=$(read_secret_key wings3-maas-upstream-api-key "$PROJECT" api-key)
+  api_key=$(read_secret_key wings-maas-upstream-api-key "$PROJECT" api-key)
   if [[ -z "$api_key" ]]; then
-    log "skip EvalHub upstream auth secret (wings3-maas-upstream-api-key empty)"
+    log "skip EvalHub upstream auth secret (wings-maas-upstream-api-key empty)"
     ensure_maas_gateway_api_key_secret || true
     return 1
   fi
-  oc label secret wings3-maas-upstream-api-key -n "$PROJECT" \
+  oc label secret wings-maas-upstream-api-key -n "$PROJECT" \
     "app.kubernetes.io/part-of=${MAAS_PART_OF}" \
     inference.llm-d.ai/ipp-managed=true \
     inference.networking.k8s.io/bbr-managed=true \
     --overwrite >/dev/null 2>&1 || true
   ensure_maas_gateway_api_key_secret || true
-  info "EvalHub model auth: wings3-maas-upstream-api-key (upstream) + gateway secret if minted"
+  info "EvalHub model auth: wings-maas-upstream-api-key (upstream) + gateway secret if minted"
 }
 
 apply_evalhub_manifests() {
   sync_llm_endpoint_configmap
   ensure_evalhub_model_auth_secret || true
-  if [[ -f "${MANIFESTS}/evalhub-rbac-wings3.yaml" ]]; then
-    run oc apply -f "${MANIFESTS}/evalhub-rbac-wings3.yaml"
+  if [[ -f "${MANIFESTS}/evalhub-rbac-wings.yaml" ]]; then
+    run oc apply -f "${MANIFESTS}/evalhub-rbac-wings.yaml"
   fi
   # EvalHub MLFLOW_TRACKING_URI points at this workspace-header proxy — it must
   # exist before eval jobs try to log to MLflow.
   if [[ -f "${MANIFESTS}/mlflow-workspace-proxy.yaml" ]]; then
     run oc apply -f "${MANIFESTS}/mlflow-workspace-proxy.yaml"
-    wait_for_pod_grep "$PROJECT" "wings3-mlflow-ws-proxy" 180 0 || true
+    wait_for_pod_grep "$PROJECT" "wings-mlflow-ws-proxy" 180 0 || true
   fi
   if [[ -f "${MANIFESTS}/evalhub-instance.yaml" ]]; then
     run oc apply -f "${MANIFESTS}/evalhub-instance.yaml"
@@ -1664,8 +1664,8 @@ resolve_storage_uri() {
     printf '%s' "$existing"
     return 0
   fi
-  if [[ -n "${WINGS3_LLM_STORAGE_URI:-}" && "${WINGS3_LLM_STORAGE_URI}" != "REPLACE_ME" ]]; then
-    printf '%s' "${WINGS3_LLM_STORAGE_URI}"
+  if [[ -n "${WINGS_LLM_STORAGE_URI:-}" && "${WINGS_LLM_STORAGE_URI}" != "REPLACE_ME" ]]; then
+    printf '%s' "${WINGS_LLM_STORAGE_URI}"
     return 0
   fi
   existing=$(awk '/storageUri:/ {print $2; exit}' "$IS_MANIFEST")
@@ -1714,7 +1714,7 @@ instantiate_serving_runtime() {
     die "missing template ${SR_TEMPLATE} in ${MLFLOW_NS}"
   fi
   oc get template "$SR_TEMPLATE" -n "$MLFLOW_NS" -o json \
-    | WINGS3_LLM_MODEL="$LLM_MODEL" WINGS3_PROJECT="$PROJECT" python3 "$INSTANTIATE_SR" \
+    | WINGS_LLM_MODEL="$LLM_MODEL" WINGS_PROJECT="$PROJECT" python3 "$INSTANTIATE_SR" \
     | oc apply -f -
 }
 
@@ -1768,7 +1768,7 @@ install_llm() {
   local uri=""
   uri=$(resolve_storage_uri)
   if [[ -z "$uri" ]]; then
-    die "no storageUri: set WINGS3_LLM_STORAGE_URI"
+    die "no storageUri: set WINGS_LLM_STORAGE_URI"
   fi
   apply_inferenceservice "$uri"
   patch_recreate
@@ -1823,32 +1823,32 @@ delete_workbench_resources() {
 
 delete_evalhub_manifests() {
   run oc delete evalhub evalhub -n "$PROJECT" --ignore-not-found=true
-  run oc delete configmap wings3-llm-endpoint -n "$PROJECT" --ignore-not-found=true
+  run oc delete configmap wings-llm-endpoint -n "$PROJECT" --ignore-not-found=true
   if [[ -f "${MANIFESTS}/mlflow-workspace-proxy.yaml" ]]; then
     run oc delete -f "${MANIFESTS}/mlflow-workspace-proxy.yaml" --ignore-not-found=true
   fi
-  if [[ -f "${MANIFESTS}/evalhub-rbac-wings3.yaml" ]]; then
-    run oc delete -f "${MANIFESTS}/evalhub-rbac-wings3.yaml" --ignore-not-found=true
+  if [[ -f "${MANIFESTS}/evalhub-rbac-wings.yaml" ]]; then
+    run oc delete -f "${MANIFESTS}/evalhub-rbac-wings.yaml" --ignore-not-found=true
   fi
 }
 
 delete_judge_secret() {
-  run oc delete secret wings3-judge-llm -n "$PROJECT" --ignore-not-found=true
+  run oc delete secret wings-judge-llm -n "$PROJECT" --ignore-not-found=true
 }
 
 purge_mlflow_cr() {
-  local cr="${WINGS3_MLFLOW_CR:-mlflow}"
+  local cr="${WINGS_MLFLOW_CR:-mlflow}"
   oc delete mlflow "$cr" --ignore-not-found=true 2>/dev/null \
     || run oc delete mlflow "$cr" -n "$MLFLOW_NS" --ignore-not-found=true
 }
 
 purge_evalhub_demo_jobs() {
   if crd_registered 'evaluations\.redhat\.com'; then
-    run oc delete evaluation wings3-demo-lm-eval -n "$PROJECT" --ignore-not-found=true
-    run oc delete evaluation wings3-demo-garak -n "$PROJECT" --ignore-not-found=true
+    run oc delete evaluation wings-demo-lm-eval -n "$PROJECT" --ignore-not-found=true
+    run oc delete evaluation wings-demo-garak -n "$PROJECT" --ignore-not-found=true
   fi
   if crd_registered 'lmevaljobs\.trustyai\.opendatahub\.io'; then
-    run oc delete lmevaljob wings3-demo-lm-eval -n "$PROJECT" --ignore-not-found=true
+    run oc delete lmevaljob wings-demo-lm-eval -n "$PROJECT" --ignore-not-found=true
   fi
 }
 
@@ -1865,7 +1865,7 @@ purge_maas_resources() {
   done
   run oc delete maassubscription "$MAAS_SUBSCRIPTION" -n "$MAAS_NS" --ignore-not-found=true
   run oc delete maasauthpolicy "$MAAS_SUBSCRIPTION" -n "$MAAS_NS" --ignore-not-found=true
-  run oc delete secret wings3-maas-upstream-api-key -n "$PROJECT" --ignore-not-found=true
+  run oc delete secret wings-maas-upstream-api-key -n "$PROJECT" --ignore-not-found=true
   run oc delete -f "${MANIFESTS}/maas-postgres-dev.yaml" --ignore-not-found=true
   if oc get secret maas-db-config -n "$MLFLOW_NS" \
     -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}' 2>/dev/null \
@@ -1878,6 +1878,6 @@ purge_ogx_resources() {
   if crd_registered 'ogxservers\.ogx\.io'; then
     run oc delete ogxserver "$OGX_SERVER_NAME" -n "$PROJECT" --ignore-not-found=true
   fi
-  run oc delete -f "${MANIFESTS}/ogx-server-wings3.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/ogx-server-wings.yaml" --ignore-not-found=true
   run oc delete -f "${MANIFESTS}/ogx-postgres-dev.yaml" --ignore-not-found=true
 }

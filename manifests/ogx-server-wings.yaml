@@ -2,13 +2,13 @@
 apiVersion: ogx.io/v1beta1
 kind: OGXServer
 metadata:
-  name: wings3-ogx
+  name: wings-ogx
   namespace: my-first-model
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 spec:
   overrideConfig:
-    name: wings3-ogx-base-config
+    name: wings-ogx-base-config
     key: config.yaml
   distribution:
     name: rh
@@ -25,21 +25,21 @@ spec:
         - name: VLLM_TLS_VERIFY
           value: "false"
         - name: POSTGRES_HOST
-          value: wings3-ogx-postgres.my-first-model.svc
+          value: wings-ogx-postgres.my-first-model.svc
         - name: POSTGRES_PORT
           value: "5432"
         - name: POSTGRES_DB
           valueFrom:
             secretKeyRef:
-              name: wings3-ogx-postgres
+              name: wings-ogx-postgres
               key: POSTGRES_DB
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: wings3-ogx-postgres
+              name: wings-ogx-postgres
               key: POSTGRES_USER
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: wings3-ogx-postgres
+              name: wings-ogx-postgres
               key: POSTGRES_PASSWORD

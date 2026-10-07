@@ -1,7 +1,7 @@
-"""Build a plain WINGS3 deck: default Office layouts, no branded template.
+"""Build a plain WINGS deck: default Office layouts, no branded template.
 
 Each slide is title + optional bullets + speaker notes.
-Run: python3 scripts/build_wings3_deck.py
+Run: python3 slides/build_deck.py
 """
 
 from __future__ import annotations
@@ -12,15 +12,14 @@ from pathlib import Path
 from pptx import Presentation
 from pptx.util import Inches
 
-_SCRIPTS_DIR = Path(__file__).resolve().parent
-WINGS3_ROOT = _SCRIPTS_DIR.parent
+_SLIDES_DIR = Path(__file__).resolve().parent
 
-if str(_SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIR))
+if str(_SLIDES_DIR) not in sys.path:
+    sys.path.insert(0, str(_SLIDES_DIR))
 
-from wings3_content import EXPECTED_SLIDE_COUNT, SLIDES  # noqa: E402
+from content import EXPECTED_SLIDE_COUNT, SLIDES  # noqa: E402
 
-OUTPUT = WINGS3_ROOT / "MLflow-on-RHOAI-Deep-Dive.pptx"
+OUTPUT = _SLIDES_DIR / "MLflow-on-RHOAI-Deep-Dive.pptx"
 
 
 def _set_notes(slide, text: str) -> None:

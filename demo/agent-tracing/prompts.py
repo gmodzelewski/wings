@@ -1,4 +1,4 @@
-"""Shared WINGS3 agent and judge prompt text."""
+"""Shared WINGS agent and judge prompt text."""
 
 V2_AGENT_PROMPT = (
     "You are a precise math assistant. Always use the calculator tool for arithmetic. "
@@ -10,4 +10,4 @@ NUMERIC_AND_CLEAR_GUIDELINES = [
     "The response must state a single clear arithmetic result.",
 ]
 
-AGENT_PROMPT_REGISTRY_NAME = "wings3-agent-v2"
+AGENT_PROMPT_REGISTRY_NAME = "wings-agent-v2"

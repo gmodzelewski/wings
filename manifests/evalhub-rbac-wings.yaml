@@ -3,28 +3,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: wings3-evalhub-demo
+  name: wings-evalhub-demo
   namespace: my-first-model
   labels:
-    app: wings3-demo
+    app: wings-demo
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
-    resourceNames: ["wings3-llm-endpoint"]
+    resourceNames: ["wings-llm-endpoint"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: wings3-evalhub-demo
+  name: wings-evalhub-demo
   namespace: my-first-model
   labels:
-    app: wings3-demo
+    app: wings-demo
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: wings3-evalhub-demo
+  name: wings-evalhub-demo
 subjects:
   - kind: ServiceAccount
-    name: wings3-demo
+    name: wings-demo
     namespace: my-first-model

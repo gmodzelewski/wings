@@ -1,4 +1,4 @@
-# EvalHub instance for WINGS3 Act 5 on RHOAI 3.5+ (TrustyAI operator).
+# EvalHub instance for WINGS Act 5 on RHOAI 3.5+ (TrustyAI operator).
 # sqlite is lab-only — data does not persist across pod restarts.
 # Dashboard UI: Develop & train → Evaluations (not a project sidebar tile).
 apiVersion: trustyai.opendatahub.io/v1
@@ -7,9 +7,9 @@ metadata:
   name: evalhub
   namespace: my-first-model
   labels:
-    app: wings3-demo
+    app: wings-demo
   annotations:
-    openshift.io/description: WINGS3 demo EvalHub — lm-eval-harness + Garak providers
+    openshift.io/description: WINGS demo EvalHub — lm-eval-harness + Garak providers
 spec:
   replicas: 1
   tenancy: single
@@ -22,10 +22,10 @@ spec:
     - standard-llm-evals-v1
     - safety-and-fairness-v1
   env:
-    # Point through wings3-mlflow-ws-proxy so X-MLflow-Workspace is always set.
+    # Point through wings-mlflow-ws-proxy so X-MLflow-Workspace is always set.
     # Upstream EvalHub may skip the header when its workspace probe fails, while
     # RHOAI MLflow still requires workspace context for experiment APIs.
     - name: MLFLOW_TRACKING_URI
-      value: http://wings3-mlflow-ws-proxy.my-first-model.svc.cluster.local:8080/mlflow
+      value: http://wings-mlflow-ws-proxy.my-first-model.svc.cluster.local:8080/mlflow
     - name: MLFLOW_WORKSPACE
       value: my-first-model

@@ -5,10 +5,10 @@
 # fail with a gated-repo 403 if the token's HF account has not accepted the model license.
 set -euo pipefail
 
-PROJECT="${WINGS3_PROJECT:-my-first-model}"
-HF_SECRET="${WINGS3_HF_SECRET:-hf-token}"
-MODEL="${WINGS3_HF_GATED_MODEL:-meta-llama/Llama-3.2-3B-Instruct}"
-LMES_IMAGE="${WINGS3_LMES_JOB_IMAGE:-registry.redhat.io/rhoai/odh-ta-lmes-job-rhel9@sha256:ebbf8deb41bd0ce2b6a6fa593ffbdfcc10a53a888c1b887b4119cf43aea1b8d6}"
+PROJECT="${WINGS_PROJECT:-my-first-model}"
+HF_SECRET="${WINGS_HF_SECRET:-hf-token}"
+MODEL="${WINGS_HF_GATED_MODEL:-meta-llama/Llama-3.2-3B-Instruct}"
+LMES_IMAGE="${WINGS_LMES_JOB_IMAGE:-registry.redhat.io/rhoai/odh-ta-lmes-job-rhel9@sha256:ebbf8deb41bd0ce2b6a6fa593ffbdfcc10a53a888c1b887b4119cf43aea1b8d6}"
 
 usage() {
   cat <<EOF

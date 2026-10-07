@@ -12,4 +12,4 @@ Captured on the demo cluster for the customer event / guardrails coda.
 
 **Fallback rule:** if live jobs fail or run long, narrate from these screenshots. Do not debug provider install on stage.
 
-**Lab endpoints (workshop MaaS key 401):** unguarded `wings3-unguarded-llm`; Garak guarded target `wings3-guarded-llm` (refuse stub). NeMo Route is the live Playground/curl guarded URL. Rotate a real workshop token with `./scripts/rotate_maas_upstream_key.sh`.
+**Lab endpoints (workshop MaaS key 401):** unguarded `wings-unguarded-llm`; Garak guarded target `wings-guarded-llm` (refuse stub). NeMo Route is the live Playground/curl guarded URL. Rotate a real workshop token with `./scripts/rotate_maas_upstream_key.sh`.

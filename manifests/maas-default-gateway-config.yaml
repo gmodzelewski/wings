@@ -8,7 +8,7 @@ metadata:
   name: maas-default-gateway-config
   namespace: openshift-ingress
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 data:
   service: |
     metadata:

@@ -1,5 +1,5 @@
 {
-  "name": "wings3-demo-garak",
+  "name": "wings-demo-garak",
   "description": "Target custom endpoint llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080 (http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1)",
   "tags": ["garak", "target:custom"],
   "model": {
@@ -23,7 +23,7 @@
     "threshold": 0.3
   },
   "experiment": {
-    "name": "wings3-evalhub-garak"
+    "name": "wings-evalhub-garak"
   },
-  "notes": "EvalHub REST API job body. Endpoint must end with /v1. experiment.name is required for MLflow Runs. primary_score.lower_is_better must be true for Garak so job-level pass matches ASR (list Score shows 0% instead of '-'). tags target:unguarded|guarded|custom and description identify the tested endpoint in Evaluations; submit_evalhub_eval_run.sh --wait also logs MLflow params model_url + target_endpoint_kind. Submit via scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings3-demo-garak"
+  "notes": "EvalHub REST API job body. Endpoint must end with /v1. experiment.name is required for MLflow Runs. primary_score.lower_is_better must be true for Garak so job-level pass matches ASR (list Score shows 0% instead of '-'). tags target:unguarded|guarded|custom and description identify the tested endpoint in Evaluations; submit_evalhub_eval_run.sh --wait also logs MLflow params model_url + target_endpoint_kind. Submit via scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings-demo-garak"
 }

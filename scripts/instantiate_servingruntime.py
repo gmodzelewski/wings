@@ -72,10 +72,10 @@ def servingruntime_from_template(
 
 
 def main() -> None:
-    name = os.environ.get("WINGS3_LLM_MODEL") or os.environ.get("LLM_MODEL")
-    namespace = os.environ.get("WINGS3_PROJECT") or os.environ.get("PROJECT")
+    name = os.environ.get("WINGS_LLM_MODEL") or os.environ.get("LLM_MODEL")
+    namespace = os.environ.get("WINGS_PROJECT") or os.environ.get("PROJECT")
     if not name or not namespace:
-        raise SystemExit("error: set WINGS3_LLM_MODEL and WINGS3_PROJECT")
+        raise SystemExit("error: set WINGS_LLM_MODEL and WINGS_PROJECT")
     template = json.load(sys.stdin)
     json.dump(servingruntime_from_template(template, name, namespace), sys.stdout)
 

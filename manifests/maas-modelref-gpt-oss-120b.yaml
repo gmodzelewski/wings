@@ -4,7 +4,7 @@ metadata:
   name: gpt-oss-120b
   namespace: my-first-model
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
     opendatahub.io/dashboard: "true"
     opendatahub.io/genai-asset: "true"
 spec:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Health checks for the WINGS3 demo cluster install."""
+"""Health checks for the WINGS demo cluster install."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ class CheckResult:
     detail: str = ""
 
 
-NOTEBOOK_API = os.environ.get("WINGS3_NOTEBOOK_API", "notebook.kubeflow.org")
+NOTEBOOK_API = os.environ.get("WINGS_NOTEBOOK_API", "notebook.kubeflow.org")
 
 
 def _oc(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -247,7 +247,7 @@ def judge_api_key_populated(key_b64: str) -> bool:
 
 
 def workbench_has_judge_mount(mount_paths: list[str], volume_secret_names: list[str]) -> bool:
-    return "/etc/wings3-judge-llm" in mount_paths and "wings3-judge-llm" in volume_secret_names
+    return "/etc/wings-judge-llm" in mount_paths and "wings-judge-llm" in volume_secret_names
 
 
 def decode_secret_value(b64: str) -> str | None:
@@ -264,7 +264,7 @@ def check_secret_data_key(project: str, key: str, label: str) -> CheckResult:
         [
             "get",
             "secret",
-            "wings3-judge-llm",
+            "wings-judge-llm",
             "-n",
             project,
             "-o",
@@ -272,7 +272,7 @@ def check_secret_data_key(project: str, key: str, label: str) -> CheckResult:
         ]
     )
     if result.returncode != 0:
-        return CheckResult(label, False, "secret/wings3-judge-llm missing")
+        return CheckResult(label, False, "secret/wings-judge-llm missing")
     value = decode_secret_value(result.stdout)
     if not value:
         return CheckResult(label, False, f"empty {key}")
@@ -284,7 +284,7 @@ def check_judge_secret_key(project: str) -> CheckResult:
         [
             "get",
             "secret",
-            "wings3-judge-llm",
+            "wings-judge-llm",
             "-n",
             project,
             "-o",
@@ -295,14 +295,14 @@ def check_judge_secret_key(project: str) -> CheckResult:
         return CheckResult(
             "judge secret JUDGE_API_KEY",
             False,
-            "secret/wings3-judge-llm missing",
+            "secret/wings-judge-llm missing",
         )
     if judge_api_key_populated(result.stdout):
         return CheckResult("judge secret JUDGE_API_KEY", True)
     return CheckResult(
         "judge secret JUDGE_API_KEY",
         False,
-        "empty — oc set env secret/wings3-judge-llm -n "
+        "empty — oc set env secret/wings-judge-llm -n "
         f"{project} JUDGE_API_KEY='<token>'",
     )
 
@@ -400,15 +400,15 @@ def check_maas_external_model(project: str, model: str) -> CheckResult:
 
 
 def genai_studio_optional() -> bool:
-    return os.environ.get("WINGS3_SKIP_OGX", "0") == "1"
+    return os.environ.get("WINGS_SKIP_OGX", "0") == "1"
 
 
 def mcp_catalog_optional() -> bool:
-    return os.environ.get("WINGS3_SKIP_MCP", "0") == "1"
+    return os.environ.get("WINGS_SKIP_MCP", "0") == "1"
 
 
 def check_ogx_managed() -> CheckResult:
-    dsc = os.environ.get("WINGS3_DSC_NAME", "default-dsc")
+    dsc = os.environ.get("WINGS_DSC_NAME", "default-dsc")
     has_crd = crd_exists("ogxservers.ogx.io")
     state = _oc(
         [
@@ -441,7 +441,7 @@ def check_ogx_managed() -> CheckResult:
             return CheckResult(
                 "ogx",
                 True,
-                "skipped (WINGS3_SKIP_OGX=1)",
+                "skipped (WINGS_SKIP_OGX=1)",
             )
         return CheckResult(
             "ogx",
@@ -453,7 +453,7 @@ def check_ogx_managed() -> CheckResult:
     if mgmt == "Managed":
         return CheckResult("ogx", False, f"OGXReady={ready or 'False'}")
     if genai_studio_optional():
-        return CheckResult("ogx", True, "skipped (WINGS3_SKIP_OGX=1)")
+        return CheckResult("ogx", True, "skipped (WINGS_SKIP_OGX=1)")
     return CheckResult(
         "ogx",
         False,
@@ -462,9 +462,9 @@ def check_ogx_managed() -> CheckResult:
 
 
 def check_ogx_server(project: str) -> CheckResult:
-    name = os.environ.get("WINGS3_OGX_SERVER_NAME", "wings3-ogx")
+    name = os.environ.get("WINGS_OGX_SERVER_NAME", "wings-ogx")
     if genai_studio_optional():
-        return CheckResult("ogxserver", True, "skipped (WINGS3_SKIP_OGX=1)")
+        return CheckResult("ogxserver", True, "skipped (WINGS_SKIP_OGX=1)")
     if not crd_exists("ogxservers.ogx.io"):
         return CheckResult("ogxserver", False, "ogx.io CRDs missing")
     exists = _oc(["get", "ogxserver", name, "-n", project])
@@ -509,7 +509,7 @@ def check_evalhub_endpoint_url(project: str) -> CheckResult:
         [
             "get",
             "configmap",
-            "wings3-llm-endpoint",
+            "wings-llm-endpoint",
             "-n",
             project,
             "-o",
@@ -517,10 +517,10 @@ def check_evalhub_endpoint_url(project: str) -> CheckResult:
         ]
     )
     if cm.returncode != 0:
-        return CheckResult("evalhub endpoint", True, "configmap wings3-llm-endpoint missing — skipped")
+        return CheckResult("evalhub endpoint", True, "configmap wings-llm-endpoint missing — skipped")
     url = cm.stdout.strip()
     if not url:
-        return CheckResult("evalhub endpoint", False, "wings3-llm-endpoint openai_base_url empty")
+        return CheckResult("evalhub endpoint", False, "wings-llm-endpoint openai_base_url empty")
     if "openshift-ai-inference" in url:
         return CheckResult(
             "evalhub endpoint",
@@ -549,7 +549,7 @@ def check_evalhub_model_auth(project: str) -> CheckResult:
         [
             "get",
             "configmap",
-            "wings3-llm-endpoint",
+            "wings-llm-endpoint",
             "-n",
             project,
             "-o",
@@ -557,14 +557,14 @@ def check_evalhub_model_auth(project: str) -> CheckResult:
         ]
     )
     if cm.returncode != 0:
-        return CheckResult("evalhub model auth", True, "configmap wings3-llm-endpoint missing — skipped")
+        return CheckResult("evalhub model auth", True, "configmap wings-llm-endpoint missing — skipped")
     url = cm.stdout.strip()
     if not url or not endpoint_needs_maas_auth(url):
         return CheckResult("evalhub model auth", True, "vLLM endpoint — api-key optional")
     # Local gateway uses minted sk-oai; workshop upstream is for ExternalModel IPP.
     gateway = url.find("maas-gateway.") >= 0 or f"/{project}/" in url
     secret_name = (
-        "wings3-maas-gateway-api-key" if gateway else "wings3-maas-upstream-api-key"
+        "wings-maas-gateway-api-key" if gateway else "wings-maas-upstream-api-key"
     )
     secret = _oc(
         [
@@ -584,14 +584,14 @@ def check_evalhub_model_auth(project: str) -> CheckResult:
                 [
                     "get",
                     "secret",
-                    "wings3-maas-upstream-api-key",
+                    "wings-maas-upstream-api-key",
                     "-n",
                     project,
                     "-o",
                     "jsonpath={.data.api-key}",
                 ]
             )
-            secret_name = "wings3-maas-upstream-api-key"
+            secret_name = "wings-maas-upstream-api-key"
         if secret.returncode != 0:
             return CheckResult(
                 "evalhub model auth",
@@ -609,7 +609,7 @@ def check_evalhub_model_auth(project: str) -> CheckResult:
 
 
 def check_evaluations_nav() -> CheckResult:
-    mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    mlflow_ns = os.environ.get("WINGS_MLFLOW_NAMESPACE", "redhat-ods-applications")
     flag = _oc(
         [
             "get",
@@ -639,7 +639,7 @@ def check_evaluations_nav() -> CheckResult:
 
 
 def check_agents_catalog() -> CheckResult:
-    mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    mlflow_ns = os.environ.get("WINGS_MLFLOW_NAMESPACE", "redhat-ods-applications")
     flag = _oc(
         [
             "get",
@@ -661,9 +661,9 @@ def check_agents_catalog() -> CheckResult:
 
 
 def check_mcp_catalog() -> CheckResult:
-    mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    mlflow_ns = os.environ.get("WINGS_MLFLOW_NAMESPACE", "redhat-ods-applications")
     if mcp_catalog_optional():
-        return CheckResult("mcp catalog", True, "skipped (WINGS3_SKIP_MCP=1)")
+        return CheckResult("mcp catalog", True, "skipped (WINGS_SKIP_MCP=1)")
     flag = _oc(
         [
             "get",
@@ -689,7 +689,7 @@ def check_mcp_catalog() -> CheckResult:
 
 
 def check_maas_ui() -> CheckResult:
-    mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    mlflow_ns = os.environ.get("WINGS_MLFLOW_NAMESPACE", "redhat-ods-applications")
     dep = _oc(["get", "deployment", "maas-ui", "-n", mlflow_ns])
     if dep.returncode != 0:
         return CheckResult("maas-ui", False, "deployment missing in redhat-ods-applications")
@@ -718,7 +718,7 @@ def check_maas_ui() -> CheckResult:
 
 
 def check_kuadrant_ready() -> CheckResult:
-    kuadrant_ns = os.environ.get("WINGS3_KUADRANT_NAMESPACE", "kuadrant-system")
+    kuadrant_ns = os.environ.get("WINGS_KUADRANT_NAMESPACE", "kuadrant-system")
     if not crd_exists("kuadrants.kuadrant.io"):
         return CheckResult("kuadrant", False, "kuadrants.kuadrant.io CRD missing")
     exists = _oc(["get", "kuadrant", "kuadrant", "-n", kuadrant_ns])
@@ -767,7 +767,7 @@ def check_judge_base_url_routed_via_local_maas(project: str) -> CheckResult:
         [
             "get",
             "secret",
-            "wings3-judge-llm",
+            "wings-judge-llm",
             "-n",
             project,
             "-o",
@@ -778,7 +778,7 @@ def check_judge_base_url_routed_via_local_maas(project: str) -> CheckResult:
         return CheckResult(
             "judge JUDGE_BASE_URL",
             False,
-            "secret/wings3-judge-llm missing",
+            "secret/wings-judge-llm missing",
         )
     base_url = decode_secret_value(result.stdout)
     if base_url is None:
@@ -840,21 +840,21 @@ def check_workbench_judge_mount(project: str, workbench: str) -> CheckResult:
     return CheckResult(
         "workbench judge mount",
         False,
-        "missing /etc/wings3-judge-llm — oc apply -f manifests/workbench-wings3-demo.yaml "
+        "missing /etc/wings-judge-llm — oc apply -f manifests/workbench-wings-demo.yaml "
         "then stop/start workbench (dashboard reconcile can strip custom mounts)",
     )
 
 
 def run_checks(skip_llm: bool = False) -> list[CheckResult]:
-    project = os.environ.get("WINGS3_PROJECT", "my-first-model")
-    mlflow_ns = os.environ.get("WINGS3_MLFLOW_NAMESPACE", "redhat-ods-applications")
-    workbench = os.environ.get("WINGS3_WORKBENCH", "wings3-demo")
-    llm_model = os.environ.get("WINGS3_LLM_MODEL", "llama-32-3b-instruct")
-    sr_template = os.environ.get("WINGS3_SR_TEMPLATE", "vllm-cuda-runtime-template")
+    project = os.environ.get("WINGS_PROJECT", "my-first-model")
+    mlflow_ns = os.environ.get("WINGS_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    workbench = os.environ.get("WINGS_WORKBENCH", "wings-demo")
+    llm_model = os.environ.get("WINGS_LLM_MODEL", "llama-32-3b-instruct")
+    sr_template = os.environ.get("WINGS_SR_TEMPLATE", "vllm-cuda-runtime-template")
 
-    maas_model = os.environ.get("WINGS3_MAAS_MODEL", "gpt-oss-120b")
+    maas_model = os.environ.get("WINGS_MAAS_MODEL", "gpt-oss-120b")
     maas_catalog = os.environ.get(
-        "WINGS3_MAAS_CATALOG_MODELS",
+        "WINGS_MAAS_CATALOG_MODELS",
         "gpt-oss-120b gpt-oss-20b llama-scout-17b qwen36-35b-a3b",
     ).split()
 
@@ -881,9 +881,9 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
     results.extend(
         [
         check_notebook_ready(project, workbench),
-        check_pod_ready(project, "wings3-mlflow-ws-proxy", "mlflow workspace proxy"),
-        check_resource("configmap", "wings3-llm-endpoint", project, "configmap wings3-llm-endpoint"),
-        check_resource("secret", "wings3-judge-llm", project, "secret wings3-judge-llm"),
+        check_pod_ready(project, "wings-mlflow-ws-proxy", "mlflow workspace proxy"),
+        check_resource("configmap", "wings-llm-endpoint", project, "configmap wings-llm-endpoint"),
+        check_resource("secret", "wings-judge-llm", project, "secret wings-judge-llm"),
         check_judge_secret_key(project),
         check_secret_data_key(project, "MAAS_MODEL", "agent secret MAAS_MODEL"),
         check_secret_data_key(project, "MAAS_BASE_URL", "agent secret MAAS_BASE_URL"),
@@ -902,7 +902,7 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
 def usage() -> None:
     print(
         "Usage: check_demo.py [--skip-llm]\n\n"
-        "Verify WINGS3 demo health; exit 1 if any check fails."
+        "Verify WINGS demo health; exit 1 if any check fails."
     )
 
 
@@ -911,7 +911,7 @@ def main() -> int:
         usage()
         return 0
     skip_llm = "--skip-llm" in sys.argv
-    verbose = os.environ.get("WINGS3_VERBOSE", "0") == "1"
+    verbose = os.environ.get("WINGS_VERBOSE", "0") == "1"
     results = run_checks(skip_llm=skip_llm)
     passed = sum(1 for r in results if r.ok)
     for r in results:

@@ -16,7 +16,7 @@
 | Act | Role | Where you run it |
 |-----|------|------------------|
 | 1 — Install | Platform engineer | Laptop terminal (`oc get` only) + standalone MLflow UI (`/mlflow`) |
-| 2 — Trace | AI engineer | **JupyterLab workbench** `wings3-demo` + dashboard **Develop & train → Experiments** (GenAI Traces) |
+| 2 — Trace | AI engineer | **JupyterLab workbench** `wings-demo` + dashboard **Develop & train → Experiments** (GenAI Traces) |
 | 3 — Evaluate | AI engineer | **Same workbench**, notebook `02_eval_improvement.ipynb` |
 | 4 — Datasets + judges (follow-on) | AI engineer | **Same workbench**, notebook `03_prod_eval_judges.ipynb` — not in the 60-minute hour |
 
@@ -58,7 +58,7 @@ Details: [01-install-platform.md](01-install-platform.md) (Act 1, step 6).
 |-------|---------|-------------------|
 | Intro + terms + product tour | 6 | Slides only |
 | Act 1 — Install | 8 | **Pre-apply** the MLflow CR. Live: `oc get` CR and pod, then standalone `/mlflow` (screenshot 08) |
-| Act 2 — Autolog | 22 | Workbench from YAML. Live: **one** query; then dashboard **Experiments** → `wings3-agent-tracing` → **GenAI** → **Traces**: Error row, then OK 256÷16 **Details & Timeline** |
+| Act 2 — Autolog | 22 | Workbench from YAML. Live: **one** query; then dashboard **Experiments** → `wings-agent-tracing` → **GenAI** → **Traces**: Error row, then OK 256÷16 **Details & Timeline** |
 | Act 3 — Evaluate | 15 | v1 already logged if behind; live: **say the substring-scorer caveat first**, then v2 (or both if vLLM is warm) |
 | Production + Q&A | 9 | Slides only |
 
@@ -66,7 +66,7 @@ If the operator is not `Managed` yet, do **not** wait for Ready on camera. Use b
 
 ## Fast path (install / check / uninstall)
 
-From the repo root, after `oc login`. RHOAI must already be installed. Install enables MLflow + EvalHub + Garak operators, applies manifests, instantiates ServingRuntime `llama-32-3b-instruct`, and clones this repo onto the workbench. Set `WINGS3_LLM_STORAGE_URI` if no InferenceService already exists (do not invent a HuggingFace URI).
+From the repo root, after `oc login`. RHOAI must already be installed. Install enables MLflow + EvalHub + Garak operators, applies manifests, instantiates ServingRuntime `llama-32-3b-instruct`, and clones this repo onto the workbench. Set `WINGS_LLM_STORAGE_URI` if no InferenceService already exists (do not invent a HuggingFace URI).
 
 ```bash
 ./install.sh              # full demo install
@@ -78,35 +78,35 @@ From the repo root, after `oc login`. RHOAI must already be installed. Install e
 ./uninstall.sh --all        # round-trip reset: workbench + EvalHub (+ ws-proxy) + judge secret + MaaS/OGX demo resources + MLflow CR (keeps LLM + operators)
 ```
 
-Set `WINGS3_VERBOSE=1` for detailed progress. Default uninstall never removes operators or the InferenceService.
+Set `WINGS_VERBOSE=1` for detailed progress. Default uninstall never removes operators or the InferenceService.
 
 ## Pre-stage checklist (day before or morning of)
 
 - [ ] `mlflowoperator` is `Managed` and the `mlflow` pod is `Running`
-- [ ] Dashboard **Develop & train → Experiments** lists `wings3-agent-tracing` (embedded MLflow — nav label is **Experiments** only)
+- [ ] Dashboard **Develop & train → Experiments** lists `wings-agent-tracing` (embedded MLflow — nav label is **Experiments** only)
 - [ ] Standalone `/mlflow` opens (**Applications → Launch MLflow** or `mlflow_ui` in `_attributes.md`); workspace **`my-first-model`** selected (required for Datasets/Judges/Evaluation)
 - [ ] `oc apply -f manifests/mlflow-dev.yaml` if no `MLflow` CR exists (do **not** apply this on camera)
 - [ ] Namespace `my-first-model` has `opendatahub.io/dashboard=true`
 - [ ] `install.sh` finished: InferenceService `llama-32-3b-instruct` is Ready (ServingRuntime from `vllm-cuda-runtime-template`; predictor strategy Recreate). If the console shows an outdated vLLM runtime, re-run `./install.sh` and confirm with `./check.sh`.
 - [ ] EvalHub operator `Managed` and **EvalHub CR** `evalhub` in `my-first-model` (`./check.sh` → `evalhub instance`)
 - [ ] `OdhDashboardConfig` has `spec.dashboardConfig.disableLMEval: false` (`./check.sh` → `evaluations nav`; RHOAI 3.5 hides **Develop & train → Evaluations** by default — `install.sh` patches this)
-- [ ] ConfigMap `wings3-llm-endpoint` in `my-first-model` (applied by install)
+- [ ] ConfigMap `wings-llm-endpoint` in `my-first-model` (applied by install)
 - [ ] **Develop & train → Evaluations** loads benchmarks for `my-first-model` (no project-level EvalHub tile on 3.5)
 - [ ] Garak provider visible when starting an evaluation run (or screenshot fallbacks in `demo/assets/placeholders/`)
 - [ ] Act 5 EvalHub: Secret `hf-token` in `my-first-model` (key **`hf-token`**) if using Llama tokenizer; accept [Llama 3.2 license](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct) for that HF account; `./scripts/verify_hf_gated_access.sh` passes. Without license: pre-submit `./scripts/submit_evalhub_eval_run.sh --benchmark arc_easy --tokenizer gpt2`
-- [ ] Act 5 Garak: pre-submit `./scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings3-demo-garak-quick` (endpoint must include `/v1`; script normalizes). Or submit from **Evaluations** UI with endpoint copied verbatim from ConfigMap (`...:8080/v1`)
-- [ ] Guardrails coda (optional): `./scripts/prestage_garak_before_after.sh` → Evaluations shows `wings3-demo-garak-unguarded` + `wings3-demo-garak-guarded`; Playground Guardrails for optics only; NeMo Route is the guarded re-eval URL (see Module 5 UI roles)
-- [ ] Workshop upstream key valid: `curl` to `maas-rhdp…/v1/chat/completions` returns 200 with Secret `wings3-maas-upstream-api-key`. If 401, run `./scripts/rotate_maas_upstream_key.sh --key 'sk-oai-…'` (never commit the token). Lab-only fallback: `manifests/demo-openai-stub.yaml` so Garak/NeMo still have a local OpenAI stub
-- [ ] Workbench in `my-first-model` is **Running** (not Stopped). Create **only** with `oc apply -f manifests/workbench-wings3-demo.yaml`. Do **not** use dashboard **Create workbench** — that notebook uses ServiceAccount `default` and gets `PERMISSION_DENIED`. The YAML Notebook uses ServiceAccount `wings3-demo` (the MLflow webhook binds RBAC to that name). After apply, **stop/start** the workbench so the initContainer can `git clone https://github.com/gmodzelewski/wings.git` into `/opt/app-root/src/wings`. Cluster must reach GitHub. If that path exists but is not a git repo, remove it and restart.
+- [ ] Act 5 Garak: pre-submit `./scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings-demo-garak-quick` (endpoint must include `/v1`; script normalizes). Or submit from **Evaluations** UI with endpoint copied verbatim from ConfigMap (`...:8080/v1`)
+- [ ] Guardrails coda (optional): `./scripts/prestage_garak_before_after.sh` → Evaluations shows `wings-demo-garak-unguarded` + `wings-demo-garak-guarded`; Playground Guardrails for optics only; NeMo Route is the guarded re-eval URL (see Module 5 UI roles)
+- [ ] Workshop upstream key valid: `curl` to `maas-rhdp…/v1/chat/completions` returns 200 with Secret `wings-maas-upstream-api-key`. If 401, run `./scripts/rotate_maas_upstream_key.sh --key 'sk-oai-…'` (never commit the token). Lab-only fallback: `manifests/demo-openai-stub.yaml` so Garak/NeMo still have a local OpenAI stub
+- [ ] Workbench in `my-first-model` is **Running** (not Stopped). Create **only** with `oc apply -f manifests/workbench-wings-demo.yaml`. Do **not** use dashboard **Create workbench** — that notebook uses ServiceAccount `default` and gets `PERMISSION_DENIED`. The YAML Notebook uses ServiceAccount `wings-demo` (the MLflow webhook binds RBAC to that name). After apply, **stop/start** the workbench so the initContainer can `git clone https://github.com/gmodzelewski/wings.git` into `/opt/app-root/src/wings`. Cluster must reach GitHub. If that path exists but is not a git repo, remove it and restart.
 - [ ] JupyterLab file browser is this clone (`demo/notebooks/…`). `git pull --ff-only` from the repo root (terminal or the optional notebook cell).
 - [ ] `pip install -r agent-tracing/requirements.txt --extra-index-url https://pypi.org/simple` already succeeded in the workbench (RHOAI 3.4 RHAI index has no langgraph 0.2). Re-run after a workbench restart; the venv is not on the PVC.
-- [ ] Optional for **WINGS teaching**: v1 eval run already in experiment `wings3-agent-eval`
-- [ ] Optional for **WINGS teaching** (Module 4 follow-on, not in that hour): golden set registered as `math_golden` and one `v2-judged` run in experiment `wings3-agent-eval-prod`
-- [ ] **Module 4 / customer hour:** `install.sh` enables MaaS with **four** workshop ExternalModels (**gpt-oss-120b**, **gpt-oss-20b**, **llama-scout-17b**, **qwen36-35b-a3b**) sharing Secret `wings3-maas-upstream-api-key`; set upstream workshop token via `WINGS3_MAAS_UPSTREAM_API_KEY` (never commit it). Judge `JUDGE_API_KEY` is a minted **sk-oai-** MaaS key (default judge model remains **gpt-oss-120b**)
+- [ ] Optional for **WINGS teaching**: v1 eval run already in experiment `wings-agent-eval`
+- [ ] Optional for **WINGS teaching** (Module 4 follow-on, not in that hour): golden set registered as `math_golden` and one `v2-judged` run in experiment `wings-agent-eval-prod`
+- [ ] **Module 4 / customer hour:** `install.sh` enables MaaS with **four** workshop ExternalModels (**gpt-oss-120b**, **gpt-oss-20b**, **llama-scout-17b**, **qwen36-35b-a3b**) sharing Secret `wings-maas-upstream-api-key`; set upstream workshop token via `WINGS_MAAS_UPSTREAM_API_KEY` (never commit it). Judge `JUDGE_API_KEY` is a minted **sk-oai-** MaaS key (default judge model remains **gpt-oss-120b**)
 - [ ] `./check.sh` passes MaaS CRD/model checks for all four catalog models, `ogx`, `ogxserver`, `mcp catalog`, `maas-ui`, `judge JUDGE_BASE_URL` (not `maas.redhatworkshops.io`), `judge secret JUDGE_API_KEY`, and `workbench judge mount`
 - [ ] **Gen AI Studio → AI asset endpoints → Models** lists **gpt-oss-120b**, **gpt-oss-20b**, **llama-scout-17b**, and **qwen36-35b-a3b** (hard-refresh dashboard if empty); **Gen AI Studio → API keys** can create a key for subscription `redhat-maas`
-- [ ] **Gen AI Studio → Playground** visible; can create a playground in `my-first-model` (install.sh enables Service Mesh 3 + OGX + `wings3-ogx` OGXServer — first run may take 30–45 min)
-- [ ] **Gen AI hub → MCP server** catalog visible (browse only; no MCP deploy demo required). Set `WINGS3_SKIP_OGX=1` / `WINGS3_SKIP_MCP=1` to skip if cluster lacks capacity
+- [ ] **Gen AI Studio → Playground** visible; can create a playground in `my-first-model` (install.sh enables Service Mesh 3 + OGX + `wings-ogx` OGXServer — first run may take 30–45 min)
+- [ ] **Gen AI hub → MCP server** catalog visible (browse only; no MCP deploy demo required). Set `WINGS_SKIP_OGX=1` / `WINGS_SKIP_MCP=1` to skip if cluster lacks capacity
 
 Cluster-specific URLs (`gateway_host`, `mlflow_ui`) live in [partials/_attributes.md](partials/_attributes.md). Route name may be `rhods-dashboard`, `rh-ai`, or `rhoai` — host is the same for `/mlflow`.
 
@@ -116,72 +116,72 @@ Cluster-specific URLs (`gateway_host`, `mlflow_ui`) live in [partials/_attribute
 
 Required in workspace `my-first-model` (in addition to the checklist above):
 
-- [ ] Experiment `wings3-agent-tracing`: an **Error** row **and** an **OK** row whose request is **Calculate 256 divided by 16**
-- [ ] Experiment `wings3-agent-eval`: runs `v1-baseline` **and** `v2-improved-prompt`
-- [ ] Prompt **`wings3-agent-v2`** visible in the MLflow **Prompts** tab
+- [ ] Experiment `wings-agent-tracing`: an **Error** row **and** an **OK** row whose request is **Calculate 256 divided by 16**
+- [ ] Experiment `wings-agent-eval`: runs `v1-baseline` **and** `v2-improved-prompt`
+- [ ] Prompt **`wings-agent-v2`** visible in the MLflow **Prompts** tab
 - [ ] Dataset **`math_golden`** visible in the MLflow **Datasets** tab (8 records)
-- [ ] Experiment `wings3-agent-eval-prod`: **Judges** (or **Scorers**) → **`correctness`** and **`numeric_and_clear`**
-- [ ] Experiment `wings3-agent-eval-prod`: run **`v2-judged`** (hybrid substring + judges)
+- [ ] Experiment `wings-agent-eval-prod`: **Judges** (or **Scorers**) → **`correctness`** and **`numeric_and_clear`**
+- [ ] Experiment `wings-agent-eval-prod`: run **`v2-judged`** (hybrid substring + judges)
 
 Do this in the **workbench** terminal after `./install.sh` (venv already pip'd; tracking URI injected). Re-run after a workbench restart.
 
-Set the workshop upstream token **before** first MaaS install (do not commit it). One Secret `wings3-maas-upstream-api-key` is shared by all four ExternalModels (must be labeled `inference.llm-d.ai/ipp-managed=true` for Playground). `install.sh` mints a MaaS API key into `wings3-judge-llm` when MaaS is Ready:
+Set the workshop upstream token **before** first MaaS install (do not commit it). One Secret `wings-maas-upstream-api-key` is shared by all four ExternalModels (must be labeled `inference.llm-d.ai/ipp-managed=true` for Playground). `install.sh` mints a MaaS API key into `wings-judge-llm` when MaaS is Ready:
 
 ```bash
 # Workshop upstream (all ExternalModels) — one of:
-export WINGS3_MAAS_UPSTREAM_API_KEY='<workshop-token>'
+export WINGS_MAAS_UPSTREAM_API_KEY='<workshop-token>'
 ./install.sh
 
 # Or override the minted judge key after install:
-export WINGS3_JUDGE_API_KEY='<sk-oai-…>'
+export WINGS_JUDGE_API_KEY='<sk-oai-…>'
 ./install.sh
 ```
 
-Catalog models (Gen AI Studio): **gpt-oss-120b** (default agent/judge), **gpt-oss-20b**, **llama-scout-17b**, **qwen36-35b-a3b**. Override with `WINGS3_MAAS_CATALOG_MODELS` if needed. Never put the workshop token or minted `sk-oai-` keys in git.
+Catalog models (Gen AI Studio): **gpt-oss-120b** (default agent/judge), **gpt-oss-20b**, **llama-scout-17b**, **qwen36-35b-a3b**. Override with `WINGS_MAAS_CATALOG_MODELS` if needed. Never put the workshop token or minted `sk-oai-` keys in git.
 
 If MaaS key mint fails, patch manually after confirming subscription `redhat-maas` exists:
 
 ```bash
-oc set env secret/wings3-judge-llm -n my-first-model \
+oc set env secret/wings-judge-llm -n my-first-model \
   JUDGE_BASE_URL='https://<maas-gateway>/my-first-model/gpt-oss-120b/v1' \
   JUDGE_API_KEY='<sk-oai-…>'
-oc apply -f manifests/workbench-wings3-demo.yaml
-# stop/start workbench wings3-demo — verify: ./check.sh
+oc apply -f manifests/workbench-wings-demo.yaml
+# stop/start workbench wings-demo — verify: ./check.sh
 ```
 
-RHOAI strips `secretKeyRef` env on Notebooks; the workbench mounts Secret `wings3-judge-llm` (`manifests/secret-wings3-judge-llm.yaml` or `.example.yaml`) at `/etc/wings3-judge-llm` and the notebook env cell reads those files. **Dashboard stop/start can strip custom volume mounts** — re-apply `workbench-wings3-demo.yaml` if `./check.sh` fails `workbench judge mount`.
+RHOAI strips `secretKeyRef` env on Notebooks; the workbench mounts Secret `wings-judge-llm` (`manifests/secret-wings-judge-llm.yaml` or `.example.yaml`) at `/etc/wings-judge-llm` and the notebook env cell reads those files. **Dashboard stop/start can strip custom volume mounts** — re-apply `workbench-wings-demo.yaml` if `./check.sh` fails `workbench judge mount`.
 
 ```bash
 cd /opt/app-root/src/wings/demo/agent-tracing
 export MLFLOW_WORKSPACE=my-first-model
 export MAAS_API_KEY=unused
-Agent model is set in Secret `wings3-judge-llm` (`MAAS_MODEL`, `MAAS_BASE_URL`). For local laptop runs only, copy `demo/agent-tracing/.env.example` to `.env`.
+Agent model is set in Secret `wings-judge-llm` (`MAAS_MODEL`, `MAAS_BASE_URL`). For local laptop runs only, copy `demo/agent-tracing/.env.example` to `.env`.
 
 # Error beat: extra queries on 3B often land as Error. Keep the warmup OK 256÷16 row.
-unset WINGS3_ONE_QUERY
-export MLFLOW_EXPERIMENT_NAME=wings3-agent-tracing
+unset WINGS_ONE_QUERY
+export MLFLOW_EXPERIMENT_NAME=wings-agent-tracing
 python3 run_tracing_demo_autolog.py
 
 # v2 comparison for Act 3 UI (warmup already logged v1)
-export MLFLOW_EXPERIMENT_NAME=wings3-agent-eval
-export WINGS3_PROMPT_VERSION=v2
+export MLFLOW_EXPERIMENT_NAME=wings-agent-eval
+export WINGS_PROMPT_VERSION=v2
 python3 evaluate_agent.py
 
 # Required close: named golden set + v2-judged (not a follow-on for this hour).
 # Refreshes math_golden from git so Correctness is not given both expected_response
 # and expected_facts.
-export MLFLOW_EXPERIMENT_NAME=wings3-agent-eval-prod
+export MLFLOW_EXPERIMENT_NAME=wings-agent-eval-prod
 python3 evaluate_agent_judges.py --register-only   # Prompts + Judges + dataset (fast)
 # python3 evaluate_agent_judges.py                 # full v2-judged eval when vLLM is warm
 ```
 
-Confirm in `/mlflow` before the session: Prompts → `wings3-agent-v2`; Datasets → `math_golden`; Judges → `correctness` + `numeric_and_clear`; Evaluation → `v2-judged`. If any is missing, the customer hour is not ready — do not start.
+Confirm in `/mlflow` before the session: Prompts → `wings-agent-v2`; Datasets → `math_golden`; Judges → `correctness` + `numeric_and_clear`; Evaluation → `v2-judged`. If any is missing, the customer hour is not ready — do not start.
 
 ## When the new cluster is up (not before)
 
-1. Fill `gateway_host` / `mlflow_ui` in `_attributes.md`. Set `WINGS3_LLM_STORAGE_URI` from the catalog or copy it from an existing InferenceService, then run `install.sh`.
+1. Fill `gateway_host` / `mlflow_ui` in `_attributes.md`. Set `WINGS_LLM_STORAGE_URI` from the catalog or copy it from an existing InferenceService, then run `install.sh`.
 2. Recapture screenshots `08`, `12`, `14`, `18`, `19` on today’s `/mlflow` whenever the gateway host changes; flip captions to this cluster. (Done 18 Aug 2026 on sandbox956.)
-3. Rebuild `MLflow-on-RHOAI-Deep-Dive.pptx` (`python3 scripts/build_wings3_deck.py`) if you are giving the **WINGS teaching** hour. Skip the deck for the customer UI hour.
+3. Rebuild `slides/MLflow-on-RHOAI-Deep-Dive.pptx` (`python3 slides/build_deck.py`) if you are giving the **WINGS teaching** hour. Skip the deck for the customer UI hour.
 4. Rehearse WINGS teaching: Act 1 `oc get` only; Act 2 SHOW cells + Error then OK; Act 3 substring caveat before the cells.
 5. Rehearse customer UI hour: [customer-ui-click-script.md](customer-ui-click-script.md) against live `/mlflow`. Confirm `math_golden` and `v2-judged` before anyone sits down.
 

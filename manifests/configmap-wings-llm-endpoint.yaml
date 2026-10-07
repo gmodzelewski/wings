@@ -1,12 +1,12 @@
-# Shared inference endpoint for WINGS3 calculator agent, EvalHub, and Garak demos.
+# Shared inference endpoint for WINGS calculator agent, EvalHub, and Garak demos.
 # Same URL Acts 2-5 target: llama-32-3b-instruct in my-first-model.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: wings3-llm-endpoint
+  name: wings-llm-endpoint
   namespace: my-first-model
   labels:
-    app: wings3-demo
+    app: wings-demo
     opendatahub.io/dashboard: "true"
   annotations:
     openshift.io/description: OpenAI-compatible URL for EvalHub and Garak evaluation jobs

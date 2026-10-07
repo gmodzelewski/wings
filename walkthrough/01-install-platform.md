@@ -5,7 +5,7 @@
 
 ## Know
 
-WINGS3 installs three platform layers on OpenShift AI:
+WINGS installs three platform layers on OpenShift AI:
 
 | Layer | DSC component (typical) | What it gives you |
 |-------|-------------------------|-------------------|
@@ -19,7 +19,7 @@ Pre-stage with `./scripts/install.sh` (or `./install.sh` from repo root). On cam
 |------|------------|
 | **Project** | OpenShift namespace `my-first-model` (dashboard) |
 | **Workspace** | MLflow's name for that same project (`MLFLOW_WORKSPACE`) |
-| **Experiment** | A named bucket inside the workspace (`wings3-agent-tracing` vs `wings3-agent-eval`) |
+| **Experiment** | A named bucket inside the workspace (`wings-agent-tracing` vs `wings-agent-eval`) |
 | **EvalHub job** | Platform evaluation run (lm-eval-harness, Garak, …) against a model endpoint |
 
 **On stage:** pre-enable `Managed` and pre-apply manifests (see [00-presenter-setup.md](00-presenter-setup.md)). Live: `oc get` only for CRs and pods, then open `/mlflow` and EvalHub in the console.
@@ -128,7 +128,7 @@ If a separate `garakoperator` DSC component exists, confirm it the same way as E
 
 ```bash
 oc get namespace my-first-model --show-labels | grep opendatahub.io/dashboard
-oc get configmap wings3-llm-endpoint -n my-first-model
+oc get configmap wings-llm-endpoint -n my-first-model
 ```
 
 **Expected endpoint** (in-cluster):
@@ -139,7 +139,7 @@ http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
 
 ### 6. Confirm MLflow UI surfaces
 
-**Embedded (Act 2 Traces):** project `my-first-model` → **Develop & train → Experiments** → `wings3-agent-tracing` → workflow **GenAI** → **Traces**.
+**Embedded (Act 2 Traces):** project `my-first-model` → **Develop & train → Experiments** → `wings-agent-tracing` → workflow **GenAI** → **Traces**.
 
 **Standalone (Acts 3–4, Datasets, Judges):** **Applications → Launch MLflow** → workspace **`my-first-model`**, or paste `mlflow_ui` from [partials/_attributes.md](partials/_attributes.md).
 
@@ -150,7 +150,7 @@ curl -skL -o /dev/null -w "%{http_code}\n" "${MLFLOW_UI}/health"
 
 ### 7. Confirm MaaS external judge model (pre-staged)
 
-`install.sh` enables MaaS (`aigateway.modelsAsAService`), Gen AI Studio (Service Mesh 3 + OGX + MCP Catalog flags), registers workshop **gpt-oss-120b** as an `ExternalModel`, and patches judge Secret `wings3-judge-llm` with the in-cluster gateway URL. MaaS judges do not require Playground.
+`install.sh` enables MaaS (`aigateway.modelsAsAService`), Gen AI Studio (Service Mesh 3 + OGX + MCP Catalog flags), registers workshop **gpt-oss-120b** as an `ExternalModel`, and patches judge Secret `wings-judge-llm` with the in-cluster gateway URL. MaaS judges do not require Playground.
 
 ```bash
 oc get datasciencecluster default-dsc \
@@ -169,13 +169,13 @@ Workbench pods get `MLFLOW_TRACKING_URI` injected. You still set **`MLFLOW_WORKS
 
 - [ ] `mlflowoperator` is `Managed`; MLflow pod `Running`
 - [ ] `modelsAsAService` is `Managed`; `externalmodel` / `maasmodelref` **gpt-oss-120b** Ready in `my-first-model`
-- [ ] `ogx` is `Managed` with `OGXReady=True`; `ogxserver/wings3-ogx` Ready in `my-first-model`
+- [ ] `ogx` is `Managed` with `OGXReady=True`; `ogxserver/wings-ogx` Ready in `my-first-model`
 - [ ] **Gen AI Studio → Playground** nav visible; **Gen AI hub → MCP server** catalog visible
 - [ ] **Gen AI Studio → AI asset endpoints** shows **gpt-oss-120b**; **API keys** page can mint a key
 - [ ] EvalHub CR `evalhub` Ready in `my-first-model` (`./check.sh` → `evalhub instance`)
 - [ ] **Develop & train → Evaluations** loads benchmarks for `my-first-model` (or screenshot fallback ready)
 - [ ] Garak provider visible when starting an evaluation run (or screenshot fallback ready)
-- [ ] `wings3-llm-endpoint` ConfigMap present
+- [ ] `wings-llm-endpoint` ConfigMap present
 - [ ] **Develop & train → Experiments** lists MLflow experiments for `my-first-model`
 - [ ] Standalone `/mlflow` loads; workspace `my-first-model`
 

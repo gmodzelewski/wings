@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WINGS3 Module 4: golden dataset + hybrid judges — CLI / warmup only.
+"""WINGS Module 4: golden dataset + hybrid judges — CLI / warmup only.
 
 Stage path is demo/notebooks/03_prod_eval_judges.ipynb (inline SHOW comments).
 """
@@ -60,7 +60,7 @@ def configure_cluster_judge() -> str:
     """Point MLflow LLM judges at hosted MaaS via LiteLLM hosted_vllm.
 
     Agent stays on MAAS_* (in-cluster 3B). Judges use JUDGE_* from Secret
-    ``wings3-judge-llm`` (in-cluster MaaS gateway `/llm/gpt-oss-120b/v1`, not workshop
+    ``wings-judge-llm`` (in-cluster MaaS gateway `/llm/gpt-oss-120b/v1`, not workshop
     direct). ``openai:/…`` always calls api.openai.com.
     """
     ensure_maas_env()
@@ -69,9 +69,9 @@ def configure_cluster_judge() -> str:
     key = (os.environ.get("JUDGE_API_KEY") or os.environ.get("HOSTED_VLLM_API_KEY") or "").strip()
     if not key or key in {"unused", "REPLACE_ME"}:
         raise RuntimeError(
-            "JUDGE_API_KEY is missing. Apply secret-wings3-judge-llm.yaml and "
-            "workbench-wings3-demo.yaml (Secret is mounted at /etc/wings3-judge-llm; "
-            "RHOAI strips secretKeyRef env). oc set env secret/wings3-judge-llm "
+            "JUDGE_API_KEY is missing. Apply secret-wings-judge-llm.yaml and "
+            "workbench-wings-demo.yaml (Secret is mounted at /etc/wings-judge-llm; "
+            "RHOAI strips secretKeyRef env). oc set env secret/wings-judge-llm "
             "-n my-first-model JUDGE_API_KEY='…', then start the workbench."
         )
     os.environ["HOSTED_VLLM_API_BASE"] = base
@@ -153,7 +153,7 @@ def register_golden_dataset(records: list[dict], experiment_id: str):
     dataset = mlflow.genai.datasets.create_dataset(
         name=DATASET_NAME,
         experiment_id=[experiment_id],
-        tags={"wings3": "module-4", "kind": "golden"},
+        tags={"wings": "module-4", "kind": "golden"},
     )
     dataset = dataset.merge_records(records)
     print(f"Registered evaluation dataset {DATASET_NAME} ({len(records)} records)")
@@ -165,8 +165,8 @@ def register_prompts_and_judges(experiment_id: str, judge_model: str) -> tuple:
     mlflow.genai.register_prompt(
         name=AGENT_PROMPT_REGISTRY_NAME,
         template=[{"role": "system", "content": V2_AGENT_PROMPT}],
-        commit_message="WINGS3 Module 4 agent system prompt",
-        tags={"wings3": "module-4", "kind": "agent-system"},
+        commit_message="WINGS Module 4 agent system prompt",
+        tags={"wings": "module-4", "kind": "agent-system"},
     )
     print(f"Registered prompt: {AGENT_PROMPT_REGISTRY_NAME} — open MLflow → Prompts")
 
@@ -204,7 +204,7 @@ def _ensure_mlflow_env() -> str:
 def register_catalog(register_only: bool = False) -> dict | None:
     """Register dataset, agent prompt, and judges. Optionally skip the full eval."""
     _ensure_mlflow_env()
-    experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "wings3-agent-eval-prod")
+    experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "wings-agent-eval-prod")
     experiment = mlflow.set_experiment(experiment_name)
 
     records = load_golden_records()
@@ -262,7 +262,7 @@ def run_evaluation(register_only: bool = False) -> dict | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="WINGS3 Module 4 golden set + hybrid judges")
+    parser = argparse.ArgumentParser(description="WINGS Module 4 golden set + hybrid judges")
     parser.add_argument(
         "--register-only",
         action="store_true",

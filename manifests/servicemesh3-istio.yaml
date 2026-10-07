@@ -5,7 +5,7 @@ metadata:
   name: default
   namespace: istio-system
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 spec:
   namespace: istio-system
 ---
@@ -15,6 +15,6 @@ metadata:
   name: default
   namespace: istio-cni
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 spec:
   namespace: istio-cni

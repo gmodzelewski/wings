@@ -1,7 +1,7 @@
 # Module 2 — Agent tracing with autolog
 
 **Time:** 22 minutes | **Role:** AI engineer  
-**Where:** JupyterLab **workbench** `wings3-demo` in project `my-first-model` (not your laptop)
+**Where:** JupyterLab **workbench** `wings-demo` in project `my-first-model` (not your laptop)
 
 ## Know
 
@@ -15,9 +15,9 @@ On RHOAI, annotation **`opendatahub.io/mlflow-instance=mlflow`** on the Notebook
 - `MLFLOW_K8S_INTEGRATION=true`
 - `MLFLOW_TRACKING_AUTH=kubernetes-namespaced`
 
-Dashboard workbenches created **after** MLflow is installed get that annotation **automatically**. This hour’s workbench is GitOps (`workbench-wings3-demo.yaml`) so the annotation is in the YAML — that is the only case where you must set it yourself.
+Dashboard workbenches created **after** MLflow is installed get that annotation **automatically**. This hour’s workbench is GitOps (`workbench-wings-demo.yaml`) so the annotation is in the YAML — that is the only case where you must set it yourself.
 
-You still set **`MLFLOW_WORKSPACE`** to the project name (`my-first-model`) — that is the RBAC boundary. The agent LLM is **`MAAS_MODEL`** from Secret `wings3-judge-llm` (mounted at `/etc/wings3-judge-llm`; on GPU clusters that is usually in-cluster llama-32-3b-instruct). The workbench pod must run as ServiceAccount **`wings3-demo`** (same name as the Notebook, from the YAML). Dashboard-created notebooks use `default` and get `PERMISSION_DENIED`.
+You still set **`MLFLOW_WORKSPACE`** to the project name (`my-first-model`) — that is the RBAC boundary. The agent LLM is **`MAAS_MODEL`** from Secret `wings-judge-llm` (mounted at `/etc/wings-judge-llm`; on GPU clusters that is usually in-cluster llama-32-3b-instruct). The workbench pod must run as ServiceAccount **`wings-demo`** (same name as the Notebook, from the YAML). Dashboard-created notebooks use `default` and get `PERMISSION_DENIED`.
 
 **Pip (pre-stage):** RHOAI 3.4 RHAI index has langgraph 1.x only. Install with `--extra-index-url https://pypi.org/simple`. The venv is **not** on the PVC — re-pip after a workbench restart.
 
@@ -29,11 +29,11 @@ You still set **`MLFLOW_WORKSPACE`** to the project name (`my-first-model`) — 
 
 ### 1. Open the pre-staged workbench
 
-Do **not** create a workbench from the dashboard during this hour. Dashboard notebooks use ServiceAccount `default`; the MLflow webhook binds RBAC to `wings3-demo`.
+Do **not** create a workbench from the dashboard during this hour. Dashboard notebooks use ServiceAccount `default`; the MLflow webhook binds RBAC to `wings-demo`.
 
 1. OpenShift AI → **Projects** → `my-first-model` → **Workbenches**.
-2. Open **wings3-demo** (status must be **Running**).
-3. If it is missing, that is a pre-stage miss — **off camera**: `oc apply -f manifests/workbench-wings3-demo.yaml`, wait until Running, then continue.
+2. Open **wings-demo** (status must be **Running**).
+3. If it is missing, that is a pre-stage miss — **off camera**: `oc apply -f manifests/workbench-wings-demo.yaml`, wait until Running, then continue.
 
 ### 2. Confirm the git clone
 
@@ -90,7 +90,7 @@ Switch to a **second browser tab** on the OpenShift AI dashboard (no in-notebook
 **Primary path (embedded):**
 
 1. Project **my-first-model** → **Develop & train → Experiments** (nav label is **Experiments** only; Red Hat docs: Experiments (MLflow)).
-2. Open experiment **wings3-agent-tracing** → set workflow type to **GenAI** → **Traces** tab.
+2. Open experiment **wings-agent-tracing** → set workflow type to **GenAI** → **Traces** tab.
 3. **Debug beat (red thread):** open an **Error** row (often a later query or a 3B context blow-up; a rehearsal Error is fine if the live query is OK). Show the tool or LLM failure. Say: this is why you needed traces — you can see where it failed. Do not linger.
 4. Close it. Open an **OK** row whose request is **Calculate 256 divided by 16** (State OK). Latest is often Error; do **not** pick latest by default.
 5. In the drawer, open **Details & Timeline**. Span tree: LangGraph → ChatOpenAI → **calculator** → ChatOpenAI. Point at the calculator span — that is what autolog captured without a manual span.
@@ -119,11 +119,11 @@ Prefer the notebook on stage. This script is for rehearsal only.
 ```bash
 cd …/demo/agent-tracing
 export MLFLOW_WORKSPACE=my-first-model
-export MLFLOW_EXPERIMENT_NAME=wings3-agent-tracing
+export MLFLOW_EXPERIMENT_NAME=wings-agent-tracing
 export MAAS_API_KEY=unused
 export MAAS_MODEL=llama-32-3b-instruct
 export MAAS_BASE_URL=http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
-export WINGS3_ONE_QUERY=1
+export WINGS_ONE_QUERY=1
 python3 run_tracing_demo_autolog.py
 ```
 
@@ -148,7 +148,7 @@ Port-forward the **pod on 8080**. `svc/…-predictor 18080:80` fails with connec
 | `ModuleNotFoundError: No module named 'langchain_core'` | Kernel venv is empty (never pip'd, or workbench restarted — venv is not on the PVC). Run the **1b** `%pip install -r ../agent-tracing/requirements.txt --extra-index-url https://pypi.org/simple` cell **first**, then re-run the env cell (it imports langchain/mlflow). Terminal `pip` without `--extra-index-url` hits the RHAI index and can miss `langchain-core`. |
 | `Field required` / `validation error for calculator` / `b` missing | 3B called `sqrt` with only `a`. Tool schema must have `b: float \| None = None`. Re-run the SHOW calculator cell from the updated notebook, then the agent cell. Old traces keep the Error rows — that is still the Act 2 debug beat. |
 | `Workspace context is required` | Re-run the env cell (`MLFLOW_WORKSPACE=my-first-model`) |
-| `PERMISSION_DENIED` from workbench SDK | Pod must use SA `wings3-demo` (see `workbench-wings3-demo.yaml`); `default` is not bound. Do not create the notebook from the dashboard. |
+| `PERMISSION_DENIED` from workbench SDK | Pod must use SA `wings-demo` (see `workbench-wings-demo.yaml`); `default` is not bound. Do not create the notebook from the dashboard. |
 | `This model only supports single tool-calls` | Calculator-only agent (already the demo); one tool per turn |
 | `max_tokens` / context too large | `MAAS_MAX_TOKENS=256`; skip extra queries |
 | LLM connection error from laptop | Use workbench in-cluster URL, or pod port-forward 8080 |

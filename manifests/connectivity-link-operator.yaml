@@ -7,7 +7,7 @@ metadata:
   name: rhcl-operator
   namespace: openshift-operators
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 spec:
   channel: stable
   installPlanApproval: Automatic

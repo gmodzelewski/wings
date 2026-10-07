@@ -10,10 +10,10 @@ from pptx import Presentation
 from pptx.util import Inches
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS = REPO_ROOT / "scripts"
-sys.path.insert(0, str(SCRIPTS))
+SLIDES_DIR = REPO_ROOT / "slides"
+sys.path.insert(0, str(SLIDES_DIR))
 
-from revise_wings3_branded_deck import (  # noqa: E402
+from revise_branded_deck import (  # noqa: E402
     BRANDED_PPTX,
     LADDER_LINES,
     add_screenshot_placeholder,
@@ -93,7 +93,7 @@ def test_branded_deck_exists_for_live_revision():
 def test_revise_branded_deck_applies_feedback(tmp_path):
     import shutil
 
-    from revise_wings3_branded_deck import revise
+    from revise_branded_deck import revise
 
     dest = tmp_path / "deck.pptx"
     shutil.copy2(BRANDED_PPTX, dest)

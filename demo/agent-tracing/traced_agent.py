@@ -1,4 +1,4 @@
-"""LangGraph calculator agent for WINGS3 autolog + eval.
+"""LangGraph calculator agent for WINGS autolog + eval.
 
 Notebooks inline a SHOW copy of calculator and call create_agent_graph
 with tools=[calculator]. This module is the library those notebooks import.
@@ -21,12 +21,12 @@ from calculator_ops import run_calculator
 from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
-from wings3_env import (
+from wings_env import (
     DEFAULT_MAAS_API_KEY,
     DEFAULT_MAAS_BASE_URL,
     DEFAULT_MAAS_MODEL,
     ensure_maas_env,
-    load_wings3_secret_env,
+    load_wings_secret_env,
     print_secret_key_status,
     print_workbench_env,
 )
@@ -40,7 +40,7 @@ __all__ = [
     "create_agent_graph",
     "ensure_maas_env",
     "get_config_from_env",
-    "load_wings3_secret_env",
+    "load_wings_secret_env",
     "print_secret_key_status",
     "print_workbench_env",
 ]

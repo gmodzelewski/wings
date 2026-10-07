@@ -1,4 +1,4 @@
-"""WINGS3 workbench LLM environment loading (no LangChain dependency)."""
+"""WINGS workbench LLM environment loading (no LangChain dependency)."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ import os
 from pathlib import Path
 from typing import Iterable
 
-WINGS3_SECRET_DIR = Path("/etc/wings3-judge-llm")
-UPSTREAM_SECRET_DIR = Path("/etc/wings3-maas-upstream-api-key")
+WINGS_SECRET_DIR = Path("/etc/wings-judge-llm")
+UPSTREAM_SECRET_DIR = Path("/etc/wings-maas-upstream-api-key")
 WORKSHOP_BASE_URL = os.environ.get(
-    "WINGS3_WORKSHOP_BASE_URL",
+    "WINGS_WORKSHOP_BASE_URL",
     "https://maas-rhdp.apps.maas.redhatworkshops.io/v1",
 )
-WINGS3_SECRET_KEYS = (
+WINGS_SECRET_KEYS = (
     "JUDGE_API_KEY",
     "JUDGE_BASE_URL",
     "JUDGE_MODEL",
@@ -60,32 +60,32 @@ def apply_workshop_direct_fallback() -> None:
         os.environ["JUDGE_API_KEY"] = upstream
 
 
-def load_wings3_secret_env() -> None:
+def load_wings_secret_env() -> None:
     """Load LLM config from the workbench-mounted Secret (RHOAI strips secretKeyRef env)."""
-    if not WINGS3_SECRET_DIR.is_dir():
+    if not WINGS_SECRET_DIR.is_dir():
         return
-    for key in WINGS3_SECRET_KEYS:
-        path = WINGS3_SECRET_DIR / key
+    for key in WINGS_SECRET_KEYS:
+        path = WINGS_SECRET_DIR / key
         if path.is_file():
             os.environ[key] = path.read_text().strip()
 
 
 def ensure_maas_env(require_secret: bool = False) -> None:
     """Load agent LLM config from Secret mount, .env (local), then module defaults."""
-    load_wings3_secret_env()
+    load_wings_secret_env()
 
-    if WINGS3_SECRET_DIR.is_dir():
+    if WINGS_SECRET_DIR.is_dir():
         missing = [
             key
             for key in _REQUIRED_MAAS_KEYS
-            if not os.environ.get(key) and not (WINGS3_SECRET_DIR / key).is_file()
+            if not os.environ.get(key) and not (WINGS_SECRET_DIR / key).is_file()
         ]
         if missing:
             keys = ", ".join(missing)
             raise RuntimeError(
-                f"{keys} missing from Secret wings3-judge-llm mount at {WINGS3_SECRET_DIR}. "
-                "oc apply -f manifests/secret-wings3-judge-llm.yaml (or .example.yaml), "
-                "then stop/start workbench wings3-demo."
+                f"{keys} missing from Secret wings-judge-llm mount at {WINGS_SECRET_DIR}. "
+                "oc apply -f manifests/secret-wings-judge-llm.yaml (or .example.yaml), "
+                "then stop/start workbench wings-demo."
             )
     elif not require_secret:
         try:

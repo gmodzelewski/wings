@@ -1,9 +1,9 @@
-"""Revise the branded WINGS3 Google-exported deck from presentation feedback.
+"""Revise the branded WINGS Google-exported deck from presentation feedback.
 
 Edits AI Wings 3 - Deep Dive.pptx in place (one .bak copy).
 New UI shots are <screenshot> placeholders — replace them when a cluster is up.
 
-Run: python3 scripts/revise_wings3_branded_deck.py
+Run: python3 slides/revise_branded_deck.py
 """
 
 from __future__ import annotations
@@ -17,9 +17,8 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE, MSO_SHAPE_TYPE
 from pptx.util import Inches, Pt
 
-_SCRIPTS_DIR = Path(__file__).resolve().parent
-WINGS3_ROOT = _SCRIPTS_DIR.parent
-BRANDED_PPTX = WINGS3_ROOT / "AI Wings 3 - Deep Dive.pptx"
+_SLIDES_DIR = Path(__file__).resolve().parent
+BRANDED_PPTX = _SLIDES_DIR / "AI Wings 3 - Deep Dive.pptx"
 
 LADDER_LINES = [
     "1. Tracking server on the platform — you can see the agent",
@@ -368,14 +367,14 @@ def revise(prs: Presentation) -> Presentation:
             "GitOps / YAML Notebook: set opendatahub.io/mlflow-instance=mlflow yourself",
         ],
         notes=(
-            "This hour's workbench is GitOps (workbench-wings3-demo.yaml) so the annotation "
+            "This hour's workbench is GitOps (workbench-wings-demo.yaml) so the annotation "
             "is in the manifest. If they Create workbench from the UI after MLflow exists, "
             "the platform sets it for them."
         ),
     )
     add_screenshot_placeholder(
         prs.slides[-1],
-        what="OpenShift AI → Project my-first-model → Workbenches (wings3-demo Running)",
+        what="OpenShift AI → Project my-first-model → Workbenches (wings-demo Running)",
         why=(
             "UI workbenches created after MLflow install get "
             "opendatahub.io/mlflow-instance automatically; GitOps YAML must set it"

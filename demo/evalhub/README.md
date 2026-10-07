@@ -11,7 +11,7 @@ MLflow judges answer *is the answer right?* EvalHub runs **platform jobs** (benc
 Read from the cluster ConfigMap (applied by `install.sh`):
 
 ```bash
-oc get configmap wings3-llm-endpoint -n my-first-model -o yaml
+oc get configmap wings-llm-endpoint -n my-first-model -o yaml
 ```
 
 In-cluster OpenAI-compatible URL:
@@ -39,13 +39,13 @@ Walkthrough: [`../../walkthrough/05-evalhub-garak.md`](../../walkthrough/05-eval
 ./scripts/submit_evalhub_eval_run.sh --benchmark arc_easy --tokenizer gpt2
 
 # Garak (auto: provider garak; endpoint normalized to .../v1)
-./scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings3-demo-garak-quick
+./scripts/submit_evalhub_eval_run.sh --benchmark quick --name wings-demo-garak-quick
 
 # Guardrails coda — unguarded vs NeMo-guarded Garak pair
 ./scripts/prestage_garak_before_after.sh
 ```
 
-`submit_evalhub_eval_run.sh` auto-detects Garak benchmarks (`quick`, `intents`, `owasp_llm_top10`, …). Override with `--provider garak` or `--provider lm`. Pass `--endpoint` / `--model` to retarget (required for the guarded NeMo URL). It sets `experiment.name` (`wings3-evalhub-garak` / `wings3-evalhub-lmeval`) so results land as MLflow **Runs** (not GenAI Traces — those are Act 2 autolog only). Garak payloads also set `primary_score.lower_is_better: true` so the Evaluations list Score is a normalised pass score (guarded ASR 0 → **100%**, not `-`).
+`submit_evalhub_eval_run.sh` auto-detects Garak benchmarks (`quick`, `intents`, `owasp_llm_top10`, …). Override with `--provider garak` or `--provider lm`. Pass `--endpoint` / `--model` to retarget (required for the guarded NeMo URL). It sets `experiment.name` (`wings-evalhub-garak` / `wings-evalhub-lmeval`) so results land as MLflow **Runs** (not GenAI Traces — those are Act 2 autolog only). Garak payloads also set `primary_score.lower_is_better: true` so the Evaluations list Score is a normalised pass score (guarded ASR 0 → **100%**, not `-`).
 
 Garak scans can exceed five minutes for full suites. Submit **`quick`** before the session or use screenshots in `demo/assets/placeholders/`.
 

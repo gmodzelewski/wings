@@ -1,4 +1,4 @@
-"""Integration test for the plain WINGS3 deck builder."""
+"""Integration test for the plain WINGS deck builder."""
 
 from __future__ import annotations
 
@@ -9,12 +9,12 @@ import pytest
 from pptx import Presentation
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WINGS3_SCRIPTS = REPO_ROOT / "scripts"
-sys.path.insert(0, str(WINGS3_SCRIPTS))
+SLIDES_DIR = REPO_ROOT / "slides"
+sys.path.insert(0, str(SLIDES_DIR))
 sys.path.insert(0, str(REPO_ROOT))
 
-from build_wings3_deck import OUTPUT, build_deck  # noqa: E402
-from wings3_content import EXPECTED_SLIDE_COUNT, SLIDES  # noqa: E402
+from build_deck import OUTPUT, build_deck  # noqa: E402
+from content import EXPECTED_SLIDE_COUNT, SLIDES  # noqa: E402
 
 pytest.importorskip("pptx")
 

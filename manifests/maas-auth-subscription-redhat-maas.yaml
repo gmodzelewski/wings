@@ -4,7 +4,7 @@ metadata:
   name: redhat-maas
   namespace: models-as-a-service
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 spec:
   owner:
     groups:
@@ -38,7 +38,7 @@ metadata:
   name: redhat-maas
   namespace: models-as-a-service
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 spec:
   modelRefs:
     - name: gpt-oss-120b

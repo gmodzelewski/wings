@@ -1,4 +1,4 @@
-# Lab InferenceService for WINGS3. Runtime image comes from the cluster
+# Lab InferenceService for WINGS. Runtime image comes from the cluster
 # template vllm-cuda-runtime-template (install.sh instantiates ServingRuntime
 # llama-32-3b-instruct). Do not freeze an old RHAIIS SHA here.
 #

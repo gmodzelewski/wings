@@ -1,4 +1,4 @@
-"""Slide content for a plain WINGS3 agent-observability deck (MLflow on OpenShift AI).
+"""Slide content for a plain WINGS agent-observability deck (MLflow on OpenShift AI).
 
 Live-demo spine: teach on slides → PAUSE to the cluster → RETURN wrap.
 Walkthrough modules remain the source of truth for live clicks.
@@ -31,7 +31,7 @@ SLIDES: list[dict] = [
             "dataset plus judge → you can ship.\n"
             "Native on OpenShift AI: workspace equals the project for RBAC. The workbench injects "
             "the tracking URI. You do not paste a laptop token on stage.\n"
-            "Code runs in JupyterLab workbench wings3-demo, project my-first-model.\n"
+            "Code runs in JupyterLab workbench wings-demo, project my-first-model.\n"
             "Follow walkthrough/00-presenter-setup.md for what is pre-staged vs live."
         ),
     },
@@ -132,13 +132,13 @@ SLIDES: list[dict] = [
         "title": "Where the demo actually runs",
         "bullets": [
             "OpenShift AI dashboard — project my-first-model. Do not Create workbench from the UI.",
-            "Workbench wings3-demo — YAML only, ServiceAccount wings3-demo",
+            "Workbench wings-demo — YAML only, ServiceAccount wings-demo",
             "Standalone /mlflow — Traces, Details & Timeline, Evaluation, Datasets. Not the embedded Experiments view.",
             "LLM — in-cluster vLLM Llama 3.2 3B (KServe). No port-forward on stage.",
         ],
         "notes": (
             "Dashboard Create workbench uses ServiceAccount default and gets PERMISSION_DENIED. "
-            "The YAML Notebook uses wings3-demo; the MLflow webhook binds RBAC to that name.\n"
+            "The YAML Notebook uses wings-demo; the MLflow webhook binds RBAC to that name.\n"
             "Paste mlflow_ui from walkthrough/partials/_attributes.md. Do not type a placeholder host.\n"
             "Laptop plus oc port-forward is an appendix for rehearsal only."
         ),
@@ -150,8 +150,8 @@ SLIDES: list[dict] = [
         "bullets": [
             "mlflowoperator is Managed; MLflow CR already applied (do not oc apply on camera)",
             "InferenceService llama-32-3b-instruct is Ready",
-            "Workbench Running from workbench-wings3-demo.yaml; demo folder on the PVC; pip already done",
-            "Optional: v1 eval run in wings3-agent-eval",
+            "Workbench Running from workbench-wings-demo.yaml; demo folder on the PVC; pip already done",
+            "Optional: v1 eval run in wings-agent-eval",
         ],
         "notes": (
             "If something in this list is missing, that is a pre-stage miss. Do not debug it on camera.\n"
@@ -191,7 +191,7 @@ SLIDES: list[dict] = [
         "layout": "content",
         "title": "OpenShift AI — Project page",
         "bullets": screenshot(
-            "OpenShift AI → Project my-first-model → Workbenches (wings3-demo Running)",
+            "OpenShift AI → Project my-first-model → Workbenches (wings-demo Running)",
             "UI workbenches created after MLflow install get opendatahub.io/mlflow-instance automatically; GitOps YAML must set it",
         )
         + [
@@ -200,7 +200,7 @@ SLIDES: list[dict] = [
         ],
         "notes": (
             "This is the annotation beat. Do not lead with the YAML blob.\n"
-            "This hour's workbench is GitOps (workbench-wings3-demo.yaml) so the annotation is in the manifest.\n"
+            "This hour's workbench is GitOps (workbench-wings-demo.yaml) so the annotation is in the manifest.\n"
             "If they Create workbench from the UI after MLflow exists, the platform sets it for them."
         ),
     },
@@ -294,7 +294,7 @@ SLIDES: list[dict] = [
         "subtitle": "AI engineer · 22 minutes · you can fix it",
         "notes": (
             "AI engineer. Ladder step 2: traces — you can fix it.\n"
-            "Open JupyterLab workbench wings3-demo. Notebook 01_agent_tracing_autolog.ipynb. "
+            "Open JupyterLab workbench wings-demo. Notebook 01_agent_tracing_autolog.ipynb. "
             "Do not open traced_agent.py or the CLI script on stage."
         ),
     },
@@ -351,9 +351,9 @@ SLIDES: list[dict] = [
         "title": "PAUSE — notebook, then Traces",
         "subtitle": "Error row, then OK 256 ÷ 16 Details & Timeline",
         "notes": (
-            "PAUSE. JupyterLab wings3-demo. Open 01_agent_tracing_autolog.ipynb.\n"
+            "PAUSE. JupyterLab wings-demo. Open 01_agent_tracing_autolog.ipynb.\n"
             "Scroll SHOW cells: calculator, autolog, one query.\n"
-            "Then standalone /mlflow → workspace my-first-model → experiment wings3-agent-tracing → Traces.\n"
+            "Then standalone /mlflow → workspace my-first-model → experiment wings-agent-tracing → Traces.\n"
             "Do not click the latest row. Open an Error and say where it failed (timeout, empty response, "
             "or missing tool). Do not linger.\n"
             "Then open the OK Calculate 256 divided by 16 row. Drawer: Details & Timeline. "
@@ -429,7 +429,7 @@ SLIDES: list[dict] = [
         "notes": (
             "PAUSE. First sentence out loud: substring scorer, four rows, direction not a production gate.\n"
             "Scroll SHOW cells. Run v1 if needed, then v2. If behind, skip v1 live.\n"
-            "Show the printed metrics table, then Evaluation tab, experiment wings3-agent-eval, "
+            "Show the printed metrics table, then Evaluation tab, experiment wings-agent-eval, "
             "v1-baseline vs v2-improved-prompt.\n"
             "Pick a False contains_expected row and read the output. Contrast a True row that includes the number."
         ),
@@ -473,9 +473,9 @@ SLIDES: list[dict] = [
         "subtitle": "AI engineer · 20–25 min · not in the 60-minute hour",
         "notes": (
             "Only if they stayed. Act 3 already promised judges before you promote.\n"
-            "Same workbench. Notebook 03_prod_eval_judges.ipynb. Experiment wings3-agent-eval-prod "
+            "Same workbench. Notebook 03_prod_eval_judges.ipynb. Experiment wings-agent-eval-prod "
             "so Act 3 numbers stay clean.\n"
-            "SAY THIS BEFORE CELLS: 3B is the agent; judges use hosted gpt-oss-120b from Secret wings3-judge-llm."
+            "SAY THIS BEFORE CELLS: 3B is the agent; judges use hosted gpt-oss-120b from Secret wings-judge-llm."
         ),
     },
     {
@@ -486,7 +486,7 @@ SLIDES: list[dict] = [
             "Golden set: demo/datasets/math_golden.jsonl — 8 calculator-only rows (first four = Act 3)",
             "Register it: create_dataset + merge_records → MLflow Datasets tab (math_golden)",
             "Hybrid scorers: contains_expected + Correctness + Guidelines (numeric_and_clear)",
-            "Judge model: hosted_vllm:/gpt-oss-120b via hosted MaaS (Secret wings3-judge-llm) — not openai:/ and not gpt-4o-mini",
+            "Judge model: hosted_vllm:/gpt-oss-120b via hosted MaaS (Secret wings-judge-llm) — not openai:/ and not gpt-4o-mini",
             "Live run: v2 prompt only. Run name v2-judged.",
         ],
         "notes": (
@@ -523,7 +523,7 @@ SLIDES: list[dict] = [
         "notes": (
             "PAUSE. Caveat first: 3B is the agent; gpt-oss-120b is the judge.\n"
             "Walk SHOW cells. Run v2 if warm.\n"
-            "Standalone /mlflow → workspace my-first-model → experiment wings3-agent-eval-prod.\n"
+            "Standalone /mlflow → workspace my-first-model → experiment wings-agent-eval-prod.\n"
             "Datasets → math_golden, 8 records.\n"
             "Evaluation → v2-judged. Open a row where substring and judge disagree, or a Fail with "
             "rationale, and read the judge text out loud."

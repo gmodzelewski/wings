@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Rotate the workshop MaaS upstream API key and verify the provider accepts it.
-# Never commit the token. Prefer: export WINGS3_MAAS_UPSTREAM_API_KEY='sk-oai-…'
+# Never commit the token. Prefer: export WINGS_MAAS_UPSTREAM_API_KEY='sk-oai-…'
 set -euo pipefail
 
-PROJECT="${WINGS3_PROJECT:-my-first-model}"
-SECRET="${WINGS3_MAAS_UPSTREAM_SECRET:-wings3-maas-upstream-api-key}"
-PROVIDER="${WINGS3_EXTERNAL_PROVIDER:-qwen36-35b-a3b}"
-MODEL="${WINGS3_EXTERNAL_MODEL:-qwen36-35b-a3b}"
-UPSTREAM_HOST="${WINGS3_MAAS_UPSTREAM_HOST:-maas-rhdp.apps.maas.redhatworkshops.io}"
-KEY="${WINGS3_MAAS_UPSTREAM_API_KEY:-}"
+PROJECT="${WINGS_PROJECT:-my-first-model}"
+SECRET="${WINGS_MAAS_UPSTREAM_SECRET:-wings-maas-upstream-api-key}"
+PROVIDER="${WINGS_EXTERNAL_PROVIDER:-qwen36-35b-a3b}"
+MODEL="${WINGS_EXTERNAL_MODEL:-qwen36-35b-a3b}"
+UPSTREAM_HOST="${WINGS_MAAS_UPSTREAM_HOST:-maas-rhdp.apps.maas.redhatworkshops.io}"
+KEY="${WINGS_MAAS_UPSTREAM_API_KEY:-}"
 
 usage() {
   cat <<EOF
@@ -19,9 +19,9 @@ optionally restore ExternalProvider endpoint to the workshop host, and probe
 POST /v1/chat/completions until HTTP 200.
 
 Env:
-  WINGS3_MAAS_UPSTREAM_API_KEY   required unless --key is passed
-  WINGS3_PROJECT                 default ${PROJECT}
-  WINGS3_MAAS_UPSTREAM_HOST      default ${UPSTREAM_HOST}
+  WINGS_MAAS_UPSTREAM_API_KEY   required unless --key is passed
+  WINGS_PROJECT                 default ${PROJECT}
+  WINGS_MAAS_UPSTREAM_HOST      default ${UPSTREAM_HOST}
 EOF
 }
 
@@ -37,7 +37,7 @@ done
 
 die() { echo "error: $*" >&2; exit 1; }
 
-[[ -n "$KEY" ]] || die "set WINGS3_MAAS_UPSTREAM_API_KEY or pass --key"
+[[ -n "$KEY" ]] || die "set WINGS_MAAS_UPSTREAM_API_KEY or pass --key"
 [[ "$KEY" == sk-oai-* ]] || die "key must start with sk-oai-"
 command -v oc >/dev/null || die "oc not on PATH"
 oc whoami >/dev/null || die "oc whoami failed"

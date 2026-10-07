@@ -6,7 +6,7 @@ kind: Namespace
 metadata:
   name: istio-system
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
     istio-discovery: enabled
 ---
 apiVersion: v1
@@ -14,7 +14,7 @@ kind: Namespace
 metadata:
   name: istio-cni
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -22,7 +22,7 @@ metadata:
   name: servicemeshoperator3
   namespace: openshift-operators
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 spec:
   channel: stable
   installPlanApproval: Automatic

@@ -4,7 +4,7 @@ metadata:
   name: nemo-quickstart-config
   namespace: nemo-quickstart
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 data:
   # Main LLM is the lab unguarded stub (or workshop ExternalModel once upstream key works).
   # Rails block adversarial / PII-shaped input before the model answers.
@@ -15,7 +15,7 @@ data:
         model: qwen36-35b-a3b
         api_key_env_var: OPENAI_API_KEY
         parameters:
-          base_url: "http://wings3-unguarded-llm.nemo-quickstart.svc.cluster.local:8080/v1"
+          base_url: "http://wings-unguarded-llm.nemo-quickstart.svc.cluster.local:8080/v1"
     rails:
       config:
         sensitive_data_detection:
@@ -48,7 +48,7 @@ metadata:
   namespace: nemo-quickstart
   labels:
     opendatahub.io/dashboard: "true"
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
   annotations:
     security.opendatahub.io/enable-auth: "true"
 spec:
@@ -57,7 +57,7 @@ spec:
     - name: OPENAI_API_KEY
       valueFrom:
         secretKeyRef:
-          name: wings3-maas-upstream-api-key
+          name: wings-maas-upstream-api-key
           key: api-key
   nemoConfigs:
     - name: nemo-quickstart-config

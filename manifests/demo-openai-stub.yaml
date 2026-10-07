@@ -7,10 +7,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: wings3-demo-openai-stub
+  name: wings-demo-openai-stub
   namespace: nemo-quickstart
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 data:
   server.py: |
     #!/usr/bin/env python3
@@ -108,7 +108,7 @@ data:
             if self.path.rstrip("/").endswith("/models") or self.path.endswith("/v1/models"):
                 self._send(200, {
                     "object": "list",
-                    "data": [{"id": MODEL, "object": "model", "owned_by": "wings3-demo"}],
+                    "data": [{"id": MODEL, "object": "model", "owned_by": "wings-demo"}],
                 })
                 return
             if self.path in ("/", "/health", "/healthz"):
@@ -147,26 +147,26 @@ data:
 
     if __name__ == "__main__":
         port = int(os.environ.get("PORT", "8080"))
-        print(f"wings3 demo openai stub mode={MODE} model={MODEL} port={port}", flush=True)
+        print(f"wings demo openai stub mode={MODE} model={MODEL} port={port}", flush=True)
         ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: wings3-unguarded-llm
+  name: wings-unguarded-llm
   namespace: nemo-quickstart
   labels:
-    app: wings3-unguarded-llm
-    app.kubernetes.io/part-of: wings3-demo
+    app: wings-unguarded-llm
+    app.kubernetes.io/part-of: wings-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: wings3-unguarded-llm
+      app: wings-unguarded-llm
   template:
     metadata:
       labels:
-        app: wings3-unguarded-llm
+        app: wings-unguarded-llm
     spec:
       containers:
         - name: stub
@@ -180,7 +180,7 @@ spec:
             - name: DEMO_STUB_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: wings3-maas-upstream-api-key
+                  name: wings-maas-upstream-api-key
                   key: api-key
                   optional: true
             - name: PORT
@@ -207,20 +207,20 @@ spec:
       volumes:
         - name: stub
           configMap:
-            name: wings3-demo-openai-stub
+            name: wings-demo-openai-stub
             defaultMode: 0555
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: wings3-unguarded-llm
+  name: wings-unguarded-llm
   namespace: nemo-quickstart
   labels:
-    app: wings3-unguarded-llm
-    app.kubernetes.io/part-of: wings3-demo
+    app: wings-unguarded-llm
+    app.kubernetes.io/part-of: wings-demo
 spec:
   selector:
-    app: wings3-unguarded-llm
+    app: wings-unguarded-llm
   ports:
     - name: http
       port: 8080
@@ -229,20 +229,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: wings3-guarded-llm
+  name: wings-guarded-llm
   namespace: nemo-quickstart
   labels:
-    app: wings3-guarded-llm
-    app.kubernetes.io/part-of: wings3-demo
+    app: wings-guarded-llm
+    app.kubernetes.io/part-of: wings-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: wings3-guarded-llm
+      app: wings-guarded-llm
   template:
     metadata:
       labels:
-        app: wings3-guarded-llm
+        app: wings-guarded-llm
     spec:
       containers:
         - name: stub
@@ -256,7 +256,7 @@ spec:
             - name: DEMO_STUB_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: wings3-maas-upstream-api-key
+                  name: wings-maas-upstream-api-key
                   key: api-key
                   optional: true
             - name: PORT
@@ -283,20 +283,20 @@ spec:
       volumes:
         - name: stub
           configMap:
-            name: wings3-demo-openai-stub
+            name: wings-demo-openai-stub
             defaultMode: 0555
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: wings3-guarded-llm
+  name: wings-guarded-llm
   namespace: nemo-quickstart
   labels:
-    app: wings3-guarded-llm
-    app.kubernetes.io/part-of: wings3-demo
+    app: wings-guarded-llm
+    app.kubernetes.io/part-of: wings-demo
 spec:
   selector:
-    app: wings3-guarded-llm
+    app: wings-guarded-llm
   ports:
     - name: http
       port: 8080
@@ -305,15 +305,15 @@ spec:
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: wings3-unguarded-llm
+  name: wings-unguarded-llm
   namespace: nemo-quickstart
   labels:
-    app: wings3-unguarded-llm
-    app.kubernetes.io/part-of: wings3-demo
+    app: wings-unguarded-llm
+    app.kubernetes.io/part-of: wings-demo
 spec:
   to:
     kind: Service
-    name: wings3-unguarded-llm
+    name: wings-unguarded-llm
   port:
     targetPort: http
   tls:

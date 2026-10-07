@@ -6,33 +6,33 @@
 # Garak benchmarks (auto-detected). Results still appear in Develop & train → Evaluations.
 set -euo pipefail
 
-WINGS3_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-PROJECT="${WINGS3_PROJECT:-my-first-model}"
-LLM_MODEL="${WINGS3_LLM_MODEL:-llama-32-3b-instruct}"
-HF_SECRET="${WINGS3_HF_SECRET:-hf-token}"
-TOKENIZER="${WINGS3_EVAL_TOKENIZER:-meta-llama/Llama-3.2-3B-Instruct}"
-BENCHMARK="${WINGS3_EVAL_BENCHMARK:-arc_easy}"
-NUM_EXAMPLES="${WINGS3_EVAL_NUM_EXAMPLES:-10}"
-LIMIT="${WINGS3_EVAL_LIMIT:-5}"
-RUN_NAME="${WINGS3_EVAL_NAME:-wings3-demo-${BENCHMARK}}"
-EVALHUB_DEPLOY="${WINGS3_EVALHUB_DEPLOY:-evalhub}"
-PROVIDER="${WINGS3_EVAL_PROVIDER:-auto}"
-MODEL_AUTH_SECRET="${WINGS3_EVAL_MODEL_AUTH_SECRET:-wings3-maas-upstream-api-key}"
-ENDPOINT_OVERRIDE="${WINGS3_EVAL_ENDPOINT:-}"
-MODEL_OVERRIDE="${WINGS3_EVAL_MODEL:-}"
+WINGS_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+PROJECT="${WINGS_PROJECT:-my-first-model}"
+LLM_MODEL="${WINGS_LLM_MODEL:-llama-32-3b-instruct}"
+HF_SECRET="${WINGS_HF_SECRET:-hf-token}"
+TOKENIZER="${WINGS_EVAL_TOKENIZER:-meta-llama/Llama-3.2-3B-Instruct}"
+BENCHMARK="${WINGS_EVAL_BENCHMARK:-arc_easy}"
+NUM_EXAMPLES="${WINGS_EVAL_NUM_EXAMPLES:-10}"
+LIMIT="${WINGS_EVAL_LIMIT:-5}"
+RUN_NAME="${WINGS_EVAL_NAME:-wings-demo-${BENCHMARK}}"
+EVALHUB_DEPLOY="${WINGS_EVALHUB_DEPLOY:-evalhub}"
+PROVIDER="${WINGS_EVAL_PROVIDER:-auto}"
+MODEL_AUTH_SECRET="${WINGS_EVAL_MODEL_AUTH_SECRET:-wings-maas-upstream-api-key}"
+ENDPOINT_OVERRIDE="${WINGS_EVAL_ENDPOINT:-}"
+MODEL_OVERRIDE="${WINGS_EVAL_MODEL:-}"
 # Empty = pick default from provider after resolve (see resolve_experiment_name).
-EXPERIMENT_NAME="${WINGS3_EVAL_EXPERIMENT:-}"
-WAIT_FOR_JOB="${WINGS3_EVAL_WAIT:-1}"
+EXPERIMENT_NAME="${WINGS_EVAL_EXPERIMENT:-}"
+WAIT_FOR_JOB="${WINGS_EVAL_WAIT:-1}"
 # EvalHub 1.0 probes MLflow workspaces incorrectly on some RHOAI builds and then
 # omits X-MLflow-Workspace while MLflow still requires it for experiment lookup.
-# Set WINGS3_EVAL_NO_EXPERIMENT=1 (or --no-experiment) to submit without experiment.
-NO_EXPERIMENT="${WINGS3_EVAL_NO_EXPERIMENT:-0}"
+# Set WINGS_EVAL_NO_EXPERIMENT=1 (or --no-experiment) to submit without experiment.
+NO_EXPERIMENT="${WINGS_EVAL_NO_EXPERIMENT:-0}"
 
 
 # Garak benchmark ids (EvalHub provider garak)
 GARAK_BENCHMARKS="quick intents owasp_llm_top10 avid avid_security avid_ethics avid_performance quality cwe"
-DEFAULT_EXPERIMENT_GARAK="wings3-evalhub-garak"
-DEFAULT_EXPERIMENT_LM="wings3-evalhub-lmeval"
+DEFAULT_EXPERIMENT_GARAK="wings-evalhub-garak"
+DEFAULT_EXPERIMENT_LM="wings-evalhub-lmeval"
 
 usage() {
   cat <<EOF
@@ -45,11 +45,11 @@ provider_id garak; all others use lm_evaluation_harness.
 
 Examples:
   $(basename "$0") --benchmark arc_easy --tokenizer gpt2
-  $(basename "$0") --benchmark quick --name wings3-demo-garak-quick
-  $(basename "$0") --benchmark quick --name wings3-demo-garak-unguarded \\
-      --endpoint http://wings3-unguarded-llm.nemo-quickstart.svc:8080/v1 \\
+  $(basename "$0") --benchmark quick --name wings-demo-garak-quick
+  $(basename "$0") --benchmark quick --name wings-demo-garak-unguarded \\
+      --endpoint http://wings-unguarded-llm.nemo-quickstart.svc:8080/v1 \\
       --model qwen36-35b-a3b
-  $(basename "$0") --benchmark quick --experiment wings3-evalhub-garak
+  $(basename "$0") --benchmark quick --experiment wings-evalhub-garak
 
 Options:
   --benchmark ID     Benchmark id (default: ${BENCHMARK})
@@ -65,9 +65,9 @@ Options:
   --no-hf-secret     Omit model.auth even if secret exists
   --model-auth-secret NAME  MaaS api-key secret (default: ${MODEL_AUTH_SECRET})
   --wait / --no-wait  After submit, wait for completion and log model_url to MLflow
-                      (default: wait; set WINGS3_EVAL_WAIT=0 or --no-wait to skip)
+                      (default: wait; set WINGS_EVAL_WAIT=0 or --no-wait to skip)
   --no-experiment    Omit experiment.name (workaround when EvalHub fails with
-                      "Workspace context is required"; set WINGS3_EVAL_NO_EXPERIMENT=1)
+                      "Workspace context is required"; set WINGS_EVAL_NO_EXPERIMENT=1)
   -h, --help         Show this help
 
 Watch: Develop & train → Evaluations → project ${PROJECT}
@@ -177,7 +177,7 @@ oc whoami >/dev/null || die "oc whoami failed; log in first"
 oc get deploy "$EVALHUB_DEPLOY" -n "$PROJECT" >/dev/null 2>&1 \
   || die "deploy/${EVALHUB_DEPLOY} not found in ${PROJECT} — apply manifests/evalhub-instance.yaml"
 
-cm_model=$(oc get configmap wings3-llm-endpoint -n "$PROJECT" \
+cm_model=$(oc get configmap wings-llm-endpoint -n "$PROJECT" \
   -o jsonpath='{.data.model_name}' 2>/dev/null || true)
 if [[ -n "$cm_model" ]]; then
   LLM_MODEL="$cm_model"
@@ -186,7 +186,7 @@ if [[ -n "$MODEL_OVERRIDE" ]]; then
   LLM_MODEL="$MODEL_OVERRIDE"
 fi
 
-endpoint=$(oc get configmap wings3-llm-endpoint -n "$PROJECT" \
+endpoint=$(oc get configmap wings-llm-endpoint -n "$PROJECT" \
   -o jsonpath='{.data.openai_base_url}' 2>/dev/null || true)
 if [[ -n "$ENDPOINT_OVERRIDE" ]]; then
   endpoint="$ENDPOINT_OVERRIDE"
@@ -215,11 +215,11 @@ fi
 
 model_auth_field=""
 auth_secret=""
-# Local MaaS gateway needs minted sk-oai (wings3-maas-gateway-api-key), not workshop upstream.
-if [[ -z "${WINGS3_EVAL_MODEL_AUTH_SECRET:-}" ]] \
+# Local MaaS gateway needs minted sk-oai (wings-maas-gateway-api-key), not workshop upstream.
+if [[ -z "${WINGS_EVAL_MODEL_AUTH_SECRET:-}" ]] \
   && [[ "$endpoint" == *maas-gateway.* || "$endpoint" == *"/${PROJECT}/"* ]] \
-  && secret_has_api_key wings3-maas-gateway-api-key; then
-  MODEL_AUTH_SECRET=wings3-maas-gateway-api-key
+  && secret_has_api_key wings-maas-gateway-api-key; then
+  MODEL_AUTH_SECRET=wings-maas-gateway-api-key
 fi
 if secret_has_api_key "$MODEL_AUTH_SECRET"; then
   auth_secret="$MODEL_AUTH_SECRET"
@@ -312,7 +312,7 @@ wait_and_log_mlflow_endpoint_params() {
   local url="$3"
   local user="$4"
   local token="$5"
-  local max_attempts="${WINGS3_EVAL_WAIT_ATTEMPTS:-90}"
+  local max_attempts="${WINGS_EVAL_WAIT_ATTEMPTS:-90}"
   local i state body run_id mlflow_uri kind_esc url_esc
 
   echo "Waiting for job ${jid} to finish (then log model_url to MLflow)…"
@@ -411,7 +411,7 @@ token=$(oc whoami --show-token)
 echo "Submitting ${BENCHMARK} (${resolved_provider}) → ${endpoint} (model ${LLM_MODEL})"
 echo "Endpoint kind: ${endpoint_kind}  tags: ${tags_json}"
 if [[ "$NO_EXPERIMENT" == "1" ]]; then
-  echo "MLflow experiment: omitted (--no-experiment / WINGS3_EVAL_NO_EXPERIMENT=1)"
+  echo "MLflow experiment: omitted (--no-experiment / WINGS_EVAL_NO_EXPERIMENT=1)"
 else
   echo "MLflow experiment: ${resolved_experiment} (workspace ${PROJECT})"
 fi
@@ -441,5 +441,5 @@ echo "MLflow Runs (not GenAI Traces): /mlflow → workspace ${PROJECT} → ${res
 if [[ "$WAIT_FOR_JOB" == "1" && -n "$job_id" ]]; then
   wait_and_log_mlflow_endpoint_params "$job_id" "$endpoint_kind" "$endpoint" "$user" "$token"
 elif [[ "$WAIT_FOR_JOB" != "1" ]]; then
-  echo "Skipped wait/MLflow param logging (--no-wait or WINGS3_EVAL_WAIT=0)."
+  echo "Skipped wait/MLflow param logging (--no-wait or WINGS_EVAL_WAIT=0)."
 fi

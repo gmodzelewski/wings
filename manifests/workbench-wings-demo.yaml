@@ -5,7 +5,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: wings3-demo
+  name: wings-demo
   namespace: my-first-model
   labels:
     opendatahub.io/dashboard: "true"
@@ -13,7 +13,7 @@ metadata:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: wings3-demo
+  name: wings-demo
   namespace: my-first-model
   labels:
     opendatahub.io/dashboard: "true"
@@ -27,10 +27,10 @@ spec:
 apiVersion: kubeflow.org/v1
 kind: Notebook
 metadata:
-  name: wings3-demo
+  name: wings-demo
   namespace: my-first-model
   labels:
-    app: wings3-demo
+    app: wings-demo
     opendatahub.io/dashboard: "true"
   annotations:
     notebooks.opendatahub.io/inject-oauth: "true"
@@ -40,8 +40,8 @@ metadata:
     opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/image-display-name: Jupyter Data Science
     opendatahub.io/mlflow-instance: mlflow
-    openshift.io/description: WINGS3 presenter workbench for autolog and eval
-    openshift.io/display-name: wings3-demo
+    openshift.io/description: WINGS presenter workbench for autolog and eval
+    openshift.io/display-name: wings-demo
 spec:
   template:
     spec:
@@ -66,9 +66,9 @@ spec:
               git clone https://github.com/gmodzelewski/wings.git "$DEST"
           volumeMounts:
             - mountPath: /opt/app-root/src
-              name: wings3-demo
+              name: wings-demo
       containers:
-        - name: wings3-demo
+        - name: wings-demo
           image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:3.4
           imagePullPolicy: IfNotPresent
           workingDir: /opt/app-root/src/wings
@@ -78,7 +78,7 @@ spec:
                 --ServerApp.port=8888
                 --ServerApp.token=''
                 --ServerApp.password=''
-                --ServerApp.base_url=/notebook/my-first-model/wings3-demo
+                --ServerApp.base_url=/notebook/my-first-model/wings-demo
                 --ServerApp.quit_button=False
             - name: JUPYTER_IMAGE
               value: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:3.4
@@ -101,7 +101,7 @@ spec:
               memory: 4Gi
           volumeMounts:
             - mountPath: /opt/app-root/src
-              name: wings3-demo
+              name: wings-demo
             - mountPath: /dev/shm
               name: shm
             - mountPath: /etc/pki/tls/custom-certs/ca-bundle.crt
@@ -109,18 +109,18 @@ spec:
               readOnly: true
               subPath: ca-bundle.crt
             # RHOAI admission strips secretKeyRef env. Mount the Secret as files instead.
-            - mountPath: /etc/wings3-judge-llm
-              name: wings3-judge-llm
+            - mountPath: /etc/wings-judge-llm
+              name: wings-judge-llm
               readOnly: true
-            - mountPath: /etc/wings3-maas-upstream-api-key
-              name: wings3-maas-upstream-api-key
+            - mountPath: /etc/wings-maas-upstream-api-key
+              name: wings-maas-upstream-api-key
               readOnly: true
       enableServiceLinks: false
-      serviceAccountName: wings3-demo
+      serviceAccountName: wings-demo
       volumes:
-        - name: wings3-demo
+        - name: wings-demo
           persistentVolumeClaim:
-            claimName: wings3-demo
+            claimName: wings-demo
         - name: shm
           emptyDir:
             medium: Memory
@@ -131,11 +131,11 @@ spec:
             items:
               - key: ca-bundle.crt
                 path: ca-bundle.crt
-        - name: wings3-judge-llm
+        - name: wings-judge-llm
           secret:
-            secretName: wings3-judge-llm
+            secretName: wings-judge-llm
             optional: true
-        - name: wings3-maas-upstream-api-key
+        - name: wings-maas-upstream-api-key
           secret:
-            secretName: wings3-maas-upstream-api-key
+            secretName: wings-maas-upstream-api-key
             optional: true

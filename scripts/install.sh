@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# WINGS3 demo install.
+# WINGS demo install.
 set -euo pipefail
 
-WINGS3_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-# shellcheck source=scripts/wings3_lib.sh
-source "${WINGS3_ROOT}/scripts/wings3_lib.sh"
+WINGS_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# shellcheck source=scripts/wings_lib.sh
+source "${WINGS_ROOT}/scripts/wings_lib.sh"
 
 SKIP_LLM=0
 
@@ -12,13 +12,13 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [--skip-llm]
 
-Install WINGS3 demo (MLflow, EvalHub, workbench, LLM, pip deps).
+Install WINGS demo (MLflow, EvalHub, workbench, LLM, pip deps).
 
-Environment: WINGS3_PROJECT, WINGS3_LLM_STORAGE_URI, WINGS3_DSC_NAME,
-             WINGS3_JUDGE_API_KEY (override judge secret after MaaS key mint),
-             WINGS3_MAAS_UPSTREAM_API_KEY (workshop token for all ExternalModels; never commit),
-             WINGS3_MAAS_CATALOG_MODELS (default: gpt-oss-120b gpt-oss-20b llama-scout-17b qwen36-35b-a3b),
-             WINGS3_SKIP_OGX, WINGS3_SKIP_MCP, WINGS3_SKIP_SERVICEMESH
+Environment: WINGS_PROJECT, WINGS_LLM_STORAGE_URI, WINGS_DSC_NAME,
+             WINGS_JUDGE_API_KEY (override judge secret after MaaS key mint),
+             WINGS_MAAS_UPSTREAM_API_KEY (workshop token for all ExternalModels; never commit),
+             WINGS_MAAS_CATALOG_MODELS (default: gpt-oss-120b gpt-oss-20b llama-scout-17b qwen36-35b-a3b),
+             WINGS_SKIP_OGX, WINGS_SKIP_MCP, WINGS_SKIP_SERVICEMESH
 EOF
 }
 

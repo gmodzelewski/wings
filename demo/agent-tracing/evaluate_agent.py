@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WINGS3: GenAI evaluation — CLI / rehearsal only.
+"""WINGS: GenAI evaluation — CLI / rehearsal only.
 
 Stage path is demo/notebooks/02_eval_improvement.ipynb (inline SHOW comments).
 """
@@ -54,9 +54,9 @@ _agent = None
 
 
 def prompt_version() -> str:
-    version = os.environ.get("WINGS3_PROMPT_VERSION", "v1")
+    version = os.environ.get("WINGS_PROMPT_VERSION", "v1")
     if version not in PROMPTS:
-        raise ValueError(f"Unknown WINGS3_PROMPT_VERSION={version!r}; use v1 or v2")
+        raise ValueError(f"Unknown WINGS_PROMPT_VERSION={version!r}; use v1 or v2")
     return version
 
 
@@ -97,7 +97,7 @@ def run_evaluation() -> dict:
     if not uri:
         raise SystemExit("MLFLOW_TRACKING_URI is not set")
     mlflow.set_tracking_uri(uri)
-    experiment = os.environ.get("MLFLOW_EXPERIMENT_NAME", "wings3-agent-eval")
+    experiment = os.environ.get("MLFLOW_EXPERIMENT_NAME", "wings-agent-eval")
     mlflow.set_experiment(experiment)
     os.environ["MLFLOW_GENAI_EVAL_MAX_WORKERS"] = "1"
     from mlflow.utils.databricks_utils import is_in_cluster, is_in_databricks_notebook

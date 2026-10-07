@@ -4,7 +4,7 @@ kind: Namespace
 metadata:
   name: kuadrant-system
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 ---
 apiVersion: kuadrant.io/v1beta1
 kind: Kuadrant
@@ -12,5 +12,5 @@ metadata:
   name: kuadrant
   namespace: kuadrant-system
   labels:
-    app.kubernetes.io/part-of: wings3-demo
+    app.kubernetes.io/part-of: wings-demo
 spec: {}

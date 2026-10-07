@@ -16,7 +16,7 @@ Pre-stage (including **required** `math_golden` + `v2-judged`): [00-presenter-se
 | 0:00–1:00 | none | Spoken pain + red thread |
 | 1:00–8:00 | MLflow home | Workspace `my-first-model` |
 | 8:00–25:00 | Traces | Error row, then OK `256 ÷ 16` **Details & Timeline** |
-| 25:00–40:00 | Evaluation | `wings3-agent-eval` · `v1-baseline` vs `v2-improved-prompt` |
+| 25:00–40:00 | Evaluation | `wings-agent-eval` · `v1-baseline` vs `v2-improved-prompt` |
 | 40:00–52:00 | Datasets + Evaluation | `math_golden`, then `v2-judged` rationale |
 | 52:00–60:00 | YAML or screenshot | [mlflow-prod.example.yaml](../manifests/mlflow-prod.example.yaml) + Q&A |
 
@@ -32,7 +32,7 @@ Fallback: `assets/screenshots/08-dashboard-verify.png`.
 
 ### 2. Traces — fix (MTTR)
 
-Experiment **wings3-agent-tracing** → **Traces**. Open an **Error** row (not latest). Name the failure (timeout, empty response, or missing tool). Close it. Open the **OK** row **Calculate 256 divided by 16**. Drawer → **Details & Timeline**. Point at LangGraph → ChatOpenAI → **calculator** → ChatOpenAI.
+Experiment **wings-agent-tracing** → **Traces**. Open an **Error** row (not latest). Name the failure (timeout, empty response, or missing tool). Close it. Open the **OK** row **Calculate 256 divided by 16**. Drawer → **Details & Timeline**. Point at LangGraph → ChatOpenAI → **calculator** → ChatOpenAI.
 
 **Say (Error):** Without traces you cannot fix it. This is MTTR: “the model is dumb” versus “the tool never ran.”
 
@@ -44,7 +44,7 @@ Fallback: `12-traces-list.png`, `14-traces-span-tree.png`.
 
 **Say first:** `contains_expected` is a substring check on four math rows. It is not an LLM-as-judge and not a production SLO.
 
-Experiment **wings3-agent-eval** → **Evaluation** → `v1-baseline` vs `v2-improved-prompt`. Open a **False** `contains_expected` row and read the output. Contrast a **True** row that includes the number.
+Experiment **wings-agent-eval** → **Evaluation** → `v1-baseline` vs `v2-improved-prompt`. Open a **False** `contains_expected` row and read the output. Contrast a **True** row that includes the number.
 
 **Say:** Without a number, prompt iteration is Slack opinion. The win is the pattern, not these toy percentages. Do not promote on a substring.
 
@@ -52,11 +52,11 @@ Fallback: `18-eval-metrics.png`, `19-eval-per-example.png`.
 
 ### 4. Datasets + judges — ship (this is the close)
 
-**Say first:** The agent model comes from Secret `wings3-judge-llm` (`MAAS_MODEL`). Judges use `JUDGE_*` from the same secret (often hosted gpt-oss-120b). Scores with rationales plus a cheap substring safety net — that is a reviewable gate.
+**Say first:** The agent model comes from Secret `wings-judge-llm` (`MAAS_MODEL`). Judges use `JUDGE_*` from the same secret (often hosted gpt-oss-120b). Scores with rationales plus a cheap substring safety net — that is a reviewable gate.
 
-Experiment **wings3-agent-eval-prod**:
+Experiment **wings-agent-eval-prod**:
 
-1. **Prompts** → `wings3-agent-v2` (agent system prompt). Optional 10s if clock is tight.
+1. **Prompts** → `wings-agent-v2` (agent system prompt). Optional 10s if clock is tight.
 2. **Datasets** → `math_golden` (8 records). Named golden set, not a Python list.
 3. Optional 10s: **Judges** (or **Scorers**) → `correctness` and `numeric_and_clear`. Catalog entries; scores still live on Evaluation.
 4. **Evaluation** → `v2-judged`. Open a row where substring and judge **disagree**, or a Fail with rationale, and **read the judge text**.
@@ -67,7 +67,7 @@ Lab detail if asked: [04-prod-eval-judges.md](04-prod-eval-judges.md).
 
 If traces show `only one expected_response or expected_facts should be provided, not both`, the registered `math_golden` is stale. Re-run the Module 4 register cell (or `evaluate_agent_judges.py`) so rows refresh from git, then re-run `v2-judged`. Git has `expected_answer` + `expected_facts` only.
 
-If traces show `Incorrect API key provided: unused` against `api.openai.com`, the judge URI was `openai:/…`. Re-run Module 4 after `git pull`: print must be `hosted_vllm:/gpt-oss-120b` and `JUDGE_API_KEY` must be injected from Secret `wings3-judge-llm`. Then re-run `v2-judged`.
+If traces show `Incorrect API key provided: unused` against `api.openai.com`, the judge URI was `openai:/…`. Re-run Module 4 after `git pull`: print must be `hosted_vllm:/gpt-oss-120b` and `JUDGE_API_KEY` must be injected from Secret `wings-judge-llm`. Then re-run `v2-judged`.
 
 ### 5. Production CR — then Q&A
 

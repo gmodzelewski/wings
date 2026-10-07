@@ -1,15 +1,15 @@
-"""Unit tests for the WINGS3 content module (plain deck)."""
+"""Unit tests for the WINGS content module (plain deck)."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-WINGS3_ROOT = Path(__file__).resolve().parent.parent
-WINGS3_SCRIPTS = WINGS3_ROOT / "scripts"
-sys.path.insert(0, str(WINGS3_SCRIPTS))
+WINGS_ROOT = Path(__file__).resolve().parent.parent
+SLIDES_DIR = WINGS_ROOT / "slides"
+sys.path.insert(0, str(SLIDES_DIR))
 
-from wings3_content import EXPECTED_SLIDE_COUNT, SLIDES  # noqa: E402
+from content import EXPECTED_SLIDE_COUNT, SLIDES  # noqa: E402
 
 VALID_LAYOUTS = ("title", "section", "content")
 DEMO_KEYS = ("demo_install", "demo_trace", "demo_eval")
@@ -90,13 +90,13 @@ def test_run_of_show_times_in_agenda_notes():
 
 
 def test_walkthrough_index_matches_run_of_show():
-    index = (WINGS3_ROOT / "walkthrough" / "index.md").read_text()
+    index = (WINGS_ROOT / "walkthrough" / "index.md").read_text()
     assert "| Intro + terms + product tour | 6 |" in index
     assert "| 1 — Install | 8 |" in index
     assert "| 2 — Autolog tracing | 22 |" in index
     assert "| 3 — Evaluation | 15 |" in index
     assert "| Production + Q&A | 9 |" in index
-    setup = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
+    setup = (WINGS_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
     assert "6" in setup and "22" in setup and "15" in setup and "9" in setup
 
 
@@ -118,26 +118,26 @@ def test_demo_trace_notes_error_then_details():
 
 def test_walkthrough_docs_point_at_rhoai_docs():
     """Walkthroughs link to RHOAI docs for the supported versions (3.4 and 3.5)."""
-    index = (WINGS3_ROOT / "walkthrough" / "index.md").read_text()
-    install = (WINGS3_ROOT / "walkthrough" / "01-install-platform.md").read_text()
+    index = (WINGS_ROOT / "walkthrough" / "index.md").read_text()
+    install = (WINGS_ROOT / "walkthrough" / "01-install-platform.md").read_text()
     assert "self-managed/3.4/" in index
     assert "self-managed/3.4/" in install
     assert "self-managed/3.5/" in install
 
 
 def test_module2_single_workbench_path_and_trace_beat():
-    mod2 = (WINGS3_ROOT / "walkthrough" / "02-agent-tracing-autolog.md").read_text()
-    setup = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
+    mod2 = (WINGS_ROOT / "walkthrough" / "02-agent-tracing-autolog.md").read_text()
+    setup = (WINGS_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
     assert "Create workbench" not in mod2
-    assert "workbench-wings3-demo.yaml" in mod2
-    assert "workbench-wings3-demo.yaml" in setup
+    assert "workbench-wings-demo.yaml" in mod2
+    assert "workbench-wings-demo.yaml" in setup
     assert "Details & Timeline" in mod2
     assert "click the latest row" not in mod2.lower()
 
 
 def test_module1_live_is_oc_get_not_apply():
-    mod1 = (WINGS3_ROOT / "walkthrough" / "01-install-platform.md").read_text()
-    setup = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
+    mod1 = (WINGS_ROOT / "walkthrough" / "01-install-platform.md").read_text()
+    setup = (WINGS_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
     assert "oc apply -f manifests/mlflow-dev.yaml" not in mod1
     assert "oc apply -f manifests/mlflow-dev.yaml" in setup
     assert "08-dashboard-verify.png" in mod1
@@ -147,7 +147,7 @@ def test_module1_live_is_oc_get_not_apply():
 def _notebook_source(name: str) -> str:
     import json
 
-    nb = json.loads((WINGS3_ROOT / "demo" / "notebooks" / name).read_text())
+    nb = json.loads((WINGS_ROOT / "demo" / "notebooks" / name).read_text())
     return "\n".join("".join(cell.get("source", [])) for cell in nb["cells"])
 
 
@@ -159,7 +159,7 @@ def test_eval_notebook_inlines_show_beats():
     assert "Calculate 256 divided by 16" in blob
     assert "def contains_expected" in blob
     assert "mlflow.genai.evaluate" in blob
-    mod3 = (WINGS3_ROOT / "walkthrough" / "03-workbench-evaluation.md").read_text()
+    mod3 = (WINGS_ROOT / "walkthrough" / "03-workbench-evaluation.md").read_text()
     assert "SHOW:" in mod3
 
 
@@ -170,7 +170,7 @@ def test_tracing_notebook_inlines_show_beats():
     assert "mlflow.langchain.autolog()" in blob
     assert "Calculate 256 divided by 16" in blob
     assert "def calculator" in blob
-    mod2 = (WINGS3_ROOT / "walkthrough" / "02-agent-tracing-autolog.md").read_text()
+    mod2 = (WINGS_ROOT / "walkthrough" / "02-agent-tracing-autolog.md").read_text()
     assert "01_agent_tracing_autolog.ipynb" in mod2
     assert "SHOW:" in mod2
 
@@ -184,7 +184,7 @@ def test_remaining_gaps_teaching_beats():
     assert "workspace" in hook
     assert "native" in hook or "external" in hook
 
-    mod1 = (WINGS3_ROOT / "walkthrough" / "01-install-platform.md").read_text()
+    mod1 = (WINGS_ROOT / "walkthrough" / "01-install-platform.md").read_text()
     assert "Project" in mod1 and "Workspace" in mod1 and "Experiment" in mod1
     show, sep, appendix = mod1.partition("## Appendix")
     assert sep, "Module 1 must move laptop exports to an appendix"
@@ -194,7 +194,7 @@ def test_remaining_gaps_teaching_beats():
     assert "<gateway_host>" not in show
     assert "partials/_attributes.md" in show
 
-    attrs = (WINGS3_ROOT / "walkthrough" / "partials" / "_attributes.md").read_text()
+    attrs = (WINGS_ROOT / "walkthrough" / "partials" / "_attributes.md").read_text()
     assert "`gateway_host`" in attrs
     assert "`mlflow_ui`" in attrs
     assert "/mlflow/health" in attrs
@@ -202,10 +202,10 @@ def test_remaining_gaps_teaching_beats():
         marker in attrs
         for marker in ("sandbox956", "sandbox1838", "rh-ai.apps", "rhods-dashboard")
     )
-    env_example = (WINGS3_ROOT / "demo" / "agent-tracing" / ".env.example").read_text()
+    env_example = (WINGS_ROOT / "demo" / "agent-tracing" / ".env.example").read_text()
     assert "<gateway_host>" not in env_example
 
-    mod2 = (WINGS3_ROOT / "walkthrough" / "02-agent-tracing-autolog.md").read_text()
+    mod2 = (WINGS_ROOT / "walkthrough" / "02-agent-tracing-autolog.md").read_text()
     know = mod2.split("## Show")[0]
     assert "opendatahub.io/mlflow-instance" in know
     assert "extra-index-url" in know
@@ -219,9 +219,9 @@ def test_remaining_gaps_teaching_beats():
     assert "contains_expected" in notes or "gate" in notes
 
     agenda = next(s for s in SLIDES if s["key"] == "agenda")
-    assert "WINGS3_ONE_QUERY" not in agenda["notes"]
+    assert "WINGS_ONE_QUERY" not in agenda["notes"]
 
-    prod = WINGS3_ROOT / "manifests" / "mlflow-prod.example.yaml"
+    prod = WINGS_ROOT / "manifests" / "mlflow-prod.example.yaml"
     assert prod.is_file()
     prod_text = prod.read_text()
     assert "postgresql" in prod_text.lower() or "backendStoreUriFrom" in prod_text
@@ -229,7 +229,7 @@ def test_remaining_gaps_teaching_beats():
 
 
 def test_traced_agent_is_calculator_only():
-    text = (WINGS3_ROOT / "demo" / "agent-tracing" / "traced_agent.py").read_text()
+    text = (WINGS_ROOT / "demo" / "agent-tracing" / "traced_agent.py").read_text()
     assert "DuckDuckGo" not in text
     assert "MCP_SERVER" not in text
     assert "create_agent_with_mcp" not in text
@@ -239,10 +239,10 @@ def test_traced_agent_is_calculator_only():
 
 
 def test_screenshot_captions_are_this_cluster():
-    mod1 = (WINGS3_ROOT / "walkthrough" / "01-install-platform.md").read_text()
-    mod2 = (WINGS3_ROOT / "walkthrough" / "02-agent-tracing-autolog.md").read_text()
-    mod3 = (WINGS3_ROOT / "walkthrough" / "03-workbench-evaluation.md").read_text()
-    index = (WINGS3_ROOT / "walkthrough" / "index.md").read_text()
+    mod1 = (WINGS_ROOT / "walkthrough" / "01-install-platform.md").read_text()
+    mod2 = (WINGS_ROOT / "walkthrough" / "02-agent-tracing-autolog.md").read_text()
+    mod3 = (WINGS_ROOT / "walkthrough" / "03-workbench-evaluation.md").read_text()
+    index = (WINGS_ROOT / "walkthrough" / "index.md").read_text()
     assert "this cluster" in mod1
     assert "this cluster" in mod2
     assert "this cluster" in mod3
@@ -273,18 +273,18 @@ def test_module4_in_deck():
 
 
 def test_customer_ui_click_script_is_ui_only_with_business_thread():
-    script = (WINGS3_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
+    script = (WINGS_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
     assert "no deck" in script.lower()
     assert "operate" in script.lower()
     assert "ship" in script.lower()
     assert "LangSmith" in script or "Phoenix" in script
     assert "Details & Timeline" in script
-    assert "wings3-agent-eval" in script
+    assert "wings-agent-eval" in script
     assert "math_golden" in script
     assert "v2-judged" in script
     assert "mlflow-prod.example.yaml" in script
     assert "03_prod_eval_judges.ipynb" not in script
-    customer_section = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
+    customer_section = (WINGS_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
     _, _, customer = customer_section.partition("## Customer UI hour")
     assert customer, "presenter setup must have a Customer UI hour section"
     wings, _, _ = customer_section.partition("## Customer UI hour")
@@ -302,7 +302,7 @@ def test_customer_ui_click_script_is_ui_only_with_business_thread():
 def test_golden_set_does_not_pass_both_correctness_fields():
     import json
 
-    path = WINGS3_ROOT / "demo" / "datasets" / "math_golden.jsonl"
+    path = WINGS_ROOT / "demo" / "datasets" / "math_golden.jsonl"
     rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
     assert len(rows) == 8
     for i, row in enumerate(rows):
@@ -313,7 +313,7 @@ def test_golden_set_does_not_pass_both_correctness_fields():
 
 
 def test_golden_register_refreshes_from_git():
-    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    judges = (WINGS_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
     assert "Reusing evaluation dataset" not in judges
     assert "delete_records" in judges
     assert "Refreshed evaluation dataset" in judges
@@ -321,17 +321,17 @@ def test_golden_register_refreshes_from_git():
     assert "Reusing evaluation dataset" not in blob
     assert "delete_records" in blob
     assert "Refreshed" in blob
-    mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
+    mod4 = (WINGS_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
     assert "expected_response or expected_facts" in mod4
-    script = (WINGS3_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
+    script = (WINGS_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
     assert "expected_response" in script
 
 
 def test_correctness_judge_is_registered():
-    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    judges = (WINGS_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
     blob = _notebook_source("03_prod_eval_judges.ipynb")
-    prompts = (WINGS3_ROOT / "demo" / "agent-tracing" / "prompts.py").read_text()
-    assert "wings3-agent-v2" in prompts
+    prompts = (WINGS_ROOT / "demo" / "agent-tracing" / "prompts.py").read_text()
+    assert "wings-agent-v2" in prompts
     for src in (judges, blob):
         assert ".register(" in src
         assert 'name="correctness"' in src
@@ -339,28 +339,28 @@ def test_correctness_judge_is_registered():
         assert "register_prompt" in src
         assert 'name="numeric_and_clear"' in src
     assert "AGENT_PROMPT_REGISTRY_NAME" in judges
-    assert "wings3-agent-v2" in blob
-    mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
+    assert "wings-agent-v2" in blob
+    mod4 = (WINGS_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
     assert "Judges" in mod4
     assert "currently not available" in mod4
     assert "create_dataset" in mod4
-    assert "wings3-agent-v2" in mod4
-    script = (WINGS3_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
+    assert "wings-agent-v2" in mod4
+    script = (WINGS_ROOT / "walkthrough" / "customer-ui-click-script.md").read_text()
     assert "correctness" in script
 
 
 def test_shared_prompts_module():
-    prompts = (WINGS3_ROOT / "demo" / "agent-tracing" / "prompts.py").read_text()
-    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    prompts = (WINGS_ROOT / "demo" / "agent-tracing" / "prompts.py").read_text()
+    judges = (WINGS_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
     assert "V2_AGENT_PROMPT" in prompts
     assert "NUMERIC_AND_CLEAR_GUIDELINES" in prompts
-    assert "wings3-agent-v2" in prompts
+    assert "wings-agent-v2" in prompts
     assert "from prompts import" in judges
     assert "--register-only" in judges
 
 
 def test_judge_uses_hosted_vllm_not_native_openai():
-    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    judges = (WINGS_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
     assert "hosted_vllm:/" in judges
     assert "HOSTED_VLLM_API_BASE" in judges
     assert "JUDGE_API_KEY" in judges
@@ -373,29 +373,29 @@ def test_judge_uses_hosted_vllm_not_native_openai():
     assert "JUDGE_MODEL" in blob
     assert "gpt-oss-120b" in blob
     assert "HOSTED_VLLM_API_BASE\"] = os.environ[\"MAAS_BASE_URL\"]" not in blob
-    # Secret mount path lives in wings3_env.py; the notebook loads it via traced_agent.
-    env_mod = (WINGS3_ROOT / "demo" / "agent-tracing" / "wings3_env.py").read_text()
-    assert "/etc/wings3-judge-llm" in env_mod
+    # Secret mount path lives in wings_env.py; the notebook loads it via traced_agent.
+    env_mod = (WINGS_ROOT / "demo" / "agent-tracing" / "wings_env.py").read_text()
+    assert "/etc/wings-judge-llm" in env_mod
     assert "ensure_maas_env" in blob
     assert 'openai:/{os.environ' not in blob
-    req = (WINGS3_ROOT / "demo" / "agent-tracing" / "requirements.txt").read_text()
+    req = (WINGS_ROOT / "demo" / "agent-tracing" / "requirements.txt").read_text()
     assert "litellm" in req
-    mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
+    mod4 = (WINGS_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
     assert "hosted_vllm:/" in mod4
     assert "api.openai.com" in mod4
-    assert "wings3-judge-llm" in mod4
-    setup = (WINGS3_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
-    assert "secret-wings3-judge-llm.yaml" in setup
+    assert "wings-judge-llm" in mod4
+    setup = (WINGS_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
+    assert "secret-wings-judge-llm.yaml" in setup
 
 
 def test_genai_evaluate_uses_one_worker():
-    judges = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
-    baseline = (WINGS3_ROOT / "demo" / "agent-tracing" / "evaluate_agent.py").read_text()
+    judges = (WINGS_ROOT / "demo" / "agent-tracing" / "evaluate_agent_judges.py").read_text()
+    baseline = (WINGS_ROOT / "demo" / "agent-tracing" / "evaluate_agent.py").read_text()
     nb3 = _notebook_source("03_prod_eval_judges.ipynb")
     nb2 = _notebook_source("02_eval_improvement.ipynb")
     for blob in (judges, baseline, nb3, nb2):
         assert 'MLFLOW_GENAI_EVAL_MAX_WORKERS"] = "1"' in blob
-    mod4 = (WINGS3_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
+    mod4 = (WINGS_ROOT / "walkthrough" / "04-prod-eval-judges.md").read_text()
     assert "MLFLOW_GENAI_EVAL_MAX_WORKERS" in mod4
 
 
@@ -482,7 +482,7 @@ def test_evalhub_notebook_has_show_beats():
 
 
 def test_act5_walkthrough_exists():
-    text = (WINGS3_ROOT / "walkthrough" / "05-evalhub-garak.md").read_text()
+    text = (WINGS_ROOT / "walkthrough" / "05-evalhub-garak.md").read_text()
     assert "EvalHub" in text
     assert "Garak" in text
     assert "llama-32-3b-instruct" in text
@@ -498,6 +498,6 @@ def test_walkthroughs_drop_data_scientist_persona():
         "walkthrough/04-prod-eval-judges.md",
         "walkthrough/05-evalhub-garak.md",
     ):
-        text = (WINGS3_ROOT / rel).read_text().lower()
+        text = (WINGS_ROOT / rel).read_text().lower()
         assert "data scientist" not in text, rel
         assert "intro + personas" not in text, rel
