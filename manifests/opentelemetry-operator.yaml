@@ -1,0 +1,34 @@
+# Red Hat build of OpenTelemetry — provides the OpenTelemetryCollector CRD
+# that the RHOAI operator's Monitoring controller requires. Without this
+# operator, Monitoring fails with: "OpenTelemetryCollector operator must be
+# installed for OpenTelemetry configuration" and blocks MonitoringStack,
+# ThanosQuerier, Perses, and PrometheusDatasource provisioning.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-opentelemetry-operator
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: openshift-opentelemetry-operator
+  namespace: openshift-opentelemetry-operator
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+spec: {}
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: opentelemetry-product
+  namespace: openshift-opentelemetry-operator
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: opentelemetry-product
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

@@ -24,14 +24,20 @@ Prerequisites: `oc login` to a cluster with **RHOAI 3.4 or 3.5 already installed
 ./check.sh                # verify the demo is healthy; exit 1 on failure
 
 ./uninstall.sh            # remove the workbench only (shared-cluster safe)
-./uninstall.sh --all      # full demo reset (keeps LLM InferenceService + operators)
+./uninstall.sh --all      # full demo reset (keeps LLM InferenceService; removes everything else install.sh added, incl. the observability stack)
 ```
 
 Install patches the MLflow + EvalHub operators to `Managed`, enables
-Models-as-a-Service with four workshop ExternalModels, applies everything in
-`manifests/`, creates the workbench and (on GPU clusters) the LLM
-InferenceService, and clones this repo into the workbench at
-`/opt/app-root/src/wings`.
+Models-as-a-Service with four workshop ExternalModels, installs the
+**Usage/token-consumption dashboard stack** (Cluster Observability Operator,
+Red Hat build of OpenTelemetry, Tempo, Loki, User Workload Monitoring, a demo
+MinIO+LokiStack usage-logging backend, and Redis-backed Limitador rate
+limiting — see [manifests/README.md](manifests/README.md#observability--token-consumption-dashboard-stack)),
+applies everything in `manifests/`, creates the workbench and (on GPU
+clusters) the LLM InferenceService, and clones this repo into the workbench
+at `/opt/app-root/src/wings`. `./uninstall.sh --all` removes every one of
+these additions again, returning the cluster to its pre-install state (minus
+the LLM InferenceService, which is left running).
 
 Useful environment variables (all optional):
 
@@ -41,6 +47,8 @@ Useful environment variables (all optional):
 | `WINGS_LLM_STORAGE_URI` | Model storage URI if no InferenceService exists yet |
 | `WINGS_VERBOSE=1` | Detailed install progress |
 | `WINGS_SKIP_OGX` / `WINGS_SKIP_MCP` / `WINGS_SKIP_SERVICEMESH` | Skip Gen AI Studio layers on small clusters |
+| `WINGS_SKIP_OBSERVABILITY=1` | Skip the Usage/token-consumption dashboard stack (COO/OTel/Tempo/Loki, UWM, MinIO+LokiStack, Redis Limitador) |
+| `WINGS_MAAS_CAPTURE_USER=0` | Disable per-user labelling on MaaS token metrics (on by default — the RHOAI "Usage" dashboard's totals, not just its per-user drill-down, require this label and read 0 without it; opt out only for privacy/cardinality-sensitive clusters) |
 
 Full pre-stage checklist and run-of-show:
 [walkthrough/00-presenter-setup.md](walkthrough/00-presenter-setup.md).

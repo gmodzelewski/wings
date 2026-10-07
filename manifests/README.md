@@ -18,6 +18,94 @@ Apply order for a fresh cluster (normally via `./install.sh`):
 8. Gen AI Studio (Playground + MCP Catalog browse):
    - `servicemesh3-operator.yaml`, `servicemesh3-istio.yaml` (Service Mesh 3.x — OGX prerequisite)
    - `ogx-postgres-dev.yaml`, `ogx-server-wings.yaml` (after `ogx` DSC component is Ready)
+9. Observability / token-consumption dashboard stack (runs as `enable_observability()` right after `enable_garak`, before the rest of `manifests/` — see below): `cluster-observability-operator.yaml`, `opentelemetry-operator.yaml`, `tempo-operator.yaml`, `loki-operator.yaml`, UWM `cluster-monitoring-config` merge, DSCI `monitoring.metrics`/`traces` patch, `maas-usage-logging-minio-secret.yaml`, `maas-usage-logging-minio.yaml`, `maas-usage-logging-lokistack.yaml`; MaaS telemetry + `usageLogging` + `limitador-redis.yaml`/`limitador-redis-secret.yaml` run later, inside `enable_maas()`
+
+## Observability / token-consumption dashboard stack
+
+`install.sh` calls `enable_observability()` after `enable_garak` and before
+`apply_manifests`, then `enable_maas_observability()` inside `enable_maas()`.
+Together these two steps add the per-request **Usage** (token consumption)
+dashboard in OpenShift AI, on top of whatever observability RHOAI 3.5
+already ships. Every piece has a matching `purge_*` function wired into
+`uninstall.sh --all` via `purge_observability_resources` — a full uninstall
+returns the cluster to its pre-install state.
+
+| File | Purpose |
+|------|---------|
+| `cluster-observability-operator.yaml` | COO subscription in its own `openshift-cluster-observability-operator` namespace (Perses NetworkPolicy requires a dedicated namespace) |
+| `opentelemetry-operator.yaml` | Red Hat build of OpenTelemetry subscription (`opentelemetry-product` channel) |
+| `tempo-operator.yaml` | Tempo Operator subscription (`tempo-product` channel) — tracing backend for GenAI → Traces |
+| `loki-operator.yaml` | Loki Operator subscription; `REPLACE_LOKI_CHANNEL` is substituted at apply time with the channel `discover_loki_channel()` resolves from the `redhat-operators` catalog (the community Grafana `loki-operator` package publishes a different, incompatible channel under the same name — must filter packagemanifests by `status.catalogSource`, not just `metadata.name`) |
+| `cluster-monitoring-config.yaml` | Reference-only: documents the fresh-cluster shape of the User Workload Monitoring ConfigMap. The real merge logic lives in `merge_uwm_enabled_flag()` in `wings_lib.sh` so an existing `cluster-monitoring-config` (if any) isn't clobbered — only the `enableUserWorkload: true` line is added/removed |
+| `maas-usage-logging-minio-secret.yaml` | S3 credentials Secret for the demo MinIO (LokiStack object storage backend) |
+| `maas-usage-logging-minio.yaml` | PVC + Deployment + Service + bucket-create Job for a demo-only MinIO instance in `redhat-ods-monitoring` |
+| `maas-usage-logging-lokistack.yaml` | `LokiStack` CR (`1x.demo` size class) backed by the MinIO Secret — stores per-request MaaS usage logs that the Usage dashboard reads |
+| `limitador-redis.yaml` | Dev Redis Deployment/Service in `redis-limitador`, used as Limitador's persistent rate-limit counter backend |
+| `limitador-redis-secret.yaml` | `redis-config` Secret in `kuadrant-system` (`configSecretRef` for the `Limitador` CR's `spec.storage.redis`) |
+
+What each step actually does on the cluster:
+
+- **DSCI patch** (`patch_dsci_observability_metrics`) — sets
+  `spec.monitoring.metrics.storage` and `spec.monitoring.traces` on the
+  `DSCInitialization`, which makes the RHOAI operator provision a
+  MonitoringStack, Perses, and a ThanosQuerier (`wait_for_dsci_monitoring_ready`
+  polls `MonitoringStackAvailable`).
+- **Dashboard flag** — `ensure_genai_dashboard_prereqs()` also patches
+  `OdhDashboardConfig` `spec.dashboardConfig.observabilityDashboard: true`,
+  which is what makes the Usage/token-consumption tab appear in the console
+  at all.
+- **MaaS telemetry** (`enable_maas_tenant_telemetry`) — patches the
+  `MaasTenantConfig` CR: `spec.telemetry.enabled: true`,
+  `metrics.captureModelUsage: true`, `metrics.captureUser` controlled by
+  `WINGS_MAAS_CAPTURE_USER` (**on by default**). The RHOAI-shipped "Usage"
+  dashboard (`dashboard-3-maas-usage-admin`) hard-codes `user!=""` on every
+  panel — including the plain totals, not just a per-user drill-down — so
+  without this label Limitador's `authorized_hits_total` /
+  `authorized_calls_total` / `limited_calls_total` metrics carry no `user`
+  label and the whole dashboard reads 0, even though requests are being
+  served and logged. Set `WINGS_MAAS_CAPTURE_USER=0` to opt out for
+  privacy/cardinality-sensitive clusters (the Usage dashboard totals will
+  then read 0 by RHOAI's own dashboard design — the per-request Loki usage
+  logs under "Usage (logs)" are unaffected and still carry `user_id` either
+  way).
+- **MaaS usage logging** (`enable_maas_usage_logging`) — patches
+  `configs.maas.opendatahub.io` `spec.usageLogging: true`, which tells the
+  gateway to emit the per-request logs the LokiStack above stores.
+- **Limitador Redis** (`ensure_limitador_redis`) — patches the `Limitador` CR
+  `spec.storage.redis.configSecretRef` so rate-limit counters survive pod
+  restarts (the operator default is in-memory, which resets on every
+  Limitador restart).
+
+### Environment variables (observability)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `WINGS_SKIP_OBSERVABILITY` | `0` | Skip the entire stack (COO/OTel/Tempo/Loki, UWM, DSCI patch, MinIO+LokiStack, Redis Limitador, MaaS telemetry/usageLogging) |
+| `WINGS_MAAS_CAPTURE_USER` | `1` | Set to `0` to disable per-user labelling on MaaS token metrics (Usage dashboard totals will then read 0 — see above) |
+| `WINGS_COO_NAMESPACE` / `WINGS_OTEL_NAMESPACE` / `WINGS_TEMPO_NAMESPACE` / `WINGS_LOKI_OPERATOR_NAMESPACE` / `WINGS_REDIS_LIMITADOR_NAMESPACE` / `WINGS_MONITORING_NAMESPACE` / `WINGS_DSCI_NAME` | see `wings_lib.sh` | Override namespaces/names if they conflict with an existing install |
+
+### UI verification (RHOAI 3.5)
+
+- **Observe → Usage** (or the equivalent token-consumption dashboard entry) —
+  shows per-model/per-tenant token counts once a few MaaS inference calls
+  have been made (the dashboard is empty until there's traffic through the
+  gateway).
+- `oc get lokistack usage -n redhat-ods-monitoring` — `Ready=True`
+- `oc get dsci default-dsci -o jsonpath='{.status.conditions[?(@.type=="MonitoringStackAvailable")].status}'` — `True`
+
+### Uninstall symmetry
+
+`uninstall.sh --all` calls `purge_observability_resources`, which reverts
+every step above in reverse: `purge_maas_tenant_telemetry`,
+`purge_maas_usage_logging`, `purge_limitador_redis` (nulls
+`Limitador.spec.storage`, deletes the Redis Deployment/Secret),
+`purge_usage_logging_backend` (deletes the LokiStack/MinIO/MinIO-secret
+manifests), `revert_dsci_observability_metrics` (nulls the DSCI
+metrics/traces patch back out), `purge_observability_operators` (deletes the
+COO/OTel/Tempo/Loki namespaces, which removes their CSVs too), and
+`revert_user_workload_monitoring` (deletes `cluster-monitoring-config` if
+WINGS created it from scratch, or surgically removes just the
+`enableUserWorkload` line if the ConfigMap pre-existed).
 
 ## MaaS external model (gpt-oss-120b)
 

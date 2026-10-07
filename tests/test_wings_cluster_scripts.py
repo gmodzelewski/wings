@@ -433,6 +433,141 @@ def test_maas_external_model_manifests():
     assert "maas.redhatworkshops.io" in check_py
 
 
+def test_observability_check_demo_pure_logic():
+    sys.path.insert(0, str(WINGS_ROOT / "scripts"))
+    from check_demo import (
+        dsci_metrics_storage_configured,
+        limitador_uses_redis_storage,
+        maas_telemetry_enabled,
+        maas_usage_logging_enabled,
+        uwm_config_enables_workload,
+    )
+
+    assert dsci_metrics_storage_configured('{"retention":"15d","size":"5Gi"}')
+    assert not dsci_metrics_storage_configured("{}")
+    assert not dsci_metrics_storage_configured("")
+
+    assert uwm_config_enables_workload("enableUserWorkload: true\n")
+    assert not uwm_config_enables_workload("enableUserWorkload: false\n")
+    assert not uwm_config_enables_workload("")
+
+    assert maas_telemetry_enabled('{"enabled":true,"metrics":{"captureUser":false}}')
+    assert not maas_telemetry_enabled('{"enabled":false}')
+    assert not maas_telemetry_enabled("")
+
+    assert maas_usage_logging_enabled('{"usageLogging":true,"limitadorScrapeInterval":"30s"}')
+    assert not maas_usage_logging_enabled('{"usageLogging":false}')
+    assert not maas_usage_logging_enabled("")
+
+    assert limitador_uses_redis_storage('{"redis":{"configSecretRef":{"name":"redis-config"}}}')
+    assert not limitador_uses_redis_storage("{}")
+    assert not limitador_uses_redis_storage("")
+
+
+def test_observability_stack_manifests_and_wiring():
+    lib = (WINGS_ROOT / "scripts" / "wings_lib.sh").read_text()
+    install = INSTALL.read_text()
+    uninstall = UNINSTALL.read_text()
+    check_py = CHECK_PY.read_text()
+
+    coo = (WINGS_ROOT / "manifests" / "cluster-observability-operator.yaml").read_text()
+    otel = (WINGS_ROOT / "manifests" / "opentelemetry-operator.yaml").read_text()
+    tempo = (WINGS_ROOT / "manifests" / "tempo-operator.yaml").read_text()
+    loki = (WINGS_ROOT / "manifests" / "loki-operator.yaml").read_text()
+    uwm_ref = (WINGS_ROOT / "manifests" / "cluster-monitoring-config.yaml").read_text()
+    minio = (WINGS_ROOT / "manifests" / "maas-usage-logging-minio.yaml").read_text()
+    minio_secret = (
+        WINGS_ROOT / "manifests" / "maas-usage-logging-minio-secret.yaml"
+    ).read_text()
+    lokistack = (
+        WINGS_ROOT / "manifests" / "maas-usage-logging-lokistack.yaml"
+    ).read_text()
+    redis = (WINGS_ROOT / "manifests" / "limitador-redis.yaml").read_text()
+    redis_secret = (WINGS_ROOT / "manifests" / "limitador-redis-secret.yaml").read_text()
+
+    # Operator manifests: dedicated namespace + OperatorGroup + Subscription.
+    assert "openshift-cluster-observability-operator" in coo
+    assert "kind: Subscription" in coo
+    assert "kind: OperatorGroup" in coo
+    assert "openshift-opentelemetry-operator" in otel
+    assert "opentelemetry-product" in otel
+    assert "openshift-tempo-operator" in tempo
+    assert "tempo-product" in tempo
+    assert "openshift-operators-redhat" in loki
+    assert "REPLACE_LOKI_CHANNEL" in loki
+    assert "enableUserWorkload: true" in uwm_ref
+
+    # Usage-logging backend (MinIO + LokiStack) and Redis-backed Limitador.
+    assert "kind: Deployment" in minio
+    assert "kind: Secret" in minio_secret
+    assert "kind: LokiStack" in lokistack
+    assert "gp3-csi" in lokistack or "storageClassName" in lokistack
+    assert "redis-limitador" in redis
+    assert "kind: Secret" in redis_secret
+    assert "redis-config" in redis_secret
+
+    # wings_lib.sh orchestration + namespace vars.
+    for var in (
+        "DSCI_NAME",
+        "MONITORING_NS",
+        "COO_NS",
+        "OTEL_NS",
+        "TEMPO_NS",
+        "LOKI_OPERATOR_NS",
+        "REDIS_LIMITADOR_NS",
+    ):
+        assert var in lib
+    assert "ensure_cluster_observability_operator" in lib
+    assert "ensure_opentelemetry_operator" in lib
+    assert "ensure_tempo_operator" in lib
+    assert "ensure_loki_operator" in lib
+    assert "discover_loki_channel" in lib
+    assert "catalogSource" in lib  # avoid ambiguous community/redhat packagemanifest
+    assert "ensure_user_workload_monitoring" in lib
+    assert "merge_uwm_enabled_flag" in lib
+    assert "patch_dsci_observability_metrics" in lib
+    assert "wait_for_dsci_monitoring_ready" in lib
+    assert "ensure_observability_operators" in lib
+    assert "deploy_usage_logging_backend" in lib
+    assert "wait_for_lokistack_ready" in lib
+    assert "enable_observability" in lib
+    assert '"observabilityDashboard":true' in lib
+    assert "enable_maas_tenant_telemetry" in lib
+    assert "enable_maas_usage_logging" in lib
+    assert "ensure_limitador_redis" in lib
+    assert "enable_maas_observability" in lib
+    assert "discover_maastenantconfig_name" in lib
+    assert "discover_maas_config_name" in lib
+
+    # Uninstall symmetry: every new install step has a purge counterpart.
+    assert "purge_maas_tenant_telemetry" in lib
+    assert "purge_maas_usage_logging" in lib
+    assert "purge_usage_logging_backend" in lib
+    assert "purge_limitador_redis" in lib
+    assert "revert_dsci_observability_metrics" in lib
+    assert "purge_observability_operators" in lib
+    assert "revert_user_workload_monitoring" in lib
+    assert "purge_observability_resources" in lib
+
+    # install.sh / uninstall.sh wiring.
+    assert "enable_observability" in install
+    assert "WINGS_SKIP_OBSERVABILITY" in install
+    assert "purge_observability_resources" in uninstall
+
+    # check_demo.py coverage for the new stack.
+    assert "check_coo_operator" in check_py
+    assert "check_otel_operator" in check_py
+    assert "check_tempo_operator" in check_py
+    assert "check_loki_operator" in check_py
+    assert "check_dsci_observability_metrics" in check_py
+    assert "check_observability_dashboard_flag" in check_py
+    assert "check_user_workload_monitoring" in check_py
+    assert "check_lokistack_ready" in check_py
+    assert "check_maas_tenant_telemetry" in check_py
+    assert "check_maas_usage_logging" in check_py
+    assert "check_limitador_redis" in check_py
+
+
 def test_presenter_docs_point_at_cluster_scripts():
     setup = (WINGS_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
     readme = (WINGS_ROOT / "README.md").read_text()

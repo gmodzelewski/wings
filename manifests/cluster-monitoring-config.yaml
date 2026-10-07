@@ -1,0 +1,16 @@
+# User Workload Monitoring — enables platform Prometheus to scrape MaaS /
+# Kuadrant metrics from user namespaces (dual path alongside the COO-managed
+# MonitoringStack). install.sh merges `enableUserWorkload: true` into this
+# ConfigMap's `config.yaml` body instead of re-applying this file verbatim,
+# so a pre-existing cluster-monitoring-config with other settings is not
+# clobbered. This file documents the fresh-cluster shape.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+data:
+  config.yaml: |
+    enableUserWorkload: true

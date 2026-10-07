@@ -804,6 +804,268 @@ def check_judge_base_url_routed_via_local_maas(project: str) -> CheckResult:
     return CheckResult("judge JUDGE_BASE_URL", True, base_url)
 
 
+def check_operator_csv_succeeded(namespace: str, name_prefix: str, label: str) -> CheckResult:
+    result = _oc(
+        [
+            "get",
+            "csv",
+            "-n",
+            namespace,
+            "-o",
+            "jsonpath={range .items[*]}{.metadata.name}{\" \"}{.status.phase}{\"\\n\"}{end}",
+        ]
+    )
+    if result.returncode != 0:
+        return CheckResult(label, False, f"cannot list CSVs in {namespace}")
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            continue
+        name, phase = parts
+        if name.startswith(name_prefix) and phase == "Succeeded":
+            return CheckResult(label, True, name)
+    return CheckResult(label, False, f"{name_prefix}* CSV not Succeeded in {namespace}")
+
+
+def check_coo_operator() -> CheckResult:
+    ns = os.environ.get("WINGS_COO_NAMESPACE", "openshift-cluster-observability-operator")
+    return check_operator_csv_succeeded(ns, "cluster-observability-operator.", "coo operator")
+
+
+def check_otel_operator() -> CheckResult:
+    ns = os.environ.get("WINGS_OTEL_NAMESPACE", "openshift-opentelemetry-operator")
+    return check_operator_csv_succeeded(ns, "opentelemetry-operator.", "otel operator")
+
+
+def check_tempo_operator() -> CheckResult:
+    ns = os.environ.get("WINGS_TEMPO_NAMESPACE", "openshift-tempo-operator")
+    return check_operator_csv_succeeded(ns, "tempo-operator.", "tempo operator")
+
+
+def check_loki_operator() -> CheckResult:
+    ns = os.environ.get("WINGS_LOKI_OPERATOR_NAMESPACE", "openshift-operators-redhat")
+    return check_operator_csv_succeeded(ns, "loki-operator.", "loki operator")
+
+
+def dsci_metrics_storage_configured(storage_json: str) -> bool:
+    return bool(storage_json.strip()) and storage_json.strip() != "{}"
+
+
+def check_dsci_observability_metrics() -> CheckResult:
+    dsci = os.environ.get("WINGS_DSCI_NAME", "default-dsci")
+    result = _oc(
+        [
+            "get",
+            "dsci",
+            dsci,
+            "-o",
+            "jsonpath={.spec.monitoring.metrics.storage}",
+        ]
+    )
+    if result.returncode != 0:
+        return CheckResult("dsci metrics storage", False, f"dsci/{dsci} not found")
+    if dsci_metrics_storage_configured(result.stdout):
+        return CheckResult("dsci metrics storage", True)
+    return CheckResult(
+        "dsci metrics storage",
+        False,
+        "spec.monitoring.metrics.storage empty — run install.sh (enable_observability)",
+    )
+
+
+def check_observability_dashboard_flag() -> CheckResult:
+    mlflow_ns = os.environ.get("WINGS_MLFLOW_NAMESPACE", "redhat-ods-applications")
+    flag = _oc(
+        [
+            "get",
+            "odhdashboardconfig",
+            "odh-dashboard-config",
+            "-n",
+            mlflow_ns,
+            "-o",
+            "jsonpath={.spec.dashboardConfig.observabilityDashboard}",
+        ]
+    )
+    if flag.returncode == 0 and flag.stdout.strip() == "true":
+        return CheckResult("observability dashboard flag", True)
+    return CheckResult(
+        "observability dashboard flag",
+        False,
+        "dashboardConfig.observabilityDashboard not true — token consumption Usage dashboard hidden",
+    )
+
+
+def uwm_config_enables_workload(config_yaml: str) -> bool:
+    return "enableUserWorkload: true" in config_yaml
+
+
+def check_user_workload_monitoring() -> CheckResult:
+    result = _oc(
+        [
+            "get",
+            "configmap",
+            "cluster-monitoring-config",
+            "-n",
+            "openshift-monitoring",
+            "-o",
+            "jsonpath={.data.config\\.yaml}",
+        ]
+    )
+    if result.returncode != 0:
+        return CheckResult(
+            "user workload monitoring",
+            False,
+            "configmap/cluster-monitoring-config missing in openshift-monitoring",
+        )
+    if uwm_config_enables_workload(result.stdout):
+        return CheckResult("user workload monitoring", True)
+    return CheckResult(
+        "user workload monitoring",
+        False,
+        "enableUserWorkload: true missing from cluster-monitoring-config",
+    )
+
+
+def check_lokistack_ready() -> CheckResult:
+    monitoring_ns = os.environ.get("WINGS_MONITORING_NAMESPACE", "redhat-ods-monitoring")
+    name = os.environ.get("WINGS_LOKISTACK_NAME", "usage")
+    exists = _oc(["get", "lokistack", name, "-n", monitoring_ns])
+    if exists.returncode != 0:
+        return CheckResult(
+            "lokistack usage",
+            False,
+            f"lokistack/{name} missing in {monitoring_ns}",
+        )
+    ready = _oc(
+        [
+            "get",
+            "lokistack",
+            name,
+            "-n",
+            monitoring_ns,
+            "-o",
+            "jsonpath={.status.conditions[?(@.type==\"Ready\")].status}",
+        ]
+    )
+    if ready.returncode == 0 and ready.stdout.strip() == "True":
+        return CheckResult("lokistack usage", True)
+    return CheckResult("lokistack usage", False, "not Ready")
+
+
+def maas_telemetry_enabled(telemetry_json: str) -> bool:
+    return '"enabled":true' in telemetry_json.replace(" ", "")
+
+
+def check_maas_tenant_telemetry() -> CheckResult:
+    maas_ns = os.environ.get("WINGS_MAAS_NAMESPACE", "models-as-a-service")
+    if not crd_exists("maastenantconfigs.maas.opendatahub.io"):
+        return CheckResult("maas tenant telemetry", False, "maastenantconfigs CRD missing")
+    name = _oc(
+        ["get", "maastenantconfig", "-n", maas_ns, "-o", "jsonpath={.items[0].metadata.name}"]
+    )
+    tenant_name = name.stdout.strip() if name.returncode == 0 else ""
+    if not tenant_name:
+        return CheckResult(
+            "maas tenant telemetry", False, f"no MaasTenantConfig in {maas_ns}"
+        )
+    telemetry = _oc(
+        [
+            "get",
+            "maastenantconfig",
+            tenant_name,
+            "-n",
+            maas_ns,
+            "-o",
+            "jsonpath={.spec.telemetry}",
+        ]
+    )
+    if telemetry.returncode == 0 and maas_telemetry_enabled(telemetry.stdout):
+        return CheckResult("maas tenant telemetry", True, tenant_name)
+    return CheckResult(
+        "maas tenant telemetry",
+        False,
+        f"{tenant_name} spec.telemetry.enabled not true",
+    )
+
+
+def maas_usage_logging_enabled(config_json: str) -> bool:
+    return '"usageLogging":true' in config_json.replace(" ", "")
+
+
+def check_maas_usage_logging() -> CheckResult:
+    maas_ns = os.environ.get("WINGS_MAAS_NAMESPACE", "models-as-a-service")
+    if not crd_exists("configs.maas.opendatahub.io"):
+        return CheckResult("maas usage logging", False, "configs.maas.opendatahub.io CRD missing")
+    name = _oc(
+        [
+            "get",
+            "configs.maas.opendatahub.io",
+            "-n",
+            maas_ns,
+            "-o",
+            "jsonpath={.items[0].metadata.name}",
+        ]
+    )
+    config_name = name.stdout.strip() if name.returncode == 0 else ""
+    if not config_name:
+        return CheckResult(
+            "maas usage logging", False, f"no configs.maas.opendatahub.io in {maas_ns}"
+        )
+    spec = _oc(
+        [
+            "get",
+            "configs.maas.opendatahub.io",
+            config_name,
+            "-n",
+            maas_ns,
+            "-o",
+            "jsonpath={.spec}",
+        ]
+    )
+    if spec.returncode == 0 and maas_usage_logging_enabled(spec.stdout):
+        return CheckResult("maas usage logging", True, config_name)
+    return CheckResult(
+        "maas usage logging",
+        False,
+        f"{config_name} spec.usageLogging not true",
+    )
+
+
+def limitador_uses_redis_storage(storage_json: str) -> bool:
+    return '"redis"' in storage_json.replace(" ", "")
+
+
+def check_limitador_redis() -> CheckResult:
+    kuadrant_ns = os.environ.get("WINGS_KUADRANT_NAMESPACE", "kuadrant-system")
+    redis_ns = os.environ.get("WINGS_REDIS_LIMITADOR_NAMESPACE", "redis-limitador")
+    exists = _oc(["get", "limitador", "limitador", "-n", kuadrant_ns])
+    if exists.returncode != 0:
+        return CheckResult(
+            "limitador redis storage", False, f"limitador/limitador missing in {kuadrant_ns}"
+        )
+    storage = _oc(
+        [
+            "get",
+            "limitador",
+            "limitador",
+            "-n",
+            kuadrant_ns,
+            "-o",
+            "jsonpath={.spec.storage}",
+        ]
+    )
+    if storage.returncode != 0 or not limitador_uses_redis_storage(storage.stdout):
+        return CheckResult(
+            "limitador redis storage",
+            False,
+            f"{kuadrant_ns}/limitador spec.storage.redis not set",
+        )
+    redis_pod = check_pod_ready(redis_ns, "redis-", "redis-limitador pod")
+    if not redis_pod.ok:
+        return CheckResult("redis-limitador pod", False, redis_pod.detail)
+    return CheckResult("limitador redis storage", True)
+
+
 def check_workbench_judge_mount(project: str, workbench: str) -> CheckResult:
     mount_result = _oc(
         [
@@ -874,6 +1136,17 @@ def run_checks(skip_llm: bool = False) -> list[CheckResult]:
         check_agents_catalog(),
         check_kuadrant_ready(),
         check_maas_ui(),
+        check_coo_operator(),
+        check_otel_operator(),
+        check_tempo_operator(),
+        check_loki_operator(),
+        check_dsci_observability_metrics(),
+        check_observability_dashboard_flag(),
+        check_user_workload_monitoring(),
+        check_lokistack_ready(),
+        check_maas_tenant_telemetry(),
+        check_maas_usage_logging(),
+        check_limitador_redis(),
     ]
     for catalog_model in maas_catalog:
         results.append(check_maas_external_model(project, catalog_model))

@@ -1,0 +1,34 @@
+# Loki Operator — backend for the RHOAI 3.5 log-based usage dashboards
+# (per-request token consumption, user attribution, subscription usage).
+# Shared namespace openshift-operators-redhat per Red Hat convention for
+# this operator; channel varies per catalog snapshot so install.sh resolves
+# it from the cluster's packagemanifest (REPLACE_LOKI_CHANNEL placeholder).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-operators-redhat
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: openshift-operators-redhat
+  namespace: openshift-operators-redhat
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+spec: {}
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: loki-operator
+  namespace: openshift-operators-redhat
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+spec:
+  channel: REPLACE_LOKI_CHANNEL
+  installPlanApproval: Automatic
+  name: loki-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

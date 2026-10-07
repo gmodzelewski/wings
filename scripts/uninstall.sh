@@ -13,7 +13,10 @@ usage() {
 Usage: $(basename "$0") [--all]
 
 Default: delete workbench only.
---all:   full demo reset (keeps InferenceService and operators).
+--all:   full demo reset (keeps InferenceService; also removes the
+         observability stack this install added — COO/OpenTelemetry/Tempo/
+         Loki operators, MinIO+LokiStack usage logging, Redis Limitador
+         persistence, User Workload Monitoring, and DSCI metrics/traces).
 EOF
 }
 
@@ -38,6 +41,7 @@ if [[ "$PURGE_ALL" == 1 ]]; then
   purge_mlflow_cr
   purge_evalhub_resources
   delete_judge_secret
+  purge_observability_resources
 fi
 
 info "uninstall complete"

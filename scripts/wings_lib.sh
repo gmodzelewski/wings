@@ -35,6 +35,14 @@ SM_NS="${WINGS_SERVICEMESH_NAMESPACE:-istio-system}"
 SM_CNI_NS="${WINGS_SERVICEMESH_CNI_NAMESPACE:-istio-cni}"
 OGX_SERVER_NAME="${WINGS_OGX_SERVER_NAME:-wings-ogx}"
 
+DSCI_NAME="${WINGS_DSCI_NAME:-default-dsci}"
+MONITORING_NS="${WINGS_MONITORING_NAMESPACE:-redhat-ods-monitoring}"
+COO_NS="${WINGS_COO_NAMESPACE:-openshift-cluster-observability-operator}"
+OTEL_NS="${WINGS_OTEL_NAMESPACE:-openshift-opentelemetry-operator}"
+TEMPO_NS="${WINGS_TEMPO_NAMESPACE:-openshift-tempo-operator}"
+LOKI_OPERATOR_NS="${WINGS_LOKI_OPERATOR_NAMESPACE:-openshift-operators-redhat}"
+REDIS_LIMITADOR_NS="${WINGS_REDIS_LIMITADOR_NAMESPACE:-redis-limitador}"
+
 log() {
   if [[ "${WINGS_VERBOSE:-0}" == 1 ]]; then
     echo "$*"
@@ -251,6 +259,239 @@ enable_garak() {
   if patch_dsc_component "$GARAK_DSC_COMPONENT" "Garak"; then
     wait_for_pod_grep "$MLFLOW_NS" "garak" 120 0 || true
   fi
+}
+
+# ---------------------------------------------------------------------------
+# Observability (Usage/token-consumption dashboard): Cluster Observability
+# Operator (COO), Red Hat OpenTelemetry, Tempo, Loki — plus DSCI metrics
+# storage and the observabilityDashboard flag. MaaS-side telemetry hooks
+# (MaasTenantConfig, usageLogging, Redis-backed Limitador) live in
+# enable_maas_observability(), called at the end of enable_maas().
+# ---------------------------------------------------------------------------
+
+csv_succeeded_in_namespace() {
+  local ns="$1" name_pattern="$2"
+  oc get csv -n "$ns" -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}' 2>/dev/null \
+    | awk -v p="$name_pattern" '$1 ~ p && $2 == "Succeeded" {found=1} END {exit !found}'
+}
+
+wait_for_csv_succeeded() {
+  local ns="$1" name_pattern="$2" timeout="${3:-600}" elapsed=0
+  while ((elapsed < timeout)); do
+    if csv_succeeded_in_namespace "$ns" "$name_pattern"; then
+      info "CSV Succeeded: ${ns}/${name_pattern}"
+      return 0
+    fi
+    sleep 10
+    elapsed=$((elapsed + 10))
+  done
+  echo "warning: timed out waiting for CSV ${name_pattern} in ${ns}" >&2
+  return 1
+}
+
+ensure_cluster_observability_operator() {
+  if csv_succeeded_in_namespace "$COO_NS" 'cluster-observability-operator\.'; then
+    log "Cluster Observability Operator already Succeeded"
+    return 0
+  fi
+  info "installing Cluster Observability Operator"
+  run oc apply -f "${MANIFESTS}/cluster-observability-operator.yaml"
+  wait_for_csv_succeeded "$COO_NS" 'cluster-observability-operator\.' 600
+}
+
+ensure_opentelemetry_operator() {
+  if csv_succeeded_in_namespace "$OTEL_NS" 'opentelemetry-operator\.'; then
+    log "Red Hat OpenTelemetry operator already Succeeded"
+    return 0
+  fi
+  info "installing Red Hat build of OpenTelemetry"
+  run oc apply -f "${MANIFESTS}/opentelemetry-operator.yaml"
+  wait_for_csv_succeeded "$OTEL_NS" 'opentelemetry-operator\.' 600
+}
+
+ensure_tempo_operator() {
+  if csv_succeeded_in_namespace "$TEMPO_NS" 'tempo-operator\.'; then
+    log "Tempo operator already Succeeded"
+    return 0
+  fi
+  info "installing Tempo operator"
+  run oc apply -f "${MANIFESTS}/tempo-operator.yaml"
+  wait_for_csv_succeeded "$TEMPO_NS" 'tempo-operator\.' 600
+}
+
+discover_loki_channel() {
+  # Multiple catalog sources publish a package named "loki-operator" (the
+  # community Grafana operator and the Red Hat one) — select the one that
+  # matches our Subscription's source: redhat-operators, not whichever
+  # packagemanifest object the API happens to return first.
+  local channel=""
+  channel=$(oc get packagemanifest -n openshift-marketplace -o json 2>/dev/null \
+    | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+for item in d.get("items", []):
+    if item["metadata"]["name"] == "loki-operator" and item["status"].get("catalogSource") == "redhat-operators":
+        print(item["status"]["defaultChannel"])
+        break
+' || true)
+  printf '%s' "${channel:-stable-6.6}"
+}
+
+ensure_loki_operator() {
+  if csv_succeeded_in_namespace "$LOKI_OPERATOR_NS" 'loki-operator\.'; then
+    log "Loki operator already Succeeded"
+    return 0
+  fi
+  local channel=""
+  channel=$(discover_loki_channel)
+  info "installing Loki operator (channel ${channel})"
+  sed "s/REPLACE_LOKI_CHANNEL/${channel}/" "${MANIFESTS}/loki-operator.yaml" | run oc apply -f -
+  wait_for_csv_succeeded "$LOKI_OPERATOR_NS" 'loki-operator\.' 600
+}
+
+uwm_configmap_owned_by_wings() {
+  oc get configmap cluster-monitoring-config -n openshift-monitoring \
+    -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}' 2>/dev/null | grep -q wings-demo
+}
+
+merge_uwm_enabled_flag() {
+  local value="$1"
+  python3 - "$value" <<'PY'
+import subprocess
+import sys
+
+value = sys.argv[1]
+existing = subprocess.run(
+    ["oc", "get", "configmap", "cluster-monitoring-config", "-n", "openshift-monitoring",
+     "-o", "jsonpath={.data.config\\.yaml}"],
+    capture_output=True, text=True,
+)
+body = existing.stdout if existing.returncode == 0 else ""
+lines = [l for l in body.splitlines() if not l.strip().startswith("enableUserWorkload:")]
+lines.append(f"enableUserWorkload: {value}")
+new_body = "\n".join(lines) + "\n"
+
+patch = {"data": {"config.yaml": new_body}}
+import json
+proc = subprocess.run(
+    ["oc", "patch", "configmap", "cluster-monitoring-config", "-n", "openshift-monitoring",
+     "--type=merge", "-p", json.dumps(patch)],
+    capture_output=True, text=True,
+)
+sys.exit(0 if proc.returncode == 0 else 1)
+PY
+}
+
+ensure_user_workload_monitoring() {
+  if ! oc get configmap cluster-monitoring-config -n openshift-monitoring >/dev/null 2>&1; then
+    log "create cluster-monitoring-config with enableUserWorkload: true"
+    run oc apply -f "${MANIFESTS}/cluster-monitoring-config.yaml"
+  else
+    log "merge enableUserWorkload: true into existing cluster-monitoring-config"
+    merge_uwm_enabled_flag true || echo "warning: could not merge UWM flag into cluster-monitoring-config" >&2
+    if ! uwm_configmap_owned_by_wings; then
+      oc annotate configmap cluster-monitoring-config -n openshift-monitoring --overwrite \
+        wings-demo/added-enable-user-workload=true >/dev/null 2>&1 || true
+    fi
+  fi
+  wait_for_pod_grep "openshift-user-workload-monitoring" "prometheus-user-workload" 300 0 || true
+}
+
+wait_for_dsci_monitoring_ready() {
+  local timeout="${1:-900}" elapsed=0 status=""
+  while ((elapsed < timeout)); do
+    status=$(oc get dsci "$DSCI_NAME" \
+      -o jsonpath='{.status.conditions[?(@.type=="MonitoringStackAvailable")].status}' 2>/dev/null || true)
+    if [[ "$status" == "True" ]]; then
+      info "DSCI MonitoringStackAvailable=True"
+      return 0
+    fi
+    sleep 10
+    elapsed=$((elapsed + 10))
+  done
+  echo "warning: DSCI ${DSCI_NAME} MonitoringStackAvailable not True after ${timeout}s" >&2
+  return 1
+}
+
+patch_dsci_observability_metrics() {
+  local current=""
+  current=$(oc get dsci "$DSCI_NAME" \
+    -o jsonpath='{.spec.monitoring.metrics.storage.size}' 2>/dev/null || true)
+  if [[ -n "$current" ]]; then
+    log "DSCI ${DSCI_NAME} monitoring.metrics.storage already configured (${current})"
+    return 0
+  fi
+  info "patch DSCI ${DSCI_NAME}: enable metrics + traces storage for observability stack"
+  oc patch dsci "$DSCI_NAME" --type=merge -p '{
+    "spec": {
+      "monitoring": {
+        "managementState": "Managed",
+        "namespace": "'"${MONITORING_NS}"'",
+        "metrics": {
+          "replicas": 1,
+          "storage": {
+            "size": "5Gi",
+            "retention": "15d"
+          }
+        },
+        "traces": {
+          "sampleRatio": "0.1",
+          "storage": {
+            "backend": "pv",
+            "retention": "2160h"
+          }
+        }
+      }
+    }
+  }' >/dev/null
+}
+
+ensure_observability_operators() {
+  ensure_tempo_operator || echo "warning: Tempo operator install incomplete" >&2
+  ensure_opentelemetry_operator || echo "warning: OpenTelemetry operator install incomplete" >&2
+  ensure_cluster_observability_operator || echo "warning: Cluster Observability Operator install incomplete" >&2
+  ensure_loki_operator || echo "warning: Loki operator install incomplete" >&2
+}
+
+wait_for_lokistack_ready() {
+  local timeout="${1:-600}" elapsed=0 status=""
+  while ((elapsed < timeout)); do
+    status=$(oc get lokistack usage -n "$MONITORING_NS" \
+      -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
+    if [[ "$status" == "True" ]]; then
+      info "LokiStack/usage Ready"
+      return 0
+    fi
+    sleep 10
+    elapsed=$((elapsed + 10))
+  done
+  echo "warning: timed out waiting for LokiStack/usage Ready" >&2
+  return 1
+}
+
+deploy_usage_logging_backend() {
+  if ! crd_registered 'lokistacks\.loki\.grafana\.com'; then
+    echo "warning: skip usage-logging backend — lokistacks.loki.grafana.com CRD missing" >&2
+    return 1
+  fi
+  run oc apply -f "${MANIFESTS}/maas-usage-logging-minio-secret.yaml"
+  run oc apply -f "${MANIFESTS}/maas-usage-logging-minio.yaml"
+  wait_for_pod_grep "$MONITORING_NS" "^minio-" 180 0 || true
+  run oc apply -f "${MANIFESTS}/maas-usage-logging-lokistack.yaml"
+  wait_for_lokistack_ready 600 || true
+}
+
+enable_observability() {
+  if [[ "${WINGS_SKIP_OBSERVABILITY:-0}" == 1 ]]; then
+    log "skip observability stack (WINGS_SKIP_OBSERVABILITY=1)"
+    return 0
+  fi
+  info "enabling observability stack (Usage/token-consumption dashboard)"
+  ensure_user_workload_monitoring || echo "warning: UWM enablement incomplete" >&2
+  ensure_observability_operators
+  patch_dsci_observability_metrics || echo "warning: DSCI observability patch failed" >&2
+  wait_for_dsci_monitoring_ready 900 || true
+  deploy_usage_logging_backend || true
 }
 
 ogx_operator_available() {
@@ -538,13 +779,17 @@ ensure_genai_dashboard_prereqs() {
     -o jsonpath='{.spec.dashboardConfig.agentConfigManagement}' 2>/dev/null || true)
   ai_asset_eps=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
     -o jsonpath='{.spec.dashboardConfig.aiAssetCustomEndpoints}' 2>/dev/null || true)
+  local observability_dashboard=""
+  observability_dashboard=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
+    -o jsonpath='{.spec.dashboardConfig.observabilityDashboard}' 2>/dev/null || true)
   if [[ "$gen_ai" != "true" || "$maas_tab" != "true" || "$mcp_catalog" != "true" \
     || "$disable_lmeval" == "true" || "$guardrails" != "true" \
     || "$agents_catalog" != "true" || "$agent_ops" != "true" \
-    || "$agent_cfg" != "true" || "$ai_asset_eps" != "true" ]]; then
-    log "patch OdhDashboardConfig genAiStudio + MaaS + MCP + Agents + guardrails"
+    || "$agent_cfg" != "true" || "$ai_asset_eps" != "true" \
+    || "$observability_dashboard" != "true" ]]; then
+    log "patch OdhDashboardConfig genAiStudio + MaaS + MCP + Agents + guardrails + observabilityDashboard"
     oc patch odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" --type=merge \
-      -p '{"spec":{"dashboardConfig":{"genAiStudio":true,"modelAsService":true,"mcpCatalog":true,"disableLMEval":false,"guardrails":true,"agentsCatalog":true,"agentOps":true,"agentConfigManagement":true,"aiAssetCustomEndpoints":true}}}' \
+      -p '{"spec":{"dashboardConfig":{"genAiStudio":true,"modelAsService":true,"mcpCatalog":true,"disableLMEval":false,"guardrails":true,"agentsCatalog":true,"agentOps":true,"agentConfigManagement":true,"aiAssetCustomEndpoints":true,"observabilityDashboard":true}}}' \
       >/dev/null 2>&1 || true
   fi
   label_maas_external_model_assets || true
@@ -1402,6 +1647,93 @@ patch_judge_secret_for_maas() {
     --overwrite >/dev/null 2>&1 || true
 }
 
+discover_maastenantconfig_name() {
+  if ! crd_registered 'maastenantconfigs\.maas\.opendatahub\.io'; then
+    return 1
+  fi
+  oc get maastenantconfig -n "$MAAS_NS" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+}
+
+enable_maas_tenant_telemetry() {
+  local name="" capture_user="true"
+  name=$(discover_maastenantconfig_name || true)
+  if [[ -z "$name" ]]; then
+    log "skip MaaS tenant telemetry (no MaasTenantConfig in ${MAAS_NS})"
+    return 1
+  fi
+  # The RHOAI-shipped "Usage" dashboard (dashboard-3-maas-usage-admin) hard-codes
+  # user!="" on every panel, including the plain totals -- without the per-user
+  # Limitador "user" counter label, the whole dashboard (not just drill-down)
+  # renders zeros. Default to capturing it so the demo's token-consumption
+  # dashboard works out of the box; set WINGS_MAAS_CAPTURE_USER=0 to opt out
+  # for privacy/cardinality-sensitive clusters (dashboard totals will then
+  # read 0, by RHOAI's own dashboard design, not a WINGS bug).
+  [[ "${WINGS_MAAS_CAPTURE_USER:-1}" == 0 ]] && capture_user="false"
+  log "patch MaasTenantConfig ${name}: telemetry.enabled=true (captureUser=${capture_user})"
+  oc patch maastenantconfig "$name" -n "$MAAS_NS" --type=merge -p '{
+    "spec": {
+      "telemetry": {
+        "enabled": true,
+        "metrics": {
+          "captureModelUsage": true,
+          "captureUser": '"${capture_user}"',
+          "captureGroup": false
+        }
+      }
+    }
+  }' >/dev/null 2>&1
+}
+
+discover_maas_config_name() {
+  if ! crd_registered 'configs\.maas\.opendatahub\.io'; then
+    return 1
+  fi
+  oc get configs.maas.opendatahub.io -n "$MAAS_NS" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+}
+
+enable_maas_usage_logging() {
+  local name=""
+  name=$(discover_maas_config_name || true)
+  if [[ -z "$name" ]]; then
+    log "skip MaaS usageLogging (no configs.maas.opendatahub.io in ${MAAS_NS})"
+    return 1
+  fi
+  log "patch MaaS Config ${name}: usageLogging=true"
+  oc patch configs.maas.opendatahub.io "$name" -n "$MAAS_NS" --type=merge \
+    -p '{"spec":{"usageLogging":true}}' >/dev/null 2>&1
+}
+
+ensure_limitador_redis() {
+  run oc apply -f "${MANIFESTS}/limitador-redis.yaml"
+  wait_for_pod_grep "$REDIS_LIMITADOR_NS" "^redis-" 180 0 || true
+  if ! oc get namespace "$KUADRANT_NS" >/dev/null 2>&1; then
+    echo "warning: skip Limitador Redis Secret — ${KUADRANT_NS} namespace missing" >&2
+    return 1
+  fi
+  run oc apply -f "${MANIFESTS}/limitador-redis-secret.yaml"
+  local current=""
+  current=$(oc get limitador limitador -n "$KUADRANT_NS" \
+    -o jsonpath='{.spec.storage.redis.configSecretRef.name}' 2>/dev/null || true)
+  if [[ "$current" == "redis-config" ]]; then
+    log "Limitador already using Redis storage"
+    return 0
+  fi
+  log "patch Limitador storage -> redis-config (counters survive pod restarts)"
+  oc patch limitador limitador -n "$KUADRANT_NS" --type=merge -p \
+    '{"spec":{"storage":{"redis":{"configSecretRef":{"name":"redis-config"}}}}}' \
+    >/dev/null 2>&1
+}
+
+enable_maas_observability() {
+  if [[ "${WINGS_SKIP_OBSERVABILITY:-0}" == 1 ]]; then
+    log "skip MaaS observability hooks (WINGS_SKIP_OBSERVABILITY=1)"
+    return 0
+  fi
+  enable_maas_tenant_telemetry || echo "warning: MaaS tenant telemetry not enabled" >&2
+  enable_maas_usage_logging || echo "warning: MaaS usageLogging not enabled" >&2
+  ensure_limitador_redis || echo "warning: Limitador Redis persistence not configured" >&2
+}
+
 enable_maas() {
   if [[ "${WINGS_SKIP_MAAS:-0}" == 1 ]]; then
     log "skip MaaS (WINGS_SKIP_MAAS=1)"
@@ -1424,6 +1756,7 @@ enable_maas() {
   reconcile_maas_subscription || true
   wait_for_maas_modelref_ready 600 || true
   ensure_genai_dashboard_prereqs || true
+  enable_maas_observability || true
   local host="" base_url="" maas_key=""
   host=$(discover_maas_gateway_host)
   base_url=$(discover_maas_judge_base_url)
@@ -1880,4 +2213,112 @@ purge_ogx_resources() {
   fi
   run oc delete -f "${MANIFESTS}/ogx-server-wings.yaml" --ignore-not-found=true
   run oc delete -f "${MANIFESTS}/ogx-postgres-dev.yaml" --ignore-not-found=true
+}
+
+# ---------------------------------------------------------------------------
+# Observability purge (uninstall --all): reverse every step enable_observability
+# / enable_maas_observability performed, so a clean cluster results — unlike
+# Service Mesh/Connectivity Link (cluster-wide, kept across --all), WINGS owns
+# the observability stack end-to-end for this demo and removes it fully.
+# ---------------------------------------------------------------------------
+
+purge_maas_tenant_telemetry() {
+  local name=""
+  name=$(discover_maastenantconfig_name || true)
+  [[ -z "$name" ]] && return 0
+  run oc patch maastenantconfig "$name" -n "$MAAS_NS" --type=merge \
+    -p '{"spec":{"telemetry":{"enabled":false}}}'
+}
+
+purge_maas_usage_logging() {
+  local name=""
+  name=$(discover_maas_config_name || true)
+  [[ -z "$name" ]] && return 0
+  run oc patch configs.maas.opendatahub.io "$name" -n "$MAAS_NS" --type=merge \
+    -p '{"spec":{"usageLogging":false}}'
+}
+
+purge_usage_logging_backend() {
+  run oc delete -f "${MANIFESTS}/maas-usage-logging-lokistack.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/maas-usage-logging-minio.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/maas-usage-logging-minio-secret.yaml" --ignore-not-found=true
+}
+
+purge_limitador_redis() {
+  if oc get limitador limitador -n "$KUADRANT_NS" >/dev/null 2>&1; then
+    run oc patch limitador limitador -n "$KUADRANT_NS" --type=merge \
+      -p '{"spec":{"storage":null}}'
+  fi
+  run oc delete -f "${MANIFESTS}/limitador-redis-secret.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/limitador-redis.yaml" --ignore-not-found=true
+}
+
+revert_dsci_observability_metrics() {
+  if ! oc get dsci "$DSCI_NAME" >/dev/null 2>&1; then
+    return 0
+  fi
+  log "revert DSCI ${DSCI_NAME} monitoring.metrics/traces to pre-WINGS state"
+  oc patch dsci "$DSCI_NAME" --type=merge -p '{
+    "spec": {
+      "monitoring": {
+        "metrics": {"replicas": null, "storage": null, "exporters": null},
+        "traces": null,
+        "alerting": null
+      }
+    }
+  }' >/dev/null 2>&1 || true
+}
+
+purge_observability_operators() {
+  run oc delete -f "${MANIFESTS}/loki-operator.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/cluster-observability-operator.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/opentelemetry-operator.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/tempo-operator.yaml" --ignore-not-found=true
+}
+
+revert_user_workload_monitoring() {
+  if ! oc get configmap cluster-monitoring-config -n openshift-monitoring >/dev/null 2>&1; then
+    return 0
+  fi
+  if uwm_configmap_owned_by_wings; then
+    log "delete cluster-monitoring-config (created by WINGS install)"
+    run oc delete configmap cluster-monitoring-config -n openshift-monitoring --ignore-not-found=true
+    return 0
+  fi
+  local added=""
+  added=$(oc get configmap cluster-monitoring-config -n openshift-monitoring \
+    -o jsonpath='{.metadata.annotations.wings-demo/added-enable-user-workload}' 2>/dev/null || true)
+  if [[ "$added" == "true" ]]; then
+    log "remove enableUserWorkload key added by WINGS install (CM pre-existed)"
+    python3 - <<'PY'
+import subprocess
+existing = subprocess.run(
+    ["oc", "get", "configmap", "cluster-monitoring-config", "-n", "openshift-monitoring",
+     "-o", "jsonpath={.data.config\\.yaml}"],
+    capture_output=True, text=True,
+)
+body = existing.stdout if existing.returncode == 0 else ""
+lines = [l for l in body.splitlines() if not l.strip().startswith("enableUserWorkload:")]
+new_body = "\n".join(lines) + ("\n" if lines else "")
+import json
+patch = {"data": {"config.yaml": new_body}}
+subprocess.run(
+    ["oc", "patch", "configmap", "cluster-monitoring-config", "-n", "openshift-monitoring",
+     "--type=merge", "-p", json.dumps(patch)],
+    capture_output=True, text=True,
+)
+PY
+    oc annotate configmap cluster-monitoring-config -n openshift-monitoring \
+      wings-demo/added-enable-user-workload- >/dev/null 2>&1 || true
+  fi
+}
+
+purge_observability_resources() {
+  purge_maas_tenant_telemetry
+  purge_maas_usage_logging
+  purge_usage_logging_backend
+  purge_limitador_redis
+  revert_dsci_observability_metrics
+  purge_observability_operators
+  revert_user_workload_monitoring
 }

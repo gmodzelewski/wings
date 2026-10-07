@@ -1,0 +1,35 @@
+# LokiStack backend for RHOAI 3.5 log-based usage dashboards (per-request
+# token consumption / user attribution). storageClassName must match the
+# cluster default (gp3-csi on this AWS cluster) — edit for other providers
+# (e.g. ocs-external-storagecluster-ceph-rbd on ODF/OCS).
+apiVersion: loki.grafana.com/v1
+kind: LokiStack
+metadata:
+  name: usage
+  namespace: redhat-ods-monitoring
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+spec:
+  limits:
+    global:
+      otlp:
+        streamLabels:
+          resourceAttributes:
+            - name: service.name
+            - name: subscription
+            - name: model
+            - name: response_type
+            - name: kubernetes_namespace_name
+  managementState: Managed
+  size: 1x.demo
+  storage:
+    schemas:
+      - effectiveDate: "2024-10-01"
+        version: v13
+    secret:
+      credentialMode: static
+      name: minio-secret
+      type: s3
+  storageClassName: gp3-csi
+  tenants:
+    mode: openshift-logging

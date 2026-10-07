@@ -1,0 +1,36 @@
+# Cluster Observability Operator (COO) — provides the MonitoringStack and
+# Perses CRDs the RHOAI observability dashboard (Usage/token consumption) needs.
+#
+# MUST be installed into its own namespace: the perses-operator generates a
+# NetworkPolicy (perses-operator-access) that only allows the Perses API from
+# this exact namespace. Installing COO into openshift-operators leaves the
+# Observability dashboard showing "No dashboards found" even with healthy pods.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-cluster-observability-operator
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: openshift-cluster-observability-operator
+  namespace: openshift-cluster-observability-operator
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+spec: {}
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cluster-observability-operator
+  namespace: openshift-cluster-observability-operator
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: cluster-observability-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
