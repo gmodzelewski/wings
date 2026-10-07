@@ -93,6 +93,25 @@ What each step actually does on the cluster:
 - `oc get lokistack usage -n redhat-ods-monitoring` — `Ready=True`
 - `oc get dsci default-dsci -o jsonpath='{.status.conditions[?(@.type=="MonitoringStackAvailable")].status}'` — `True`
 
+### Shared-namespace safety (openshift-operators-redhat)
+
+`loki-operator.yaml` installs into `openshift-operators-redhat`, a Red
+Hat-conventional namespace that other, unrelated operators on a cluster may
+already use. Install and uninstall never assume WINGS owns this namespace:
+
+- `apply_operator_manifest_ns_aware` (install) only applies the Namespace
+  document — and takes ownership (`app.kubernetes.io/part-of: wings-demo`
+  label) — if the namespace doesn't already exist. If it pre-exists, only
+  the OperatorGroup/Subscription are applied into it.
+- `purge_operator_manifest_ns_aware` (uninstall) only deletes the namespace
+  itself if it carries that WINGS-owned label. Otherwise it strips back just
+  the OperatorGroup/Subscription WINGS added, leaving the (shared) namespace
+  and anything else in it untouched.
+
+The same helpers are used for the COO/OpenTelemetry/Tempo operator
+namespaces as a defensive measure, even though those are less likely to be
+shared in practice.
+
 ### Uninstall symmetry
 
 `uninstall.sh --all` calls `purge_observability_resources`, which reverts

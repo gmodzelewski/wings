@@ -275,6 +275,59 @@ csv_succeeded_in_namespace() {
     | awk -v p="$name_pattern" '$1 ~ p && $2 == "Succeeded" {found=1} END {exit !found}'
 }
 
+# Several operator manifests bundle a Namespace + OperatorGroup + Subscription
+# in one file for convenience. Some of those namespaces (openshift-operators-
+# redhat in particular) are Red Hat-conventional *shared* namespaces that
+# other operators (unrelated to WINGS) may already use on a given cluster.
+# These helpers let install apply only the OperatorGroup/Subscription when the
+# namespace pre-exists (never taking ownership of someone else's namespace),
+# and let uninstall symmetrically avoid deleting a namespace WINGS didn't
+# create -- it only strips back the Subscription/OperatorGroup it added.
+manifest_minus_namespace_doc() {
+  # Reads a multi-document YAML manifest on stdin, drops any "---"-delimited
+  # document containing a top-level "kind: Namespace", prints the rest.
+  python3 -c '
+import sys
+content = sys.stdin.read()
+docs = content.split("\n---\n")
+kept = [d for d in docs if "kind: Namespace" not in d]
+sys.stdout.write("\n---\n".join(kept))
+'
+}
+
+namespace_owned_by_wings() {
+  local ns="$1"
+  oc get namespace "$ns" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}' 2>/dev/null \
+    | grep -q '^wings-demo$'
+}
+
+apply_operator_manifest_ns_aware() {
+  # $1 = namespace, manifest content on stdin.
+  local ns="$1" content=""
+  content=$(cat)
+  if oc get namespace "$ns" >/dev/null 2>&1; then
+    log "namespace ${ns} already exists -- not taking ownership, only adding OperatorGroup/Subscription"
+    printf '%s' "$content" | manifest_minus_namespace_doc | run oc apply -f -
+  else
+    printf '%s' "$content" | run oc apply -f -
+  fi
+}
+
+purge_operator_manifest_ns_aware() {
+  # $1 = namespace, manifest content on stdin.
+  local ns="$1" content=""
+  content=$(cat)
+  if ! oc get namespace "$ns" >/dev/null 2>&1; then
+    return 0
+  fi
+  if namespace_owned_by_wings "$ns"; then
+    printf '%s' "$content" | run oc delete -f - --ignore-not-found=true
+  else
+    log "namespace ${ns} predates/outlives WINGS install (shared) -- removing only the Subscription/OperatorGroup WINGS added, keeping the namespace"
+    printf '%s' "$content" | manifest_minus_namespace_doc | run oc delete -f - --ignore-not-found=true
+  fi
+}
+
 wait_for_csv_succeeded() {
   local ns="$1" name_pattern="$2" timeout="${3:-600}" elapsed=0
   while ((elapsed < timeout)); do
@@ -295,7 +348,7 @@ ensure_cluster_observability_operator() {
     return 0
   fi
   info "installing Cluster Observability Operator"
-  run oc apply -f "${MANIFESTS}/cluster-observability-operator.yaml"
+  apply_operator_manifest_ns_aware "$COO_NS" < "${MANIFESTS}/cluster-observability-operator.yaml"
   wait_for_csv_succeeded "$COO_NS" 'cluster-observability-operator\.' 600
 }
 
@@ -305,7 +358,7 @@ ensure_opentelemetry_operator() {
     return 0
   fi
   info "installing Red Hat build of OpenTelemetry"
-  run oc apply -f "${MANIFESTS}/opentelemetry-operator.yaml"
+  apply_operator_manifest_ns_aware "$OTEL_NS" < "${MANIFESTS}/opentelemetry-operator.yaml"
   wait_for_csv_succeeded "$OTEL_NS" 'opentelemetry-operator\.' 600
 }
 
@@ -315,7 +368,7 @@ ensure_tempo_operator() {
     return 0
   fi
   info "installing Tempo operator"
-  run oc apply -f "${MANIFESTS}/tempo-operator.yaml"
+  apply_operator_manifest_ns_aware "$TEMPO_NS" < "${MANIFESTS}/tempo-operator.yaml"
   wait_for_csv_succeeded "$TEMPO_NS" 'tempo-operator\.' 600
 }
 
@@ -345,7 +398,8 @@ ensure_loki_operator() {
   local channel=""
   channel=$(discover_loki_channel)
   info "installing Loki operator (channel ${channel})"
-  sed "s/REPLACE_LOKI_CHANNEL/${channel}/" "${MANIFESTS}/loki-operator.yaml" | run oc apply -f -
+  sed "s/REPLACE_LOKI_CHANNEL/${channel}/" "${MANIFESTS}/loki-operator.yaml" \
+    | apply_operator_manifest_ns_aware "$LOKI_OPERATOR_NS"
   wait_for_csv_succeeded "$LOKI_OPERATOR_NS" 'loki-operator\.' 600
 }
 
@@ -909,11 +963,26 @@ ensure_maas_db_secrets() {
 }
 
 ensure_maas_postgres() {
+  local fresh_db=0
   if ! oc get deployment wings-maas-postgres -n "$MLFLOW_NS" >/dev/null 2>&1; then
     run oc apply -f "${MANIFESTS}/maas-postgres-dev.yaml"
+    fresh_db=1
   fi
   wait_for_pod_grep "$MLFLOW_NS" "wings-maas-postgres" 300 0 || true
   ensure_maas_db_secrets
+  # maas-api runs its schema migration on startup. If this is a brand-new (empty)
+  # Postgres -- e.g. right after `uninstall.sh --all` wiped the old one and
+  # install.sh recreated it -- but the maas-api pod has been running since before
+  # that (RHOAI's modelsAsAService component doesn't know the DB was swapped), it
+  # keeps serving against a connection pool with no migrated schema and API key
+  # minting fails with "relation \"api_keys\" does not exist". Restart it so the
+  # fresh pod migrates the fresh DB.
+  if [[ "$fresh_db" == 1 ]] && oc get deployment maas-api -n redhat-ai-gateway-infra >/dev/null 2>&1; then
+    log "restarting maas-api so it migrates the freshly (re)created wings-maas-postgres schema"
+    run oc rollout restart deployment/maas-api -n redhat-ai-gateway-infra
+    oc rollout status deployment/maas-api -n redhat-ai-gateway-infra --timeout=180s >/dev/null 2>&1 || true
+    wait_for_pod_grep redhat-ai-gateway-infra "maas-api" 180 0 || true
+  fi
 }
 
 discover_gateway_tls_secret() {
@@ -1368,16 +1437,40 @@ bootstrap_maas_upstream_secret() {
 }
 
 apply_maas_manifests() {
-  local model=""
+  local model="" out="" created_any=0
   for model in $MAAS_CATALOG_MODELS; do
     if [[ -f "${MANIFESTS}/maas-external-model-${model}.yaml" ]]; then
-      run oc apply -f "${MANIFESTS}/maas-external-model-${model}.yaml"
+      out=$(run oc apply -f "${MANIFESTS}/maas-external-model-${model}.yaml")
+      echo "$out"
+      [[ "$out" == *created* ]] && created_any=1
     fi
     if [[ -f "${MANIFESTS}/maas-modelref-${model}.yaml" ]]; then
       run oc apply -f "${MANIFESTS}/maas-modelref-${model}.yaml"
     fi
   done
   run oc apply -f "${MANIFESTS}/maas-auth-subscription-redhat-maas.yaml"
+  if [[ "$created_any" == 1 ]]; then
+    restart_payload_processing_stack
+  fi
+}
+
+restart_payload_processing_stack() {
+  # ai-gateway-payload-processing's payload-processing/payload-pre-processing pods
+  # (openshift-ingress) keep an in-memory model store built by watching
+  # ExternalModel/ExternalProvider CRs, and use it to resolve the inference path
+  # (/{project}/{model}/v1/...) to a provider + injected upstream credential. When
+  # those ExternalModel CRs are deleted and recreated with new UIDs -- e.g. after
+  # `uninstall.sh --all` wipes them and install.sh recreates them -- while these pods
+  # keep running (RHOAI's modelsAsAService component doesn't restart them), the model
+  # store goes stale: gateway inference then 404s (unresolved path) or 401s ("no api
+  # key passed in", credential never injected) even though the CRs report Ready.
+  # Restart so the pods rebuild their watch caches against the fresh CRs.
+  if oc get deployment payload-processing -n openshift-ingress >/dev/null 2>&1; then
+    log "restarting payload-processing/payload-pre-processing so they rebuild their stale ExternalModel watch cache"
+    run oc rollout restart deployment/payload-processing deployment/payload-pre-processing -n openshift-ingress
+    oc rollout status deployment/payload-processing -n openshift-ingress --timeout=120s >/dev/null 2>&1 || true
+    oc rollout status deployment/payload-pre-processing -n openshift-ingress --timeout=120s >/dev/null 2>&1 || true
+  fi
 }
 
 wait_for_one_maas_modelref_ready() {
@@ -2270,10 +2363,14 @@ revert_dsci_observability_metrics() {
 }
 
 purge_observability_operators() {
-  run oc delete -f "${MANIFESTS}/loki-operator.yaml" --ignore-not-found=true
-  run oc delete -f "${MANIFESTS}/cluster-observability-operator.yaml" --ignore-not-found=true
-  run oc delete -f "${MANIFESTS}/opentelemetry-operator.yaml" --ignore-not-found=true
-  run oc delete -f "${MANIFESTS}/tempo-operator.yaml" --ignore-not-found=true
+  # loki-operator.yaml's namespace (openshift-operators-redhat) is a shared,
+  # Red Hat-conventional namespace other operators may already use -- never
+  # delete it unless WINGS itself created it (see apply_operator_manifest_ns_aware).
+  sed "s/REPLACE_LOKI_CHANNEL/stable/" "${MANIFESTS}/loki-operator.yaml" \
+    | purge_operator_manifest_ns_aware "$LOKI_OPERATOR_NS"
+  purge_operator_manifest_ns_aware "$COO_NS" < "${MANIFESTS}/cluster-observability-operator.yaml"
+  purge_operator_manifest_ns_aware "$OTEL_NS" < "${MANIFESTS}/opentelemetry-operator.yaml"
+  purge_operator_manifest_ns_aware "$TEMPO_NS" < "${MANIFESTS}/tempo-operator.yaml"
 }
 
 revert_user_workload_monitoring() {

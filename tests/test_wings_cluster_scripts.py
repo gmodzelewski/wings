@@ -567,6 +567,88 @@ def test_observability_stack_manifests_and_wiring():
     assert "check_maas_usage_logging" in check_py
     assert "check_limitador_redis" in check_py
 
+    # Shared-namespace safety: openshift-operators-redhat (loki-operator.yaml)
+    # is a Red Hat-conventional namespace other operators may already use.
+    # Install/uninstall must never take ownership of (or delete) a namespace
+    # WINGS didn't create -- see apply_operator_manifest_ns_aware /
+    # purge_operator_manifest_ns_aware below.
+    assert "manifest_minus_namespace_doc" in lib
+    assert "namespace_owned_by_wings" in lib
+    assert "apply_operator_manifest_ns_aware" in lib
+    assert "purge_operator_manifest_ns_aware" in lib
+    assert lib.count("apply_operator_manifest_ns_aware") >= 5  # def + 4 call sites
+    assert lib.count("purge_operator_manifest_ns_aware") >= 5  # def + 4 call sites
+
+
+def test_reinstall_restarts_pods_with_stale_watch_caches_or_db_connections():
+    """Regression test for two real bugs found while testing a full
+    `uninstall.sh --all` + `install.sh` cycle live:
+
+    1. `maas-api` (redhat-ai-gateway-infra) runs its DB schema migration on
+       startup. After `uninstall.sh --all` wipes `wings-maas-postgres` and
+       install.sh recreates it empty, the long-running maas-api pod (never
+       restarted by RHOAI's modelsAsAService component) kept serving against
+       a connection pool with no migrated schema -- API key minting failed
+       with "relation \"api_keys\" does not exist".
+    2. `payload-processing`/`payload-pre-processing` (openshift-ingress) keep
+       an in-memory ExternalModel/ExternalProvider watch cache used to
+       resolve the gateway inference path to a provider + injected upstream
+       credential. After the ExternalModel CRs are deleted and recreated
+       with new UIDs, the long-running pods kept serving a stale cache --
+       inference calls 404'd (path never resolved) or 401'd ("no api key
+       passed in", credential never injected) even though the CRs reported
+       Ready.
+
+    Both were fixed by detecting a fresh (re)create in `ensure_maas_postgres`
+    / `apply_maas_manifests` and issuing `oc rollout restart` for the
+    corresponding long-running deployment. Verify the wiring exists.
+    """
+    lib = (WINGS_ROOT / "scripts" / "wings_lib.sh").read_text()
+    assert "fresh_db" in lib
+    assert "rollout restart deployment/maas-api" in lib
+    assert "restart_payload_processing_stack" in lib
+    assert "rollout restart deployment/payload-processing deployment/payload-pre-processing" in lib
+    assert "created_any" in lib
+
+
+def test_purge_operator_manifest_ns_aware_never_deletes_foreign_namespace():
+    """Regression test for a real bug found while testing uninstall.sh --all live:
+    purge_observability_operators used to unconditionally `oc delete -f
+    loki-operator.yaml`, which includes a Namespace doc for
+    openshift-operators-redhat -- a namespace other, unrelated operators
+    commonly share. Verify the ns-aware helpers only ever touch resources
+    WINGS itself owns, using fake kubectl-shaped manifests and a stub `oc`
+    (no live cluster required).
+    """
+    lib = (WINGS_ROOT / "scripts" / "wings_lib.sh").read_text()
+    assert "apply_operator_manifest_ns_aware" in lib
+
+    manifest = """apiVersion: v1
+kind: Namespace
+metadata:
+  name: shared-ns
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: og
+  namespace: shared-ns
+spec: {}
+"""
+    # manifest_minus_namespace_doc must drop only the Namespace document.
+    script = f"source {WINGS_ROOT / 'scripts' / 'wings_lib.sh'}; manifest_minus_namespace_doc"
+    proc = subprocess.run(
+        ["bash", "-c", script],
+        input=manifest,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "kind: Namespace" not in proc.stdout
+    assert "kind: OperatorGroup" in proc.stdout
+
 
 def test_presenter_docs_point_at_cluster_scripts():
     setup = (WINGS_ROOT / "walkthrough" / "00-presenter-setup.md").read_text()
