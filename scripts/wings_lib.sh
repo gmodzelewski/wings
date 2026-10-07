@@ -847,9 +847,18 @@ ensure_genai_dashboard_prereqs() {
       >/dev/null 2>&1 || true
   fi
   label_maas_external_model_assets || true
-  # Gen AI Studio AI asset endpoints lists models from this ConfigMap (not CRs).
-  if [[ -f "${MANIFESTS}/gen-ai-aa-custom-model-endpoints.yaml" ]]; then
-    run oc apply -f "${MANIFESTS}/gen-ai-aa-custom-model-endpoints.yaml"
+  # Gen AI Studio -> AI asset endpoints used to list externalModels=0 even when
+  # MaaSModelRefs/ExternalProviders were Ready, so an earlier version of this
+  # function worked around it by also registering a duplicate "(workshop)"
+  # custom-model-endpoints ConfigMap. label_maas_external_model_assets (native
+  # CR labelling) now makes the dashboard list these models correctly on its
+  # own -- the ConfigMap only produces confusing duplicate entries stuck in
+  # "Unknown" status (it references a secret, endpoint-api-key-1, that was
+  # never actually created). Remove it defensively so clusters that picked it
+  # up from an earlier install.sh run get self-healed on the next run.
+  if oc get configmap gen-ai-aa-custom-model-endpoints -n "$PROJECT" >/dev/null 2>&1; then
+    log "removing redundant gen-ai-aa-custom-model-endpoints ConfigMap (superseded by native ExternalModel/MaaSModelRef labelling)"
+    run oc delete configmap gen-ai-aa-custom-model-endpoints -n "$PROJECT" --ignore-not-found=true
   fi
   restart_maas_dashboard_ui_if_unhealthy || true
 }

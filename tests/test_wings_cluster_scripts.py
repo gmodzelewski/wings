@@ -325,11 +325,15 @@ def test_maas_external_model_manifests():
     assert "opendatahub.io/dashboard" in external
     assert "label_maas_external_model_assets" in lib
     assert "externalproviders.inference.opendatahub.io" in lib
-    assert "gen-ai-aa-custom-model-endpoints" in lib
-    cm_aa = (WINGS_ROOT / "manifests" / "gen-ai-aa-custom-model-endpoints.yaml").read_text()
-    assert "endpoints.json" in cm_aa
-    assert "gpt-oss-120b" in cm_aa
-    assert "llama-scout-17b" in cm_aa
+    # gen-ai-aa-custom-model-endpoints was an earlier workaround ConfigMap that
+    # duplicated these models in Gen AI Studio -> AI asset endpoints with a
+    # "(workshop)" suffix stuck in "Unknown" status (it referenced a secret,
+    # endpoint-api-key-1, that was never created). Native CR labelling via
+    # label_maas_external_model_assets now covers this -- the manifest file is
+    # gone and install.sh actively deletes the ConfigMap on clusters that still
+    # have it from an earlier run.
+    assert not (WINGS_ROOT / "manifests" / "gen-ai-aa-custom-model-endpoints.yaml").exists()
+    assert "delete configmap gen-ai-aa-custom-model-endpoints" in lib
     assert "kind: MaaSModelRef" in modelref
     assert "kind: ExternalModel" in modelref
     assert "kind: MaaSSubscription" in auth_sub
