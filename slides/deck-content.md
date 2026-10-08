@@ -1,6 +1,6 @@
 # Deck content — "WIP OpenShift AI - Overview"
 
-Generated reference snapshot of the live Google Slides deck ([open it](https://docs.google.com/presentation/d/1OqZQIPd1monbRLpzaLUcuUegf8xuhn2mwqnyfX7XTho/edit)) after the latest manual and scripted updates. Use [`demo-plan.md`](demo-plan.md) for click-by-click presenter steps; use this file to review exact slide text and speaker notes without opening Slides.
+Generated reference snapshot of the live Google Slides deck ([open it](https://docs.google.com/presentation/d/1OqZQIPd1monbRLpzaLUcuUegf8xuhn2mwqnyfX7XTho/edit)) after the latest flow rebuild for slides 38–57. Use [`demo-plan.md`](demo-plan.md) for presenter steps and timing; use this file to review exact on-slide text and speaker notes.
 
 ---
 
@@ -422,7 +422,7 @@ mlflow.langchain.autolog()
 
 ---
 
-## Demo 4 — Identify (slides 38–41)
+## Demo 4 — Identify (slides 38–42)
 
 ### Slide 38
 > Identify  
@@ -431,32 +431,52 @@ Demos:
 EvalHub  
 Garak (OWASP top 10)
 
+**Speaker notes:**
+- - Talk track: We now shift from Observe to Identify: what can go wrong before production.
+- - Customer value: Security risk discovery becomes explicit, repeatable, and measurable.
+- - Transition: Start with the concrete customer question on the next slide.
+
 ### Slide 39
-> What security issues does the agent or model have? Are there other known issues?
+> What security issues does my agent or model have? Are there other known issues?
 
 > Automated red teaming → EvalHub, Garak, benchmarks
 
 **Speaker notes:**
-- Demo 4 - Identify:
-- Open Develop & train -> Evaluations
-- Show the OWASP (Open Web Application Security Project) LLM Top 10 Garak run against gpt-oss-120b
-- Garak is an open-source LLM vulnerability scanner: prompt injection, jailbreak, data leakage probes
-- This run was seeded by install.sh - the same scan can run on every model promotion
-- Manual red teaming does not scale; a scheduled scan catches regressions before customers do
+- - Talk track: The question is not whether risk exists; it is how fast we can find it with evidence.
+- - Customer value: Automated red teaming reduces manual effort and catches issues earlier.
+- - Transition: Before showing the run, align on the safety model and why this loop matters.
+- - Fallback: If the live Evaluations status is delayed, use the screenshot and continue the same story.
 
 ### Slide 40
+> AI Safety on Openshift AI
+
+> A set of tools for:  
+Identifying AI/Model risks → automated red teaming  
+Rectifying those risks 	→ guardrailing
+
+> AI Safety
+
+**Speaker notes:**
+- - Talk track: AI safety here is a loop: identify model risk, then mitigate with controls.
+- - Customer value: Teams get one operating model from discovery to remediation, not disconnected tools.
+- - Transition: Next, we show a real evaluation run that proves this process on the cluster.
+
+### Slide 41
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
-- Screenshot: Develop & train -> Evaluations, OWASP LLM Top 10 Garak run.
+- - Talk track: This is the seeded evaluation evidence in Develop and train -> Evaluations.
+- - Customer value: Security posture is visible in the same place as other model evaluations.
+- - Transition: Next slide explains what EvalHub and Garak are doing under the hood.
+- - Fallback: If live navigation is slow, stay on this screenshot and call out run name, model, and evaluation type.
 
-### Slide 41
-> EvalHub: automated red teaming for LLMs
+### Slide 42
+> EvalHub: scheduled red teaming for LLMs
 
-> A managed service in Red Hat AI that runs automated security and quality probes against a model or agent endpoint — no custom test harness required.  
-Garak, an open-source LLM vulnerability scanner, provides the probes: prompt injection, jailbreak, data leakage, and the rest of the OWASP (Open Web Application Security Project) LLM top 10.  
-Results land in Develop & train → Evaluations, next to every other evaluation run.  
-Manual red teaming does not scale; a scheduled scan catches regressions before customers do.
+> Managed service in Red Hat AI for scheduled security and quality probes.  
+Garak provides OWASP (Open Web Application Security Project) LLM probes such as prompt injection, jailbreak, and data leakage.  
+Results appear in Develop & train -> Evaluations alongside other evaluation runs.  
+Use as a CI gate before model promotion to catch regressions early.
 
 > garak \  
   --model_type rest \  
@@ -465,47 +485,53 @@ Manual red teaming does not scale; a scheduled scan catches regressions before c
   --generations 5
 
 **Speaker notes:**
-- EvalHub runs Garak against the AI asset endpoint on a schedule, not just once.
-- OWASP (Open Web Application Security Project) publishes the LLM top 10 - the probes map directly to those categories.
-- The same command that ran on stage can run as a CI gate before every model promotion.
+- - Talk track: EvalHub runs scheduled probes; Garak provides the OWASP (Open Web Application Security Project) vulnerability probes.
+- - Customer value: Red teaming shifts left into a repeatable gate before model promotion.
+- - Transition: Once we can identify risk consistently, we move to Mitigate and runtime controls.
 
 ---
 
-## Demo 5 — Mitigate (slides 42–45)
+## Demo 5 — Mitigate (slides 43–46)
 
-### Slide 42
+### Slide 43
 > Mitigate  
   
 Demos:  
 Playground guardrails  
 NeMo Guardrails
 
-### Slide 43
+**Speaker notes:**
+- - Talk track: We move from finding issues to closing them in runtime traffic.
+- - Customer value: Identify without mitigation is incomplete for production readiness.
+- - Transition: The next slide asks the core mitigation question customers raise.
+
+### Slide 44
 > How do we close the issues these scans find?
 
 > Prompts, guardrails, sandboxing → secure, observable and scalable by design
 
 **Speaker notes:**
-- Demo 5 - Mitigate:
-- Back in the Playground, open the Guardrails tab for the same agent
-- User input guardrails: jailbreak and prompt-attack protection, PII (personally identifiable information) filtering, content moderation
-- Model output guardrails: PII leak prevention, content moderation
-- Backed by a NemoGuardrails custom resource - same pattern as any other OpenShift AI resource
-- Pair this with agent sandboxing (OpenShell) for isolated, policy-controlled tool execution
+- - Talk track: We close findings with prompts, guardrails, and sandboxing.
+- - Customer value: Controls apply before and after model response, not only at offline test time.
+- - Transition: First show the guardrails settings in the Playground, then the platform-level resource.
+- - Fallback: If UI tabs change, narrate from the screenshot and explain the same control concepts.
+- - Acronym note: PII means personally identifiable information.
 
-### Slide 44
+### Slide 45
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
-- Screenshot: Playground Guardrails tab, input/output rails.
+- - Talk track: This screenshot shows user-input and model-output guardrail controls in one place.
+- - Customer value: AI engineers can enable protection fast while platform teams keep central governance.
+- - Transition: Next slide shows the NeMo Guardrails resource that operationalizes this pattern.
 
-### Slide 45
-> NeMo Guardrails: rails on every request and response
+### Slide 46
+> NeMo Guardrails: request and response protection
 
-> A guardrail model screens every request and response before it reaches, or leaves, the primary model.  
-User input guardrails: jailbreak and prompt-attack protection, personally identifiable information filtering, content moderation.  
-Model output guardrails: personally identifiable information leak prevention, content moderation.  
-Toggle per agent in the Playground, or enforce centrally with the NemoGuardrails custom resource — the same pattern as any other OpenShift AI resource.
+> A guardrail model screens every request and response.  
+Input guardrails: jailbreak and prompt-attack defense, PII filtering, moderation.  
+Output guardrails: PII leak prevention and moderation.  
+Enable per agent in Playground or centrally with a NemoGuardrails custom resource.
 
 > apiVersion: trustyai.opendatahub.io/v1alpha1  
 kind: NemoGuardrails  
@@ -513,41 +539,39 @@ metadata:
   name: nemoguardrails  
 spec:  
   nemoConfigs:  
-    - name: guardrail-placeholder  
+    - name: default  
       default: true
 
 **Speaker notes:**
-- A red-teaming scan tells you what is broken; guardrails are how you stop it from reaching production traffic.
-- Pair this with agent sandboxing (OpenShell) for isolated, policy-controlled tool execution, and per-tool authorization through the MCP (Model Context Protocol) gateway.
+- - Talk track: NeMo Guardrails enforces request and response protection as a Kubernetes-native resource.
+- - Customer value: The same policy model can be demoed quickly and managed centrally at scale.
+- - Transition: With Identify and Mitigate complete, we recap the five-question story.
 
 ---
 
-## Takeaways (slides 46)
+## Takeaways, vision, and close (slides 47–53)
 
-### Slide 46
+### Slide 47
 > Takeaways  
   
 → five questions, answered
 
 **Speaker notes:**
-- Five customer questions, five answers, all shown live today:
-- Provide - Models as a Service through AI asset endpoints, no GPU on the laptop
-- Consume - API keys, MaaS governance and the Playground, with live token metrics
-- Observe - MLflow tracing, per-span timeline, datasets and LLM judges
-- Identify - automated red teaming with EvalHub and Garak against the OWASP LLM Top 10
-- Mitigate - prompts, guardrails and sandboxing close the loop
-- What is left is operational scale - identity, sandboxing and inference autoscaling - that is next
+- - Talk track: Recap all five answers: Provide, Consume, Observe, Identify, Mitigate.
+- - Customer value: This is a complete path from first access to production controls.
+- - Transition: Next, we pivot from what works today to what must mature for production scale.
 
----
-
-## Vision and production readiness (slides 47–51)
-
-### Slide 47
+### Slide 48
 > Vision and next steps  
   
 Journey to production
 
-### Slide 48
+**Speaker notes:**
+- - Talk track: The next segment is vision and next steps on the journey to production.
+- - Customer value: Customers leave with both immediate actions and a forward roadmap view.
+- - Transition: Start with the three gaps we still need to close.
+
+### Slide 49
 _Contains a full-bleed screenshot image._
 
 > Three critical gaps: Pilot to production
@@ -565,12 +589,11 @@ _Contains a full-bleed screenshot image._
 > Agents need secure, cryptographic identities to access sensitive tools under least-privilege principles — hardcoded keys are unacceptable in production
 
 **Speaker notes:**
-- Agent demos are usually manageable because the environment and external access are tightly controlled. Production is different. Three gaps show up quickly: identity, control over autonomous execution, and scalability.
-- First, every agent needs a secure workload identity. The platform needs to know which agent is acting, what tools and data it can access, and whether that access follows least-privilege policies. Hard-coded credentials are not a production solution.
-- Second, agents may generate code, call tools, and interact with external systems. Those actions need to run in an isolated environment, with detailed traces showing what the agent did, which tools it called, and what information it used.
-- And third, agent workloads can be unpredictable. A single request may trigger planning, retrieval, multiple model and tool calls, retries, and evaluation. Across many users—or multiple agents—that creates inference spikes that the infrastructure has to somehow absorb and handle
+- - Talk track: The remaining gaps are identity, ungoverned autonomy, and scalability under agentic load.
+- - Customer value: This clarifies where pilots fail and where platform investment must focus.
+- - Transition: Next slide maps each gap to concrete Red Hat AI capabilities.
 
-### Slide 49
+### Slide 50
 _Contains a full-bleed screenshot image._
 
 > Safety & Observability  
@@ -599,13 +622,11 @@ Inference-aware autoscaling: scales on KV cache pressure
 > Getting you to production
 
 **Speaker notes:**
-- These production gaps map directly to capabilities in Red Hat AI.
-- For identity and security, each agent can have its own cryptographic workload identity, using short-lived credentials instead of static secrets. The MCP gateway can then enforce authorization and auditing for individual tools, while scoped OAuth token exchange limits the agent to only the access it needs.
-- For safety and observability, the agent can run inside an isolated sandbox that restricts its access to the surrounding environment. MLflow tracing captures the model calls, tool calls, and decisions across the execution path, and evaluation helps teams measure whether the agent continues to behave as expected.
-- And for scalability, vLLM provides high-throughput model serving, while llm-d adds dynamic, inference-aware routing. Autoscaling can also respond to signals that are specific to inference workloads, rather than relying only on traditional CPU and memory metrics.
-- Together, these capabilities provide the operational layer around the agent framework—so teams can take an agent from a controlled pilot into a secure and scalable production environment.
+- - Talk track: Map each gap to capabilities: identity controls, safety and observability, and inference scalability.
+- - Customer value: Production posture is architectural, not a single feature toggle.
+- - Transition: Now ground this with OpenShell as the runtime isolation layer.
 
-### Slide 50
+### Slide 51
 _Contains a full-bleed screenshot image._
 
 > Agent Sandboxing with OpenShell
@@ -613,46 +634,173 @@ _Contains a full-bleed screenshot image._
 > See OpenShell (and OpenCode) running securely on Red Hat AI: https://youtu.be/tosYZLhtxwE
 
 **Speaker notes:**
-- Evaluation tells us whether an agent is behaving as expected. Sandboxing controls what the agent is allowed to do while it runs.
-- OpenShell is an open-source project exploring how to secure agent execution at the operating-system and network layers.
-- On the left, a shared gateway stores policy, credentials, and inference configuration. Those credentials are kept outside the agent process and are only injected when an approved request is made.
-- Each agent runs inside its own sandbox pod. The sandbox supervisor mediates model traffic and outbound network access, while Linux controls restrict the process itself.
-- In the example shown here, the agent can call an approved inference endpoint and GitHub, but attempts to read sensitive files or connect to unapproved destinations are blocked.
-- This reduces the credentials and system access exposed to the agent and limits the potential impact if it behaves unexpectedly or is compromised.
-- The approach is designed to work across different agent frameworks and command-line agents without requiring security controls to be built separately into each one.
-
-### Slide 51
-> Vision 2026/2027: now and next
-
-> Today in this deck: five customer questions answered live on Red Hat AI 3.5.  
-Default path remains bring your own agent (BYOA): keep your existing harness and operationalize it with OpenShell, identity, governance, and observability.  
-Optional path (targeted): a batteries-included agent control plane based on OpenClaw Enterprise for multi-team operations.  
-API sovereignty direction: OpenAI-compatible Responses today, with broader Messages, A2A, and MCP governance trajectory as the platform evolves.
-
-> today (3.5):  
-- model endpoints, API keys, Playground  
-- MLflow tracing and evaluation  
-- EvalHub and Garak scanning  
-- NeMo Guardrails and sandbox pattern  
-  
-next (targets, not commitments):  
-- stronger MCP governance + registries  
-- expanded deployment and control-plane workflows
-
-**Speaker notes:**
-- This is strategy direction, not a change to what we already proved live today.
-- Future release items are targets, not commitments; plans, scope, and dates may change.
-- Customer message: start with the five-pillar path now, then adopt control-plane and registry capabilities as they mature.
-
----
-
-## Thank you (slides 52)
+- - Talk track: OpenShell provides isolated agent execution with policy-governed access paths.
+- - Customer value: Tool execution risk is constrained and auditable, which security teams require.
+- - Transition: Final strategy slide summarizes now versus next platform direction.
 
 ### Slide 52
+> Vision 2026/2027: now and next
+
+> Live now: 5-question journey proven on Red Hat AI 3.5.  
+Default path: BYOA + enterprise controls (OpenShell, identity, governance, observability).  
+Optional path (targeted): OpenClaw Enterprise control plane.  
+API direction: Responses now; broader Messages, A2A, and MCP governance next.
+
+> now (3.5):  
+- endpoints + API keys  
+- playground + MLflow  
+- EvalHub/Garak + guardrails  
+  
+next (targets):  
+- stronger MCP governance  
+- expanded control-plane workflows
+
+**Speaker notes:**
+- - Talk track: This is directional strategy: now capabilities in 3.5 and next targeted steps.
+- - Customer value: Customers can start with bring your own agent now and add enterprise control-plane features as they mature.
+- - Transition: Close with thank you and move to Q and A.
+- - Acronym note: BYOA means bring your own agent; A2A means agent-to-agent.
+
+### Slide 53
 _Contains a full-bleed screenshot image._
 
 > Thank you
 
 > Red Hat is the world’s leading provider of enterprise open source software solutions. Award-winning support, training, and consulting services make Red Hat a trusted adviser to the Fortune 500.
+
+**Speaker notes:**
+- - Talk track: Thank the audience and open for questions.
+- - Customer value: Reinforce that the deck can be used as a practical post-session reference.
+- - Transition: Optional backup slides are available for deeper security discussion if requested.
+
+---
+
+## Backup appendix (optional) (slides 54–57)
+
+### Slide 54
+_Contains a full-bleed screenshot image._
+
+> Backup: what could possibly go wrong?
+
+> Source 1  
+Source 2  
+Source 3
+
+**Speaker notes:**
+- - Talk track: Backup context on representative failure modes and attack outcomes.
+- - Customer value: Use this when the audience asks for concrete risk examples beyond the main flow.
+- - Transition: Move to the red-teaming process slide if they want methodology details.
+
+### Slide 55
+_Contains a full-bleed screenshot image._
+
+> Backup: red teaming for GenAI
+
+> The Red Team Loop
+
+> Attack
+
+> Generate diverse adversarial prompts (e.g., using GCG, AutoDAN, or manual creativity).
+
+> Analyze
+
+> Evaluate model responses. Did it refuse? Did it hallucinate? Did it leak data?
+
+> Mitigate
+
+> Update system prompts, fine-tune the model, or patch the guardrails.
+
+> Human Domain Experts
+
+> E.g.Tools like Garak
+
+> Simulating Adversarial Attacks to Build Resilience
+
+> Examples of what can be attacked
+
+> JailbreakingBypassing safety filters
+
+> Prompt InjectionHijacking instructions
+
+> Toxic ContentHate speech, violence
+
+> PII LeakageData extraction
+
+> "The systematic practice of simulating adversarial attacks to identify vulnerabilities, safety flaws, and alignment issues before a model is deployed."
+
+**Speaker notes:**
+- - Talk track: Backup deep dive into the red-team loop: attack, analyze, mitigate.
+- - Customer value: Shows how adversarial testing becomes a disciplined engineering practice.
+- - Transition: If needed, continue with OWASP vulnerability taxonomy on the next backup slide.
+
+### Slide 56
+_Contains a full-bleed screenshot image._
+
+> Backup: OWASP top 10 LLM vulnerabilities (2025)
+
+> Slide 2 / 2
+
+> Prompt Injection
+
+> User prompts manipulate LLM behavior (jailbreaks) or output in unintended ways.
+
+> Sensitive Info Disclosure
+
+> Exposure of PII, financial details, or proprietary algorithms via output.
+
+> Supply Chain Risks
+
+> Vulnerabilities in training data, third-party models, and deployment processes.
+
+> Data/Model Poisoning
+
+> Manipulation of training/embedding data to introduce backdoors or biases.
+
+> Improper Output Handling
+
+> Lack of validation/sanitization of outputs before passing to downstream systems.
+
+> Excessive Agency
+
+> Granting the LLM too much autonomy to execute code/functions without oversight.
+
+> System Prompt Leakage
+
+> Risk that internal instructions or proprietary prompts are revealed to users.
+
+> Vector/Embedding Weakness
+
+> Security risks targeting RAG systems, specifically vector databases or embeddings.
+
+> Misinformation (Hallucination)
+
+> Producing false/misleading info that users accept as fact, creating liability.
+
+> Unbounded Consumption
+
+> Resource exhaustion (DoS) via expensive queries or excessive token usage.
+
+> Src: OWASP Top 10 for Large Language Model Applications
+
+> These can be inform probes for Garak
+
+**Speaker notes:**
+- - Talk track: Backup OWASP taxonomy for LLM vulnerabilities used to frame probe coverage.
+- - Customer value: Connects security language from enterprise governance to concrete model tests.
+- - Transition: End with backup AI safety summary if the audience wants a simplified framing.
+
+### Slide 57
+> Backup: AI safety on OpenShift AI
+
+> A set of tools for:  
+Identifying AI/Model risks → automated red teaming  
+Rectifying those risks 	→ guardrailing
+
+> AI Safety
+
+**Speaker notes:**
+- - Talk track: Backup summary of AI safety controls across identification and mitigation.
+- - Customer value: Useful short recap for security-focused Q and A.
+- - Transition: Return to key takeaways or close the discussion.
 
 ---
