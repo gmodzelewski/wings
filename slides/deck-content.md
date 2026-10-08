@@ -1,8 +1,6 @@
 # Deck content — "WIP OpenShift AI - Overview"
 
-Generated reference snapshot of the live Google Slides deck ([open it](https://docs.google.com/presentation/d/1OqZQIPd1monbRLpzaLUcuUegf8xuhn2mwqnyfX7XTho/edit)) after the 2026-10-07 restructure to the five-pillar story (Provide → Consume → Observe → Identify → Mitigate). Use [`demo-plan.md`](demo-plan.md) for click-by-click presenter steps; use this file to review exact slide text and speaker notes without opening Slides.
-
-Regenerate by re-fetching the presentation with `gws slides presentations get` and re-running the extraction snippet used to build this file (see git history of this task for the script, or ask the assistant to regenerate it).
+Generated reference snapshot of the live Google Slides deck ([open it](https://docs.google.com/presentation/d/1OqZQIPd1monbRLpzaLUcuUegf8xuhn2mwqnyfX7XTho/edit)) after the latest manual and scripted updates. Use [`demo-plan.md`](demo-plan.md) for click-by-click presenter steps; use this file to review exact slide text and speaker notes without opening Slides.
 
 ---
 
@@ -103,7 +101,8 @@ _Contains a full-bleed screenshot image._
 > “Our model is huge — how do engineers use it anyway?”
 
 > Models as a Service  
-AI asset endpoints — one endpoint + API token, no GPU on the laptop
+AI asset endpoints — one endpoint + API token, no GPU on the laptop  
+Token limits
 
 > DEMO 1
 
@@ -149,6 +148,7 @@ Secure, observable and scalable by design
 - This is the map for today.
 - Customers rarely ask for features; they ask questions.
 - Provide: the model is huge, how do engineers use it - Models as a Service.
+- TODO: Agent deployment dazu nehmen
 - Consume: safely, from a governed workspace - API keys, MaaS governance and the Playground.
 - Observe: which agent answered, which tools, how fast, and what if it is wrong - MLflow.
 - Identify: what else is broken - automated red teaming with EvalHub and Garak.
@@ -157,13 +157,15 @@ Secure, observable and scalable by design
 
 ---
 
-## Demo 1 — Provide (slides 6–9)
+## Demo 1 — Provide (slides 6–11)
 
 ### Slide 6
 > Provide  
   
 Demos:  
-Models as a Service
+Models as a Service  
+Agents  
+MCP Servers
 
 ### Slide 7
 > Model is super large, but you want your engineers to use it anyways?
@@ -173,21 +175,51 @@ Models as a Service
 ### Slide 8
 _Contains a full-bleed screenshot image._
 
+> Models  —  Provide AI models by click of a button
+
+> Catalog  
+Registry  
+MaaS Governance - Token limits
+
 ### Slide 9
 _Contains a full-bleed screenshot image._
 
----
-
-## Demo 2 — Consume (slides 10–13)
+> Playgrounds  —  Test before you consume …
 
 ### Slide 10
+_Contains a full-bleed screenshot image._
+
+> Agents available based on catalog  
+Extend your agent catalog items
+
+> Agents  —  Provide AI agents easily
+
+### Slide 11
+_Contains a full-bleed screenshot image._
+
+> MCP Servers  —  Provide an MCP landscape
+
+> Create your application  
+Containerize your application  
+Push your app to registry  
+Create CR in RHOAI  
+  
+  
+  
+CR - CustomResource
+
+---
+
+## Demo 2 — Consume (slides 12–15)
+
+### Slide 12
 > Consume  
   
 Demos:  
 API keys  
 Playground
 
-### Slide 11
+### Slide 13
 > Can engineers use the model from a safe, governed workspace?
 
 > API keys, MaaS governance and the Playground → safe self-service access with built-in metrics
@@ -200,13 +232,13 @@ Playground
 - These are the same numbers MaaS governance uses for showback and rate limiting
 - No GPU, no SDK, no custom client needed - any engineer with a key can consume the model
 
-### Slide 12
+### Slide 14
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - Screenshot: active API keys under the redhat-maas subscription.
 
-### Slide 13
+### Slide 15
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
@@ -214,9 +246,9 @@ _Contains a full-bleed screenshot image._
 
 ---
 
-## Demo 3 — Observe (slides 14–34)
+## Demo 3 — Observe (slides 16–36)
 
-### Slide 14
+### Slide 16
 _Contains a full-bleed screenshot image._
 
 > The big picture  —  five questions, one platform
@@ -239,13 +271,13 @@ Tracing, per-span timeline, datasets and LLM judges
 - Provide and Consume are solved; this section answers which agent answered, which tools, how fast, and what if it is wrong - MLflow.
 - Identify and Mitigate come right after this section.
 
-### Slide 15
+### Slide 17
 > Observe  
   
 Demos:  
 MLFlow
 
-### Slide 16
+### Slide 18
 > Which agent processed your question? Was it a single agent, or did multiple agents collaborate?
 
 > MLFlow
@@ -253,7 +285,7 @@ MLFlow
 **Speaker notes:**
 - Solved in the demo: every request lands in MLflow as one trace. The trace breakdown shows the whole LangGraph tree - guardrails, router and every specialist agent as nested spans (e.g. the CEO assistant calling the pipeline-summary tool). In the multi-agent loan-origination experiment you see exactly which agent handled what, and how the agents handed off to each other.
 
-### Slide 17
+### Slide 19
 > Which tools did the agent invoke to gather pipeline data, denial rates, and performance metrics?
 
 > MLFlow
@@ -261,30 +293,30 @@ MLFlow
 **Speaker notes:**
 - Solved in the demo: each tool invocation (get_pipeline_summary, product_info, affordability_calc, ...) is its own span with the exact inputs the agent passed and the outputs the tool returned. You can answer 'which tools were called, with which arguments, and what came back' for every single request.
 
-### Slide 18
+### Slide 20
 > How long did each step take? Was the LLM call fast, or did a tool call add latency?
 
 > MLFlow
 
-### Slide 19
+### Slide 21
 > What if the response was wrong? How would you trace back to the root cause?
 
 > MLFlow
 
-### Slide 20
+### Slide 22
 > What if a tool call failed silently? Would you even know?
 
 > MLFlow
 
-### Slide 21
+### Slide 23
 _Contains a full-bleed screenshot image._
 
 > Why Traditional Monitoring Isn’t Enough
 
-### Slide 22
+### Slide 24
 _Contains a full-bleed screenshot image._
 
-### Slide 23
+### Slide 25
 > What if you don’t want to implement these things by yourself?
 
 > MLflow, managed in Red Hat AI → one line: mlflow.langchain.autolog()
@@ -292,42 +324,42 @@ _Contains a full-bleed screenshot image._
 **Speaker notes:**
 - Solved in the demo: you don't build this yourself. One line - mlflow.langchain.autolog() - turns on tracing for 40+ LLM frameworks with zero changes to application logic, and the MLflow server runs managed inside Red Hat AI (Experiments page). Built on OpenTelemetry, so traces also flow to Jaeger, Zipkin or Grafana Tempo.
 
-### Slide 24
+### Slide 26
 _Contains a full-bleed screenshot image._
 
-### Slide 25
+### Slide 27
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - Every request becomes exactly one trace, with execution time and state in the list. This is the entry point for 'which agent processed my question?' - pick a trace and open it.
 
-### Slide 26
+### Slide 28
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - Answers: which tools were called
 - The trace summary lists each call as it happened (ChatOpenAI, ceo_lo_performance, ...). Answers 'which tools did the agent invoke to gather pipeline data, denial rates and performance metrics?'
 
-### Slide 27
+### Slide 29
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - Answers: which agent handled it — the span tree
 - The LangGraph span tree shows guardrails, routing and every agent/tool span with its nesting. Answers 'was it a single agent, or did multiple agents collaborate?'
 
-### Slide 28
+### Slide 30
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - The timeline breaks total latency into per-span bars - LLM call vs. tool chain is immediately visible. Answers 'how long did each step take?'
 
-### Slide 29
+### Slide 31
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - System prompts are registered and versioned in MLflow, with metadata and aliases - prompt changes become auditable and reproducible.
 
-### Slide 30
+### Slide 32
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
@@ -335,14 +367,14 @@ _Contains a full-bleed screenshot image._
 - Datasets are stored on the MLflow server, not as local files. This means they’re versioned, shareable across team members, and can be reused across evaluation runs. When a new team member joins, they run evaluations against the same test cases—ensuring consistent quality standards across the team.
 - Teams without evaluation datasets often discover quality issues only after customer complaints—weeks too late. A structured dataset catches regressions during development, before they reach production.
 
-### Slide 31
+### Slide 33
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - Some assessment columns may show null values. This is expected — at this stage we are only running simple deterministic scorers (contains_expected, has_numeric_result, response_length), not the LLM-as-a-Judge scorers. You’ll enable those in Exercise 6, and the remaining columns will populate.
 - If assessment columns are not visible in the Traces view, use the Columns dropdown and enable All Assessments. MLflow doesn’t always show them by default.
 
-### Slide 32
+### Slide 34
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
@@ -350,13 +382,13 @@ _Contains a full-bleed screenshot image._
 - Judges score every trace: tool_call_correctness 83%, safety 100% - the agent is safe but occasionally calls the wrong tool.
 - The additional columns show Pass/Fail for each LLM judge. Notice how tool_call_correctness shows 83% pass rate and safety shows 100%. The agent is safe but occasionally calls the wrong tool.
 
-### Slide 33
+### Slide 35
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - Drill from a failing score straight into the trace that caused it: judge results next to expectations for that single request.
 
-### Slide 34
+### Slide 36
 > How to use MLFlow
 
 > Provides zero-code observability for over 40 LLM and AI frameworks.  
@@ -378,9 +410,9 @@ mlflow.langchain.autolog()
 
 ---
 
-## Transition (slides 35)
+## Transition (slides 37)
 
-### Slide 35
+### Slide 37
 > Three down, two to go
 
 **Speaker notes:**
@@ -390,16 +422,16 @@ mlflow.langchain.autolog()
 
 ---
 
-## Demo 4 — Identify (slides 36–39)
+## Demo 4 — Identify (slides 38–41)
 
-### Slide 36
+### Slide 38
 > Identify  
   
 Demos:  
 EvalHub  
 Garak (OWASP top 10)
 
-### Slide 37
+### Slide 39
 > What security issues does the agent or model have? Are there other known issues?
 
 > Automated red teaming → EvalHub, Garak, benchmarks
@@ -412,13 +444,13 @@ Garak (OWASP top 10)
 - This run was seeded by install.sh - the same scan can run on every model promotion
 - Manual red teaming does not scale; a scheduled scan catches regressions before customers do
 
-### Slide 38
+### Slide 40
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - Screenshot: Develop & train -> Evaluations, OWASP LLM Top 10 Garak run.
 
-### Slide 39
+### Slide 41
 > EvalHub: automated red teaming for LLMs
 
 > A managed service in Red Hat AI that runs automated security and quality probes against a model or agent endpoint — no custom test harness required.  
@@ -439,16 +471,16 @@ Manual red teaming does not scale; a scheduled scan catches regressions before c
 
 ---
 
-## Demo 5 — Mitigate (slides 40–43)
+## Demo 5 — Mitigate (slides 42–45)
 
-### Slide 40
+### Slide 42
 > Mitigate  
   
 Demos:  
 Playground guardrails  
 NeMo Guardrails
 
-### Slide 41
+### Slide 43
 > How do we close the issues these scans find?
 
 > Prompts, guardrails, sandboxing → secure, observable and scalable by design
@@ -461,13 +493,13 @@ NeMo Guardrails
 - Backed by a NemoGuardrails custom resource - same pattern as any other OpenShift AI resource
 - Pair this with agent sandboxing (OpenShell) for isolated, policy-controlled tool execution
 
-### Slide 42
+### Slide 44
 _Contains a full-bleed screenshot image._
 
 **Speaker notes:**
 - Screenshot: Playground Guardrails tab, input/output rails.
 
-### Slide 43
+### Slide 45
 > NeMo Guardrails: rails on every request and response
 
 > A guardrail model screens every request and response before it reaches, or leaves, the primary model.  
@@ -490,9 +522,9 @@ spec:
 
 ---
 
-## Takeaways (slides 44)
+## Takeaways (slides 46)
 
-### Slide 44
+### Slide 46
 > Takeaways  
   
 → five questions, answered
@@ -508,14 +540,14 @@ spec:
 
 ---
 
-## Closing — production readiness (slides 45–48)
+## Vision and production readiness (slides 47–51)
 
-### Slide 45
-> Next steps  
+### Slide 47
+> Vision and next steps  
   
 Journey to production
 
-### Slide 46
+### Slide 48
 _Contains a full-bleed screenshot image._
 
 > Three critical gaps: Pilot to production
@@ -538,7 +570,7 @@ _Contains a full-bleed screenshot image._
 - Second, agents may generate code, call tools, and interact with external systems. Those actions need to run in an isolated environment, with detailed traces showing what the agent did, which tools it called, and what information it used.
 - And third, agent workloads can be unpredictable. A single request may trigger planning, retrieval, multiple model and tool calls, retries, and evaluation. Across many users—or multiple agents—that creates inference spikes that the infrastructure has to somehow absorb and handle
 
-### Slide 47
+### Slide 49
 _Contains a full-bleed screenshot image._
 
 > Safety & Observability  
@@ -573,7 +605,7 @@ Inference-aware autoscaling: scales on KV cache pressure
 - And for scalability, vLLM provides high-throughput model serving, while llm-d adds dynamic, inference-aware routing. Autoscaling can also respond to signals that are specific to inference workloads, rather than relying only on traditional CPU and memory metrics.
 - Together, these capabilities provide the operational layer around the agent framework—so teams can take an agent from a controlled pilot into a secure and scalable production environment.
 
-### Slide 48
+### Slide 50
 _Contains a full-bleed screenshot image._
 
 > Agent Sandboxing with OpenShell
@@ -589,11 +621,34 @@ _Contains a full-bleed screenshot image._
 - This reduces the credentials and system access exposed to the agent and limits the potential impact if it behaves unexpectedly or is compromised.
 - The approach is designed to work across different agent frameworks and command-line agents without requiring security controls to be built separately into each one.
 
+### Slide 51
+> Vision 2026/2027: now and next
+
+> Today in this deck: five customer questions answered live on Red Hat AI 3.5.  
+Default path remains bring your own agent (BYOA): keep your existing harness and operationalize it with OpenShell, identity, governance, and observability.  
+Optional path (targeted): a batteries-included agent control plane based on OpenClaw Enterprise for multi-team operations.  
+API sovereignty direction: OpenAI-compatible Responses today, with broader Messages, A2A, and MCP governance trajectory as the platform evolves.
+
+> today (3.5):  
+- model endpoints, API keys, Playground  
+- MLflow tracing and evaluation  
+- EvalHub and Garak scanning  
+- NeMo Guardrails and sandbox pattern  
+  
+next (targets, not commitments):  
+- stronger MCP governance + registries  
+- expanded deployment and control-plane workflows
+
+**Speaker notes:**
+- This is strategy direction, not a change to what we already proved live today.
+- Future release items are targets, not commitments; plans, scope, and dates may change.
+- Customer message: start with the five-pillar path now, then adopt control-plane and registry capabilities as they mature.
+
 ---
 
-## Thank you (slides 49)
+## Thank you (slides 52)
 
-### Slide 49
+### Slide 52
 _Contains a full-bleed screenshot image._
 
 > Thank you

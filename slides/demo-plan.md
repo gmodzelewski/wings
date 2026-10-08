@@ -47,26 +47,31 @@ up before you present — it checks every item referenced here.
 
 ---
 
-## Demo 1 — Provide (slides 6–9, ~5 min)
+## Demo 1 — Provide (slides 6–11, ~6 min)
 
 **Question:** "Our model is huge — how do engineers use it anyway?"
-**Answer:** Models as a Service through AI asset endpoints — one
-endpoint, one API token, no GPU on the laptop.
+**Answer:** Models as a Service through AI asset endpoints — plus the
+catalog context (models, agents, MCP servers) that teams consume from.
 
 1. In Tab A: **Gen AI studio → AI asset endpoints → Models**.
 2. Point out the model list is all **Ready** (not "Unknown") — these are
    the models the platform team published for consumption.
 3. Click one model to show its endpoint URL and the "Use this model"
    panel (OpenAI-compatible base URL).
-4. Say: "Any engineer, any IDE, any script — same endpoint, same token."
+4. On slides 8–11, keep the narration high-level (do not deep-dive every
+   card):
+   - models and governance are published centrally,
+   - playgrounds support test-before-consume behavior,
+   - agents and MCP servers are discoverable assets in the same story.
+5. Say: "Any engineer, any IDE, any script — same endpoint, same token,
+   and governed assets around it."
 
-**If it breaks:** the slide already carries a screenshot of this exact
-view (slides 8–9), so you can narrate from the slide and skip the live
-click-through.
+**If it breaks:** the Provide section already has screenshot-backed slides
+(8–11), so narrate from the deck and move on.
 
 ---
 
-## Demo 2 — Consume (slides 10–13, ~5 min)
+## Demo 2 — Consume (slides 12–15, ~5 min)
 
 **Question:** "Can engineers use it from a safe, governed workspace?"
 **Answer:** API keys, MaaS governance and the Playground — safe
@@ -90,7 +95,7 @@ self-service access with built-in metrics.
 
 ---
 
-## Demo 3 — Observe (slides 14–34, ~15 min)
+## Demo 3 — Observe (slides 16–36, ~13 min)
 
 This is the deepest section of the deck — most of its content (the five
 customer-question slides, the monitoring-gap slide, and the nine
@@ -124,11 +129,11 @@ live portion below is optional and only needed if you want to show a
    them."
 
 **If it breaks:** the deck's own screenshots already tell this story end
-to end; skip straight to slide 34 ("How to use MLflow") and move on.
+to end; skip straight to slide 36 ("How to use MLflow") and move on.
 
 ---
 
-## Demo 4 — Identify (slides 36–39, ~4 min)
+## Demo 4 — Identify (slides 38–41, ~4 min)
 
 **Question:** "What security issues does my agent or model have? Are
 there other known issues?"
@@ -142,10 +147,10 @@ there other known issues?"
      adversarial probes at the model, so a full run takes a while. Here
      is what finishes earlier today," and move to the slide's screenshot
      for a completed example if you have one, or simply narrate what the
-     scan covers (see slide 39).
+     scan covers (see slide 41).
    - If status is **Succeeded**: open it and show the pass/fail counts
      per probe category.
-3. On slide 39 (the EvalHub/Garak explainer), point at the one-liner CLI
+3. On slide 41 (the EvalHub/Garak explainer), point at the one-liner CLI
    invocation and say: "This is literally the command the install script
    runs — the exact same thing can run as a CI gate before every model
    promotion."
@@ -155,7 +160,7 @@ cluster regardless of what the live Evaluations page shows at demo time.
 
 ---
 
-## Demo 5 — Mitigate (slides 40–43, ~4 min)
+## Demo 5 — Mitigate (slides 42–45, ~4 min)
 
 **Question:** "How do we close the issues these scans find?"
 **Answer:** Prompts, guardrails, sandboxing — secure, observable and
@@ -176,7 +181,7 @@ scalable by design.
    `oc get nemoguardrails -n my-first-model -o yaml` to show the
    `NemoGuardrails` custom resource backing the toggle — "just another
    OpenShift AI resource, GitOps-friendly like everything else today."
-6. On slide 43 (the NeMo Guardrails explainer), point at the YAML
+6. On slide 45 (the NeMo Guardrails explainer), point at the YAML
    snippet and mention agent sandboxing (OpenShell, shown later) as the
    next layer of defense for tool execution itself.
 
@@ -185,20 +190,25 @@ as captured on this cluster.
 
 ---
 
-## Closing — production readiness (slides 44–48, ~5 min)
+## Closing — vision and production readiness (slides 46–51, ~6 min)
 
-1. Slide 44, **Takeaways**: recap all five questions and answers in one
+1. Slide 46, **Takeaways**: recap all five questions and answers in one
    breath — Provide, Consume, Observe, Identify, Mitigate.
-2. Slide 46, **Three critical gaps**: pivot to "what's left between a
+2. Slide 48, **Three critical gaps**: pivot to "what's left between a
    pilot and production" — agent identity, scalability, ungoverned
    autonomy.
-3. Slide 47, **Closing the Gaps**: map each gap to a capability
+3. Slide 49, **Closing the Gaps**: map each gap to a capability
    (cryptographic workload identity, vLLM/llm-d autoscaling, agent
    sandboxing) — these are the same sandboxing and MCP-gateway concepts
    already teased in Demo 5.
-4. Slide 48, **OpenShell video**: play or link the short video if time
+4. Slide 50, **OpenShell video**: play or link the short video if time
    allows; otherwise mention it as a leave-behind resource.
-5. Slide 49, **Thank you**: close, open the floor for questions.
+5. Slide 51, **Vision 2026/2027: now and next**:
+   - Clearly label this as direction, not commitment.
+   - Message: BYOA remains the default path; optional control-plane path
+     matures over time.
+   - Tie to API sovereignty and MCP/A2A governance trajectory.
+6. Slide 52, **Thank you**: close, open the floor for questions.
 
 ---
 
@@ -207,16 +217,16 @@ as captured on this cluster.
 | Section | Slides | Target time |
 |---|---|---|
 | Intro, scope, context | 1–5 | 5 min |
-| Demo 1 — Provide | 6–9 | 5 min |
-| Demo 2 — Consume | 10–13 | 5 min |
-| Demo 3 — Observe | 14–34 | 15 min |
-| Transition | 35 | <1 min |
-| Demo 4 — Identify | 36–39 | 4 min |
-| Demo 5 — Mitigate | 40–43 | 4 min |
-| Takeaways + production | 44–48 | 5 min |
-| Thank you | 49 | <1 min |
-| **Total slides/demo** | | **~44 min** |
-| **Q&A buffer** | | **~16 min** |
+| Demo 1 — Provide | 6–11 | 6 min |
+| Demo 2 — Consume | 12–15 | 5 min |
+| Demo 3 — Observe | 16–36 | 13 min |
+| Transition | 37 | <1 min |
+| Demo 4 — Identify | 38–41 | 4 min |
+| Demo 5 — Mitigate | 42–45 | 4 min |
+| Takeaways + vision + production | 46–51 | 6 min |
+| Thank you | 52 | <1 min |
+| **Total slides/demo** | | **~45 min** |
+| **Q&A buffer** | | **~15 min** |
 
 If you are running long, the first thing to cut is the optional *live*
 portion of Demo 3 (it already has a full screenshot narrative) — never
