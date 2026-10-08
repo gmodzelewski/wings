@@ -18,6 +18,7 @@ spec:
   providers:
     - lm-evaluation-harness
     - garak
+    - guidellm
   collections:
     - standard-llm-evals-v1
     - safety-and-fairness-v1

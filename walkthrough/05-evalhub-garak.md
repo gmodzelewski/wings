@@ -202,7 +202,8 @@ Lab fallback when the workshop upstream key is 401: apply `manifests/demo-openai
 
 ## Notebook aid
 
-[`demo/notebooks/04_evalhub_garak.ipynb`](../demo/notebooks/04_evalhub_garak.ipynb) — endpoint + job JSON templates. Primary demo remains the **Evaluations** console.
+[`demo/notebooks/04_evalhub_garak.ipynb`](../demo/notebooks/04_evalhub_garak.ipynb) — endpoint + job JSON templates. It now also includes an optional traced sample cell (`RUN_TRACED_SAMPLE=False` by default) that records one separate MLflow GenAI trace against the same endpoint.
+Primary demo remains the **Evaluations** console.
 
 ## Troubleshooting
 
