@@ -1,0 +1,19 @@
+# Let Helm/Sandbox ReAct agent pods (namespace default SA) log traces to MLflow.
+# ClusterRole name matches the MLflow operator on RHOAI 3.5; override at apply
+# time only if the operator ships a differently prefixed role.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: wings-react-agent-mlflow
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+    app.kubernetes.io/component: react-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mlflow-operator-mlflow-integration
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: my-first-model

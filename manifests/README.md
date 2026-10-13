@@ -18,7 +18,16 @@ Apply order for a fresh cluster (normally via `./install.sh`):
 8. Gen AI Studio (Playground + MCP Catalog browse):
    - `servicemesh3-operator.yaml`, `servicemesh3-istio.yaml` (Service Mesh 3.x — OGX prerequisite)
    - `ogx-postgres-dev.yaml`, `ogx-server-wings.yaml` (after `ogx` DSC component is Ready)
-9. Observability / token-consumption dashboard stack (runs as `enable_observability()` right after `enable_garak`, before the rest of `manifests/` — see below): `cluster-observability-operator.yaml`, `opentelemetry-operator.yaml`, `tempo-operator.yaml`, `loki-operator.yaml`, UWM `cluster-monitoring-config` merge, DSCI `monitoring.metrics`/`traces` patch, `maas-usage-logging-minio-secret.yaml`, `maas-usage-logging-minio.yaml`, `maas-usage-logging-lokistack.yaml`; MaaS telemetry + `usageLogging` + `limitador-redis.yaml`/`limitador-redis-secret.yaml` run later, inside `enable_maas()`
+   - `openshift-mcp-server-config.yaml` (opt-in; apply before AI Hub MCP Catalog Deploy of openshift-mcp-server)
+   - `gen-ai-aa-mcp-servers.yaml` (opt-in; after MCPServer Ready — registers server for Playground MCP tab)
+9. LangGraph ReAct agent (after InferenceService Ready; skip with `WINGS_SKIP_AGENT=1`):
+   - `agent-sandbox-operator.yaml` (Agent Sandbox operator in `agent-sandbox-system` — Tech Preview channel `preview-0.9`)
+   - In-cluster build + Helm deploy of `langgraph-react-agent` from [agentic-starter-kits](https://github.com/red-hat-data-services/agentic-starter-kits) (`WINGS_AGENTIC_STARTER_KITS_REF`, default `rhoai-3.6`)
+   - `agent-react-mlflow-rbac.yaml` (default SA → `mlflow-operator-mlflow-integration` for in-pod tracing)
+   - `secret-wings-react-agent.example.yaml` → Secret `wings-react-agent`
+   - `agent-react-sandbox.yaml` + `agent-react-sandbox-route.yaml` (AI Hub → Agents → Deployments)
+   - `agent-profile-wings-react.yaml` (Playground → Load agent + AI asset endpoints → Agents)
+10. Observability / token-consumption dashboard stack (runs as `enable_observability()` right after `enable_garak`, before the rest of `manifests/` — see below): `cluster-observability-operator.yaml`, `opentelemetry-operator.yaml`, `tempo-operator.yaml`, `loki-operator.yaml`, UWM `cluster-monitoring-config` merge, DSCI `monitoring.metrics`/`traces` patch, `maas-usage-logging-minio-secret.yaml`, `maas-usage-logging-minio.yaml`, `maas-usage-logging-lokistack.yaml`; MaaS telemetry + `usageLogging` + `limitador-redis.yaml`/`limitador-redis-secret.yaml` run later, inside `enable_maas()`
 
 ## Observability / token-consumption dashboard stack
 
@@ -143,12 +152,18 @@ On RHOAI 3.5+, enable `spec.components.aigateway.modelsAsAService` (legacy `kser
 
 MaaS and Playground are independent: judges use MaaS gateway; Playground uses OGXServer.
 
+Before **AI Hub → MCP servers → Catalog → Deploy** of `openshift-mcp-server`, apply `openshift-mcp-server-config.yaml` in the target project (default `my-first-model`). The MCP lifecycle operator requires that ConfigMap (`config.toml` key) or the deploy stays `Accepted=False`. Not applied by `install.sh`.
+
+Catalog Deploy runs the server but does **not** put it in Playground. After `MCPServer` is Ready (`oc get mcpserver -n my-first-model`), apply `gen-ai-aa-mcp-servers.yaml` (ConfigMap in `redhat-ods-applications`). Then in **Gen AI studio → Playground** → Settings → **MCP**: select the server → **Auth** (token optional for this in-cluster server) → confirm Connection successful → **View tools**. Prefer a tool-calling model; Llama 3.2 3B often fails silently at tool use. `oc apply` of that file replaces the whole ConfigMap `data` map — merge keys if other MCP entries exist. Not applied by `install.sh`.
+
 | File | Purpose |
 |------|---------|
 | `servicemesh3-operator.yaml` | SM3 subscription (uses existing `global-operators` OG) |
 | `servicemesh3-istio.yaml` | `Istio` / `IstioCNI` CRs (after operator CSV Succeeded) |
 | `ogx-postgres-dev.yaml` | Lab Postgres for OGX metadata |
 | `ogx-server-wings.yaml` | `OGXServer` wired to demo Llama 3.2 3B IS |
+| `openshift-mcp-server-config.yaml` | ConfigMap `openshift-mcp-server-config` (`config.toml`) for catalog deploy of openshift-mcp-server |
+| `gen-ai-aa-mcp-servers.yaml` | ConfigMap `gen-ai-aa-mcp-servers` — registers in-cluster MCP URL for Playground MCP tab |
 
 ### Environment variables (Gen AI Studio)
 
@@ -160,6 +175,60 @@ MaaS and Playground are independent: judges use MaaS gateway; Playground uses OG
 | `WINGS_OGX_SERVER_NAME` | `wings-ogx` | OGXServer CR name |
 
 Service Mesh and DSC `ogx` / `mcplifecycleoperator` are **not** removed by `uninstall.sh --all` (cluster-level). Demo `OGXServer` and ogx Postgres are purged.
+
+## LangGraph ReAct agent (AI Hub / Playground)
+
+`install.sh` calls `deploy_react_agent()` after `install_llm`. Presenter machine needs `helm`, `git`, and `make` in addition to `oc`.
+
+1. Install **Agent Sandbox operator** (`agent-sandbox-operator.yaml`) and wait for `sandboxes.agents.x-k8s.io`
+2. Apply **MLflow RBAC** (`agent-react-mlflow-rbac.yaml`) so the namespace `default` SA can log traces
+3. Clone [agentic-starter-kits](https://github.com/red-hat-data-services/agentic-starter-kits) into `.cache/agentic-starter-kits` (gitignored)
+4. In-cluster `make build-openshift` + `make deploy` for `agents/langgraph/templates/react_agent`, with `BASE_URL` pointing at `llama-32-3b-instruct-predictor`, `MODEL_ID=llama-32-3b-instruct`, and in-pod `MLFLOW_*` (kubernetes-namespaced auth)
+5. Apply Sandbox + Route (Hub Deployments) and AgentProfile ConfigMap (Playground Load agent / AI asset endpoints)
+
+Standalone: `./scripts/install_react_agent.sh` / `./scripts/uninstall_react_agent.sh` (`--operator` also removes the operator Subscription).
+
+| File | Purpose |
+|------|---------|
+| `agent-sandbox-operator.yaml` | NS + OperatorGroup + Subscription (`preview-0.9`) |
+| `agent-react-mlflow-rbac.yaml` | RoleBinding `default` SA → `mlflow-operator-mlflow-integration` |
+| `secret-wings-react-agent.example.yaml` | Agent `api-key` (default `not-needed`) |
+| `agent-react-sandbox.yaml` | `Sandbox` `wings-react-agent-sbx` with `opendatahub.io/dashboard=true` + MLflow env |
+| `agent-react-sandbox-route.yaml` | Route named after the Sandbox (dashboard Ready check) |
+| `agent-profile-wings-react.yaml` | AgentProfile ConfigMap for Load agent / AI asset endpoints |
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `WINGS_SKIP_AGENT` | `0` | Skip operator + agent build/deploy + Hub registration |
+| `WINGS_AGENTIC_STARTER_KITS_REF` | `rhoai-3.6` | Git branch/tag to clone |
+| `WINGS_AGENTIC_STARTER_KITS_URL` | GitHub URL above | Override clone URL |
+| `WINGS_AGENTIC_STARTER_KITS_DIR` | `.cache/agentic-starter-kits` | Pre-populated or alternate checkout |
+| `WINGS_REACT_AGENT_MLFLOW_EXPERIMENT` | `wings-react-agent` | MLflow experiment for Helm/Sandbox agent traces |
+
+### MLflow traces (Helm / Sandbox traffic)
+
+Traces appear only for requests that hit the **deployed ReAct agent** (Helm Route or Sandbox), not for Playground **Load agent** (that path talks to the InferenceService model URI via Gen AI Studio).
+
+1. Standalone `/mlflow` → workspace **`my-first-model`**
+2. Experiment **`wings-react-agent`** → **Traces** → open a row → **Details & Timeline**
+
+Smoke test after deploy:
+
+```bash
+ROUTE=$(oc get route langgraph-react-agent -n my-first-model -o jsonpath='{.spec.host}')
+curl -sk "https://${ROUTE}/v1/chat/completions" -H 'Content-Type: application/json' \
+  -d '{"model":"llama-32-3b-instruct","messages":[{"role":"user","content":"What is 2+2?"}]}'
+```
+
+### UI verification
+
+- **AI Hub → Agents → Deployments** — **WINGS ReAct Agent** (`sandbox/wings-react-agent-sbx`)
+- **Gen AI studio → Playground → Load agent** — profile **WINGS ReAct Agent**
+- **Gen AI studio → AI asset endpoints → Agents** — same profile
+- Helm Route: `oc get route langgraph-react-agent -n my-first-model` then `curl https://<host>/health`
+- MLflow: experiment `wings-react-agent` after a Helm/Sandbox chat request (see above)
+
+`uninstall.sh` always removes the agent workload (including MLflow RoleBinding). `uninstall.sh --all` also removes the wings-owned Agent Sandbox operator Subscription (and namespace if WINGS created it).
 
 Sandboxes without `maas-default-gateway` get one from `maas-default-gateway.yaml` (TLS cert auto-detected, namespace `redhat-ai-gateway-infra` allowed for `maas-api` routes). ClusterIP gateways are exposed via `maas-default-gateway-route.yaml` on **`maas-gateway.<apps-domain>`** (not `inference-gateway.*` — that name is usually claimed by the `openshift-ai-inference` LoadBalancer DNSRecord). Reencrypt Routes require clearing the Gateway HTTPS hostname filter (SNI mismatch). Without the Route, external mint/inference probes time out. Judge URLs use HTTPRoute paths `/{project}/{model}/v1` (not `/llm/...`). `maas-db-config` is required in both `redhat-ods-applications` and `redhat-ai-gateway-infra`. API key mint goes through `https://<gateway>/maas-api/v1/api-keys` with `oc whoami -t` (port-forward fallback injects Authorino identity headers).
 

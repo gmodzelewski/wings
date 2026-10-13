@@ -1,0 +1,24 @@
+# Dashboard Ready state for agent deployments looks up a Route named after the
+# Sandbox CR (see odh-dashboard gen-ai BFF sandbox_deployments.go).
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: wings-react-agent-sbx
+  namespace: my-first-model
+  labels:
+    app: langgraph-react-agent
+    app.kubernetes.io/part-of: wings-demo
+    opendatahub.io/dashboard: "true"
+  annotations:
+    openshift.io/display-name: WINGS ReAct Agent (Sandbox)
+spec:
+  to:
+    kind: Service
+    name: wings-react-agent-sbx
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

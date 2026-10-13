@@ -1,0 +1,86 @@
+# AI Hub → Agents → Deployments lists Sandbox CRs with
+# opendatahub.io/dashboard=true (gen-ai BFF). This is a second copy of the
+# Helm-deployed langgraph-react-agent image for Hub discovery.
+apiVersion: agents.x-k8s.io/v1beta1
+kind: Sandbox
+metadata:
+  name: wings-react-agent-sbx
+  namespace: my-first-model
+  labels:
+    app: langgraph-react-agent
+    app.kubernetes.io/name: langgraph-react-agent
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: odh-agent-ops
+    app.kubernetes.io/part-of: wings-demo
+    openshell.ai/managed-by: openshell
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/workload-type: sandbox
+    opendatahub.io/agent-type: agent
+    opendatahub.io/agent-framework: langgraph
+    opendatahub.io/agent-protocol: openai
+    opendatahub.io/agent-profile-id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+  annotations:
+    openshift.io/display-name: WINGS ReAct Agent
+    openshift.io/description: LangGraph ReAct agent backed by llama-32-3b-instruct
+    opendatahub.io/agent-deployment-display-name: WINGS ReAct Agent
+    opendatahub.io/agent-framework: langgraph
+    opendatahub.io/agent-protocol: openai
+    opendatahub.io/agent-image: image-registry.openshift-image-registry.svc:5000/my-first-model/langgraph-react-agent:latest
+spec:
+  operatingMode: Running
+  service: true
+  podTemplate:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: agent
+          image: image-registry.openshift-image-registry.svc:5000/my-first-model/langgraph-react-agent:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: BASE_URL
+              value: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+            - name: MODEL_ID
+              value: llama-32-3b-instruct
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wings-react-agent
+                  key: api-key
+            - name: MLFLOW_TRACKING_URI
+              value: https://mlflow.redhat-ods-applications.svc:8443/mlflow
+            - name: MLFLOW_EXPERIMENT_NAME
+              value: wings-react-agent
+            - name: MLFLOW_TRACKING_AUTH
+              value: kubernetes-namespaced
+            - name: MLFLOW_TRACKING_SERVER_CERT_PATH
+              value: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 120
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m

@@ -9,5 +9,7 @@ __pycache__/
 .DS_Store
 *.pptx
 *.pptx.bak
+.cache/
 manifests/secret-wings-judge-llm.yaml
 manifests/secret-wings-maas-upstream-api-key.yaml
+manifests/secret-wings-react-agent.yaml

@@ -35,6 +35,15 @@ SM_NS="${WINGS_SERVICEMESH_NAMESPACE:-istio-system}"
 SM_CNI_NS="${WINGS_SERVICEMESH_CNI_NAMESPACE:-istio-cni}"
 OGX_SERVER_NAME="${WINGS_OGX_SERVER_NAME:-wings-ogx}"
 
+AGENT_SANDBOX_NS="${WINGS_AGENT_SANDBOX_NAMESPACE:-agent-sandbox-system}"
+REACT_AGENT_NAME="${WINGS_REACT_AGENT_NAME:-langgraph-react-agent}"
+REACT_SANDBOX_NAME="${WINGS_REACT_SANDBOX_NAME:-wings-react-agent-sbx}"
+REACT_AGENT_PROFILE_ID="${WINGS_REACT_AGENT_PROFILE_ID:-7c9e6679-7425-40de-944b-e07fc1f90ae7}"
+REACT_AGENT_SECRET="${WINGS_REACT_AGENT_SECRET:-wings-react-agent}"
+AGENTIC_STARTER_KITS_URL="${WINGS_AGENTIC_STARTER_KITS_URL:-https://github.com/red-hat-data-services/agentic-starter-kits.git}"
+AGENTIC_STARTER_KITS_REF="${WINGS_AGENTIC_STARTER_KITS_REF:-rhoai-3.6}"
+AGENTIC_STARTER_KITS_CACHE="${WINGS_AGENTIC_STARTER_KITS_DIR:-${WINGS_ROOT}/.cache/agentic-starter-kits}"
+
 DSCI_NAME="${WINGS_DSCI_NAME:-default-dsci}"
 MONITORING_NS="${WINGS_MONITORING_NAMESPACE:-redhat-ods-monitoring}"
 COO_NS="${WINGS_COO_NAMESPACE:-openshift-cluster-observability-operator}"
@@ -65,6 +74,18 @@ run() {
 need_oc() {
   command -v oc >/dev/null || die "oc not on PATH"
   oc whoami >/dev/null || die "oc whoami failed; log in first"
+}
+
+need_helm() {
+  command -v helm >/dev/null || die "helm not on PATH (required for ReAct agent deploy)"
+}
+
+need_git() {
+  command -v git >/dev/null || die "git not on PATH (required to clone agentic-starter-kits)"
+}
+
+need_make() {
+  command -v make >/dev/null || die "make not on PATH (required for ReAct agent build/deploy)"
 }
 
 wait_for_pod() {
@@ -814,7 +835,7 @@ restart_maas_dashboard_ui_if_unhealthy() {
 
 ensure_genai_dashboard_prereqs() {
   local gen_ai="" maas_tab="" mcp_catalog="" disable_lmeval="" guardrails=""
-  local agents_catalog="" agent_ops="" agent_cfg="" ai_asset_eps=""
+  local agents_catalog="" agent_ops="" agent_cfg="" ai_asset_eps="" external_models=""
   gen_ai=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
     -o jsonpath='{.spec.dashboardConfig.genAiStudio}' 2>/dev/null || true)
   maas_tab=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
@@ -833,6 +854,8 @@ ensure_genai_dashboard_prereqs() {
     -o jsonpath='{.spec.dashboardConfig.agentConfigManagement}' 2>/dev/null || true)
   ai_asset_eps=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
     -o jsonpath='{.spec.dashboardConfig.aiAssetCustomEndpoints}' 2>/dev/null || true)
+  external_models=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
+    -o jsonpath='{.spec.dashboardConfig.externalModels}' 2>/dev/null || true)
   local observability_dashboard=""
   observability_dashboard=$(oc get odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" \
     -o jsonpath='{.spec.dashboardConfig.observabilityDashboard}' 2>/dev/null || true)
@@ -840,10 +863,11 @@ ensure_genai_dashboard_prereqs() {
     || "$disable_lmeval" == "true" || "$guardrails" != "true" \
     || "$agents_catalog" != "true" || "$agent_ops" != "true" \
     || "$agent_cfg" != "true" || "$ai_asset_eps" != "true" \
+    || "$external_models" != "true" \
     || "$observability_dashboard" != "true" ]]; then
-    log "patch OdhDashboardConfig genAiStudio + MaaS + MCP + Agents + guardrails + observabilityDashboard"
+    log "patch OdhDashboardConfig genAiStudio + MaaS + MCP + Agents + guardrails + externalModels + observabilityDashboard"
     oc patch odhdashboardconfig odh-dashboard-config -n "$MLFLOW_NS" --type=merge \
-      -p '{"spec":{"dashboardConfig":{"genAiStudio":true,"modelAsService":true,"mcpCatalog":true,"disableLMEval":false,"guardrails":true,"agentsCatalog":true,"agentOps":true,"agentConfigManagement":true,"aiAssetCustomEndpoints":true,"observabilityDashboard":true}}}' \
+      -p '{"spec":{"dashboardConfig":{"genAiStudio":true,"modelAsService":true,"mcpCatalog":true,"disableLMEval":false,"guardrails":true,"agentsCatalog":true,"agentOps":true,"agentConfigManagement":true,"aiAssetCustomEndpoints":true,"externalModels":true,"observabilityDashboard":true}}}' \
       >/dev/null 2>&1 || true
   fi
   label_maas_external_model_assets || true
@@ -2402,6 +2426,214 @@ purge_ogx_resources() {
   fi
   run oc delete -f "${MANIFESTS}/ogx-server-wings.yaml" --ignore-not-found=true
   run oc delete -f "${MANIFESTS}/ogx-postgres-dev.yaml" --ignore-not-found=true
+}
+
+# ---------------------------------------------------------------------------
+# LangGraph ReAct agent (agentic-starter-kits) + AI Hub / Playground registration
+# ---------------------------------------------------------------------------
+
+wait_for_sandbox_crd() {
+  local timeout="${1:-600}" elapsed=0
+  while ((elapsed < timeout)); do
+    if crd_registered 'sandboxes.agents.x-k8s.io'; then
+      info "Sandbox CRD registered"
+      return 0
+    fi
+    sleep 10
+    elapsed=$((elapsed + 10))
+  done
+  die "timed out waiting for sandboxes.agents.x-k8s.io CRD (agent-sandbox-operator)"
+}
+
+ensure_agent_sandbox_operator() {
+  if crd_registered 'sandboxes.agents.x-k8s.io'; then
+    log "Agent Sandbox CRD already present"
+    return 0
+  fi
+  if csv_succeeded_in_namespace "$AGENT_SANDBOX_NS" 'agent-sandbox-operator\.'; then
+    wait_for_sandbox_crd 120
+    return 0
+  fi
+  info "installing Agent Sandbox operator (channel preview-0.9)"
+  apply_operator_manifest_ns_aware "$AGENT_SANDBOX_NS" < "${MANIFESTS}/agent-sandbox-operator.yaml"
+  wait_for_csv_succeeded "$AGENT_SANDBOX_NS" 'agent-sandbox-operator\.' 600 || true
+  wait_for_sandbox_crd 600
+}
+
+clone_agentic_starter_kits() {
+  local cache="$AGENTIC_STARTER_KITS_CACHE"
+  mkdir -p "$(dirname "$cache")"
+  if [[ -d "${cache}/.git" ]]; then
+    info "updating agentic-starter-kits cache at ${cache} (${AGENTIC_STARTER_KITS_REF})"
+    git -C "$cache" fetch --depth 1 origin "$AGENTIC_STARTER_KITS_REF" 2>/dev/null \
+      || git -C "$cache" fetch origin "$AGENTIC_STARTER_KITS_REF"
+    git -C "$cache" checkout -B "wings-${AGENTIC_STARTER_KITS_REF}" "FETCH_HEAD" 2>/dev/null \
+      || git -C "$cache" checkout "$AGENTIC_STARTER_KITS_REF"
+    return 0
+  fi
+  if [[ -d "$cache" ]] && [[ ! -d "${cache}/.git" ]]; then
+    die "agentic-starter-kits cache ${cache} exists but is not a git repo; remove it or set WINGS_AGENTIC_STARTER_KITS_DIR"
+  fi
+  info "cloning agentic-starter-kits (${AGENTIC_STARTER_KITS_REF}) into ${cache}"
+  git clone --depth 1 --branch "$AGENTIC_STARTER_KITS_REF" \
+    "$AGENTIC_STARTER_KITS_URL" "$cache"
+}
+
+write_react_agent_env() {
+  local agent_dir="$1"
+  local image="$2"
+  # KServe headless predictor Service advertises :80 but vLLM listens on 8080
+  # (same URL shape as manifests/ogx-server-wings.yaml).
+  local base_url="http://${LLM_MODEL}-predictor.${PROJECT}.svc.cluster.local:8080/v1"
+  local mlflow_uri="https://mlflow.${MLFLOW_NS}.svc:8443/mlflow"
+  local experiment="${WINGS_REACT_AGENT_MLFLOW_EXPERIMENT:-wings-react-agent}"
+  cat > "${agent_dir}/.env" <<EOF
+API_KEY=not-needed
+BASE_URL=${base_url}
+MODEL_ID=${LLM_MODEL}
+CONTAINER_IMAGE=${image}
+PORT=8080
+AUTH_ENABLED=false
+MLFLOW_TRACKING_URI=${mlflow_uri}
+MLFLOW_EXPERIMENT_NAME=${experiment}
+MLFLOW_TRACKING_AUTH=kubernetes-namespaced
+MLFLOW_TRACKING_SERVER_CERT_PATH=/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+EOF
+}
+
+apply_react_agent_secret() {
+  local src="${MANIFESTS}/secret-wings-react-agent.yaml"
+  if [[ ! -f "$src" ]]; then
+    src="${MANIFESTS}/secret-wings-react-agent.example.yaml"
+  fi
+  run oc apply -f "$src"
+}
+
+apply_react_agent_mlflow_rbac() {
+  run oc apply -f "${MANIFESTS}/agent-react-mlflow-rbac.yaml"
+}
+
+apply_react_agent_hub_resources() {
+  apply_react_agent_mlflow_rbac
+  apply_react_agent_secret
+  run oc apply -f "${MANIFESTS}/agent-react-sandbox.yaml"
+  # Route may fail briefly until the Sandbox controller creates the Service.
+  local elapsed=0
+  while ((elapsed < 180)); do
+    if oc get svc "$REACT_SANDBOX_NAME" -n "$PROJECT" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 5
+    elapsed=$((elapsed + 5))
+  done
+  if ! oc get svc "$REACT_SANDBOX_NAME" -n "$PROJECT" >/dev/null 2>&1; then
+    echo "warning: Sandbox Service ${REACT_SANDBOX_NAME} not ready; applying Route anyway" >&2
+  fi
+  run oc apply -f "${MANIFESTS}/agent-react-sandbox-route.yaml"
+  run oc apply -f "${MANIFESTS}/agent-profile-wings-react.yaml"
+  if crd_registered 'sandboxes.agents.x-k8s.io'; then
+    oc wait --for=condition=Ready "sandbox/${REACT_SANDBOX_NAME}" -n "$PROJECT" --timeout=180s \
+      || echo "warning: Sandbox ${REACT_SANDBOX_NAME} not Ready within 180s" >&2
+  fi
+}
+
+deploy_react_agent() {
+  if [[ "${WINGS_SKIP_AGENT:-0}" == 1 ]]; then
+    log "skip ReAct agent (WINGS_SKIP_AGENT=1)"
+    return 0
+  fi
+
+  need_oc
+  need_helm
+  need_git
+  need_make
+
+  ensure_agent_sandbox_operator
+
+  if ! inferenceservice_ready; then
+    die "InferenceService ${LLM_MODEL} not Ready in ${PROJECT}; deploy the model first or set WINGS_SKIP_AGENT=1"
+  fi
+
+  local agent_dir image prev_project
+  clone_agentic_starter_kits
+  agent_dir="${AGENTIC_STARTER_KITS_CACHE}/agents/langgraph/templates/react_agent"
+  [[ -d "$agent_dir" ]] || die "react_agent not found at ${agent_dir}"
+
+  prev_project=$(oc project -q 2>/dev/null || true)
+  run oc project "$PROJECT" >/dev/null
+
+  # RBAC before pods start logging traces (Helm uses namespace default SA).
+  apply_react_agent_mlflow_rbac
+
+  image="image-registry.openshift-image-registry.svc:5000/${PROJECT}/${REACT_AGENT_NAME}:latest"
+  write_react_agent_env "$agent_dir" "$image"
+
+  info "building ${REACT_AGENT_NAME} image in-cluster (build-openshift)"
+  (
+    cd "$agent_dir"
+    make build-openshift
+  )
+
+  info "deploying Helm release ${REACT_AGENT_NAME}"
+  (
+    cd "$agent_dir"
+    # CONTAINER_IMAGE must be in .env for make deploy
+    make deploy
+  )
+
+  info "registering Sandbox + AgentProfile for AI Hub / Playground"
+  apply_react_agent_hub_resources
+
+  if [[ -n "$prev_project" && "$prev_project" != "$PROJECT" ]]; then
+    oc project "$prev_project" >/dev/null 2>&1 || true
+  fi
+  info "ReAct agent deploy complete (Helm ${REACT_AGENT_NAME}, Sandbox ${REACT_SANDBOX_NAME})"
+}
+
+purge_react_agent_resources() {
+  local agent_dir="${AGENTIC_STARTER_KITS_CACHE}/agents/langgraph/templates/react_agent"
+  local prev_project
+  prev_project=$(oc project -q 2>/dev/null || true)
+  oc project "$PROJECT" >/dev/null 2>&1 || true
+
+  if [[ -d "$agent_dir" ]] && command -v make >/dev/null && command -v helm >/dev/null; then
+    log "helm undeploy ${REACT_AGENT_NAME}"
+    (
+      cd "$agent_dir"
+      make undeploy || true
+    )
+  else
+    if command -v helm >/dev/null; then
+      helm uninstall "$REACT_AGENT_NAME" -n "$PROJECT" 2>/dev/null || true
+    fi
+    run oc delete buildconfig "$REACT_AGENT_NAME" -n "$PROJECT" --ignore-not-found=true
+    run oc delete imagestream "$REACT_AGENT_NAME" -n "$PROJECT" --ignore-not-found=true
+    run oc delete deployment "$REACT_AGENT_NAME" -n "$PROJECT" --ignore-not-found=true
+    run oc delete service "$REACT_AGENT_NAME" -n "$PROJECT" --ignore-not-found=true
+    run oc delete route "$REACT_AGENT_NAME" -n "$PROJECT" --ignore-not-found=true
+    run oc delete secret "${REACT_AGENT_NAME}-secret" -n "$PROJECT" --ignore-not-found=true
+  fi
+
+  if crd_registered 'sandboxes.agents.x-k8s.io'; then
+    run oc delete sandbox "$REACT_SANDBOX_NAME" -n "$PROJECT" --ignore-not-found=true
+  fi
+  run oc delete -f "${MANIFESTS}/agent-react-sandbox-route.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/agent-react-sandbox.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/agent-profile-wings-react.yaml" --ignore-not-found=true
+  run oc delete -f "${MANIFESTS}/agent-react-mlflow-rbac.yaml" --ignore-not-found=true
+  run oc delete secret "$REACT_AGENT_SECRET" -n "$PROJECT" --ignore-not-found=true
+
+  if [[ -n "$prev_project" && "$prev_project" != "$PROJECT" ]]; then
+    oc project "$prev_project" >/dev/null 2>&1 || true
+  fi
+}
+
+purge_agent_sandbox_operator() {
+  if [[ ! -f "${MANIFESTS}/agent-sandbox-operator.yaml" ]]; then
+    return 0
+  fi
+  info "removing Agent Sandbox operator (wings-owned resources only)"
+  purge_operator_manifest_ns_aware "$AGENT_SANDBOX_NS" < "${MANIFESTS}/agent-sandbox-operator.yaml"
 }
 
 # ---------------------------------------------------------------------------

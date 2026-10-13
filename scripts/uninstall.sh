@@ -12,11 +12,13 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [--all]
 
-Default: delete workbench only.
+Default: delete workbench and the LangGraph ReAct agent (Helm, Sandbox,
+         AgentProfile, secret, build artifacts).
 --all:   full demo reset (keeps InferenceService; also removes the
          observability stack this install added — COO/OpenTelemetry/Tempo/
          Loki operators, MinIO+LokiStack usage logging, Redis Limitador
-         persistence, User Workload Monitoring, and DSCI metrics/traces).
+         persistence, User Workload Monitoring, and DSCI metrics/traces —
+         and the wings-owned Agent Sandbox operator Subscription).
 EOF
 }
 
@@ -34,6 +36,7 @@ done
 need_oc
 
 delete_workbench_resources
+purge_react_agent_resources
 
 if [[ "$PURGE_ALL" == 1 ]]; then
   purge_ogx_resources
@@ -42,6 +45,7 @@ if [[ "$PURGE_ALL" == 1 ]]; then
   purge_evalhub_resources
   delete_judge_secret
   purge_observability_resources
+  purge_agent_sandbox_operator
 fi
 
 info "uninstall complete"

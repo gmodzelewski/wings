@@ -39,6 +39,8 @@ def test_scripts_are_valid_bash():
         INSTALL,
         UNINSTALL,
         CHECK,
+        WINGS_ROOT / "scripts" / "install_react_agent.sh",
+        WINGS_ROOT / "scripts" / "uninstall_react_agent.sh",
         WINGS_ROOT / "scripts" / "submit_evalhub_eval_run.sh",
         WINGS_ROOT / "scripts" / "prestage_garak_before_after.sh",
         WINGS_ROOT / "scripts" / "rotate_maas_upstream_key.sh",
@@ -73,10 +75,86 @@ def test_uninstall_help_documents_all_only():
     text = result.stdout.lower()
     assert "--all" in text
     assert "inferenceservice" in text or "llm" in text
+    assert "react" in text or "agent" in text
     assert "--dry-run" not in text
     assert "--purge-llm" not in text
     assert "--purge-evalhub" not in text
     assert "--yes" not in text
+
+
+def test_react_agent_manifests_and_install_uninstall_wiring():
+    lib = (WINGS_ROOT / "scripts" / "wings_lib.sh").read_text()
+    install = INSTALL.read_text()
+    uninstall = UNINSTALL.read_text()
+    assert "deploy_react_agent" in lib
+    assert "ensure_agent_sandbox_operator" in lib
+    assert "purge_react_agent_resources" in lib
+    assert "purge_agent_sandbox_operator" in lib
+    assert "WINGS_SKIP_AGENT" in lib
+    assert "deploy_react_agent" in install
+    assert "purge_react_agent_resources" in uninstall
+    assert "purge_agent_sandbox_operator" in uninstall
+
+    operator = (WINGS_ROOT / "manifests" / "agent-sandbox-operator.yaml").read_text()
+    assert "name: agent-sandbox-operator" in operator
+    assert "channel: preview-0.9" in operator
+    assert "agent-sandbox-system" in operator
+    assert "kind: OperatorGroup" in operator
+    assert "app.kubernetes.io/part-of: wings-demo" in operator
+
+    sandbox = (WINGS_ROOT / "manifests" / "agent-react-sandbox.yaml").read_text()
+    assert "kind: Sandbox" in sandbox
+    assert "wings-react-agent-sbx" in sandbox
+    assert 'opendatahub.io/dashboard: "true"' in sandbox
+    assert "opendatahub.io/agent-profile-id: 7c9e6679-7425-40de-944b-e07fc1f90ae7" in sandbox
+    assert "llama-32-3b-instruct" in sandbox
+    assert "langgraph-react-agent:latest" in sandbox
+    assert "MLFLOW_TRACKING_URI" in sandbox
+    assert "MLFLOW_TRACKING_AUTH" in sandbox
+    assert "kubernetes-namespaced" in sandbox
+    assert "wings-react-agent" in sandbox  # experiment name
+
+    rbac = (WINGS_ROOT / "manifests" / "agent-react-mlflow-rbac.yaml").read_text()
+    assert "kind: RoleBinding" in rbac
+    assert "name: wings-react-agent-mlflow" in rbac
+    assert "mlflow-operator-mlflow-integration" in rbac
+    assert "name: default" in rbac
+    assert "agent-react-mlflow-rbac.yaml" in lib
+    assert "apply_react_agent_mlflow_rbac" in lib
+    assert "MLFLOW_TRACKING_URI=" in lib
+    assert "MLFLOW_TRACKING_AUTH=kubernetes-namespaced" in lib
+    assert "WINGS_REACT_AGENT_MLFLOW_EXPERIMENT" in lib
+    assert "predictor.${PROJECT}.svc.cluster.local:8080/v1" in lib
+    assert "llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1" in sandbox
+
+    route = (WINGS_ROOT / "manifests" / "agent-react-sandbox-route.yaml").read_text()
+    assert "kind: Route" in route
+    assert "name: wings-react-agent-sbx" in route
+    assert "name: wings-react-agent-sbx" in route.split("to:")[1]
+
+    profile = (WINGS_ROOT / "manifests" / "agent-profile-wings-react.yaml").read_text()
+    assert "opendatahub.io/agent-profile: \"true\"" in profile
+    assert "agent-profile-7c9e6679-7425-40de-944b-e07fc1f90ae7" in profile
+    assert "profile.yaml:" in profile
+    assert "kind: AgentProfile" in profile
+    assert "displayName: WINGS ReAct Agent" in profile
+    assert "llama-32-3b-instruct" in profile
+
+    secret = (WINGS_ROOT / "manifests" / "secret-wings-react-agent.example.yaml").read_text()
+    assert "name: wings-react-agent" in secret
+    assert "api-key: not-needed" in secret
+
+    gitignore = (WINGS_ROOT / ".gitignore").read_text()
+    assert ".cache/" in gitignore
+    assert "secret-wings-react-agent.yaml" in gitignore
+
+    install_help = _run(INSTALL, "--help")
+    assert install_help.returncode == 0, install_help.stderr
+    assert "wings_skip_agent" in install_help.stdout.lower()
+
+    ua = _run(WINGS_ROOT / "scripts" / "uninstall_react_agent.sh", "--help")
+    assert ua.returncode == 0, ua.stderr
+    assert "--operator" in ua.stdout.lower()
 
 
 def test_check_help_documents_skip_llm():
@@ -434,6 +512,7 @@ def test_maas_external_model_manifests():
     assert '"agentOps":true' in lib
     assert '"agentConfigManagement":true' in lib
     assert '"aiAssetCustomEndpoints":true' in lib
+    assert '"externalModels":true' in lib
     assert "purge_ogx_resources" in lib
     ogx_server = (WINGS_ROOT / "manifests" / "ogx-server-wings.yaml").read_text()
     ogx_pg = (WINGS_ROOT / "manifests" / "ogx-postgres-dev.yaml").read_text()

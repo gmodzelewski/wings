@@ -1,0 +1,35 @@
+# Red Hat build of Agent Sandbox — required for AI Hub → Agents → Deployments
+# (lists Sandbox CRs). Channel is Tech Preview; pin matches the cluster catalog.
+#
+# AllNamespaces install mode; suggested namespace is agent-sandbox-system.
+# Uses apply_operator_manifest_ns_aware so a pre-existing namespace is not
+# claimed as wings-owned.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agent-sandbox-system
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: agent-sandbox-operator
+  namespace: agent-sandbox-system
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+spec: {}
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: agent-sandbox-operator
+  namespace: agent-sandbox-system
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+spec:
+  channel: preview-0.9
+  installPlanApproval: Automatic
+  name: agent-sandbox-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

@@ -1,0 +1,31 @@
+# Platform-level MCP server list for Gen AI Studio Playground.
+# Catalog Deploy of openshift-mcp-server does NOT register it here — apply this
+# after the MCPServer is Ready so Playground Settings → MCP can list it.
+#
+# Docs:
+#   https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/experimenting_with_models_in_the_gen_ai_playground/playground-prerequisites_rhoai-user
+#   https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/experimenting_with_models_in_the_gen_ai_playground/testing-with-model-context-protocol-servers_rhoai-user
+#
+# URL must match MCPServer status.address.url:
+#   oc get mcpserver mcp-server -n my-first-model -o jsonpath='{.status.address.url}'
+#
+# Warning: oc apply of this file replaces the entire ConfigMap data map. Merge
+# additional keys manually if other Playground MCP servers were added later.
+# Not wired into install.sh.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gen-ai-aa-mcp-servers
+  namespace: redhat-ods-applications
+  labels:
+    app.kubernetes.io/part-of: wings-demo
+  annotations:
+    openshift.io/description: >-
+      Playground MCP server registry. Key names are case-sensitive; values are
+      JSON with url and description.
+data:
+  OpenShift-MCP-Server: |
+    {
+      "url": "http://mcp-server.my-first-model.svc.cluster.local:8080/mcp",
+      "description": "OpenShift MCP server (read-only core/config tools) deployed in my-first-model"
+    }

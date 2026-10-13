@@ -1,0 +1,57 @@
+# Pre-req for AI Hub → MCP servers → Catalog → Deploy of openshift-mcp-server.
+# The MCP lifecycle operator rejects the MCPServer until this ConfigMap exists
+# in the same namespace (name and config.toml key are fixed by the catalog template).
+#
+# Docs:
+#   https://www.redhat.com/en/blog/manage-mcp-servers-red-hat-openshift-mcp-lifecycle-operator
+#   https://github.com/openshift/openshift-mcp-server/blob/main/docs/configuration.md
+#   https://github.com/openshift/openshift-mcp-server/blob/main/docs/openshift/user-guide.md
+#
+# Apply before UI deploy:
+#   oc apply -f manifests/openshift-mcp-server-config.yaml
+# Not wired into install.sh — opt-in for catalog deploy into my-first-model.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openshift-mcp-server-config
+  namespace: my-first-model
+  labels:
+    app: wings-demo
+    app.kubernetes.io/part-of: wings-demo
+  annotations:
+    openshift.io/description: >-
+      TOML config for openshift-mcp-server (MCP Catalog). Mounted at
+      /etc/mcp-config/config.toml by the MCP lifecycle operator.
+data:
+  config.toml: |
+    log_level = 5
+    port = "8080"
+    read_only = true
+    toolsets = ["core", "config"]
+
+    # Limit agent access to Secrets (recommended by OpenShift MCP user guide).
+    [[denied_resources]]
+    group = ""
+    version = "v1"
+    kind = "Secret"
+---
+# ServiceAccount for the MCP server
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-viewer
+  namespace: my-first-model
+---
+# Grant read-only access using the built-in 'view' ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mcp-viewer-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: mcp-viewer
+    namespace: my-first-model

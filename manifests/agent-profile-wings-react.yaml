@@ -1,0 +1,26 @@
+# Playground → Load agent and AI asset endpoints → Agents list AgentProfile
+# ConfigMaps (opendatahub.io/agent-profile=true, data key profile.yaml).
+# Fixed UUID keeps install idempotent and matches Sandbox agent-profile-id.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-profile-7c9e6679-7425-40de-944b-e07fc1f90ae7
+  namespace: my-first-model
+  labels:
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/agent-profile: "true"
+    app.kubernetes.io/part-of: wings-demo
+    app.kubernetes.io/component: react-agent
+data:
+  profile.yaml: |
+    apiVersion: genai.redhat.com/v1alpha1
+    kind: AgentProfile
+    metadata:
+      name: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+    spec:
+      displayName: WINGS ReAct Agent
+      description: LangGraph ReAct agent profile backed by the in-cluster llama-32-3b-instruct InferenceService.
+      model:
+        id: llama-32-3b-instruct
+        uri: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+        sourceType: custom
