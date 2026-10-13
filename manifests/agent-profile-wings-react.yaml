@@ -1,6 +1,10 @@
 # Playground → Load agent and AI asset endpoints → Agents list AgentProfile
 # ConfigMaps (opendatahub.io/agent-profile=true, data key profile.yaml).
 # Fixed UUID keeps install idempotent and matches Sandbox agent-profile-id.
+#
+# model.uri points at the Helm ReAct agent Service (not the InferenceService)
+# so Playground chat goes through LangGraph and can emit MLflow traces in
+# experiment wings-react-agent. The agent itself still calls llama-32-3b-instruct.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,8 +23,8 @@ data:
       name: 7c9e6679-7425-40de-944b-e07fc1f90ae7
     spec:
       displayName: WINGS ReAct Agent
-      description: LangGraph ReAct agent profile backed by the in-cluster llama-32-3b-instruct InferenceService.
+      description: LangGraph ReAct agent profile; Playground calls the in-cluster agent Service so MLflow can capture agent traces.
       model:
         id: llama-32-3b-instruct
-        uri: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+        uri: http://langgraph-react-agent.my-first-model.svc.cluster.local:8080/v1
         sourceType: custom

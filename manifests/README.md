@@ -205,9 +205,9 @@ Standalone: `./scripts/install_react_agent.sh` / `./scripts/uninstall_react_agen
 | `WINGS_AGENTIC_STARTER_KITS_DIR` | `.cache/agentic-starter-kits` | Pre-populated or alternate checkout |
 | `WINGS_REACT_AGENT_MLFLOW_EXPERIMENT` | `wings-react-agent` | MLflow experiment for Helm/Sandbox agent traces |
 
-### MLflow traces (Helm / Sandbox traffic)
+### MLflow traces (Helm / Sandbox / Playground Load agent)
 
-Traces appear only for requests that hit the **deployed ReAct agent** (Helm Route or Sandbox), not for Playground **Load agent** (that path talks to the InferenceService model URI via Gen AI Studio).
+Traces appear for requests that hit the **deployed ReAct agent** (Helm Route, Sandbox, or Playground **Load agent**). The AgentProfile `model.uri` is the in-cluster agent Service (`langgraph-react-agent:8080/v1`), so Playground chat is proxied through LangGraph (which calls vLLM and runs `mlflow.langchain.autolog()`).
 
 1. Standalone `/mlflow` → workspace **`my-first-model`**
 2. Experiment **`wings-react-agent`** → **Traces** → open a row → **Details & Timeline**
@@ -220,13 +220,15 @@ curl -sk "https://${ROUTE}/v1/chat/completions" -H 'Content-Type: application/js
   -d '{"model":"llama-32-3b-instruct","messages":[{"role":"user","content":"What is 2+2?"}]}'
 ```
 
+Or Gen AI studio → Playground → **Load agent** → **WINGS ReAct Agent**, send a message, then refresh MLflow Traces.
+
 ### UI verification
 
 - **AI Hub → Agents → Deployments** — **WINGS ReAct Agent** (`sandbox/wings-react-agent-sbx`)
-- **Gen AI studio → Playground → Load agent** — profile **WINGS ReAct Agent**
+- **Gen AI studio → Playground → Load agent** — profile **WINGS ReAct Agent** (URI = agent Service)
 - **Gen AI studio → AI asset endpoints → Agents** — same profile
 - Helm Route: `oc get route langgraph-react-agent -n my-first-model` then `curl https://<host>/health`
-- MLflow: experiment `wings-react-agent` after a Helm/Sandbox chat request (see above)
+- MLflow: experiment `wings-react-agent` after a Helm/Sandbox/Playground chat request (see above)
 
 `uninstall.sh` always removes the agent workload (including MLflow RoleBinding). `uninstall.sh --all` also removes the wings-owned Agent Sandbox operator Subscription (and namespace if WINGS created it).
 

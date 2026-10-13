@@ -139,6 +139,9 @@ def test_react_agent_manifests_and_install_uninstall_wiring():
     assert "kind: AgentProfile" in profile
     assert "displayName: WINGS ReAct Agent" in profile
     assert "llama-32-3b-instruct" in profile
+    # Playground must call the agent Service (not the InferenceService) for MLflow agent traces.
+    assert "langgraph-react-agent.my-first-model.svc.cluster.local:8080/v1" in profile
+    assert "llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1" not in profile
 
     secret = (WINGS_ROOT / "manifests" / "secret-wings-react-agent.example.yaml").read_text()
     assert "name: wings-react-agent" in secret
